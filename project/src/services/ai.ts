@@ -247,13 +247,28 @@ export async function analyzeText(text: string, context: keyof typeof prompts): 
 
   const parsedResult = JSON.parse(result) as AnalysisResult;
 
-  // Add missing elements as warnings
+  // Remove duplicate feedbacks based on `text` + `category`
+  const uniqueFeedbacks = Array.from(
+    new Map(parsedResult.feedbacks.map(f => [`${f.text}-${f.category}`, f])).values()
+  );
+
+  // Remove duplicate missing elements based on `category` + `description`
+  const uniqueMissingElements = Array.from(
+    new Map(parsedResult.missingElements.map(m => [`${m.category}-${m.description}`, m])).values()
+  );
+
+  // Ensure missing elements don’t have categories already covered in feedbacks
+  const filteredMissingElements = uniqueMissingElements.filter(
+    m => !uniqueFeedbacks.some(f => f.category === m.category)
+  );
+
+  // Combine feedbacks and missing elements while adding unique IDs
   const feedbacksWithMissing = [
-    ...parsedResult.feedbacks.map(feedback => ({
+    ...uniqueFeedbacks.map(feedback => ({
       ...feedback,
       id: crypto.randomUUID()
     })),
-    ...parsedResult.missingElements.map(missing => ({
+    ...filteredMissingElements.map(missing => ({
       id: crypto.randomUUID(),
       text: '',
       suggestion: missing.description,
