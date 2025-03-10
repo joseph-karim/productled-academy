@@ -1,14 +1,15 @@
 import React from 'react';
 import { useFormStore } from '../../store/formStore';
-import { HelpCircle, Loader2, MessageSquarePlus, CheckCircle } from 'lucide-react';
-import { analyzeText } from '../../services/ai';
+import { HelpCircle, Loader2, MessageSquarePlus, CheckCircle, Users } from 'lucide-react';
+import { analyzeText, suggestUserEndgame } from '../../services/ai';
 import type { UserLevel } from '../../types';
 import { ErrorMessage } from '../shared/ErrorMessage';
 
 export function UserEndgame() {
-  const { outcomes, updateOutcome } = useFormStore();
+  const { productDescription, outcomes, updateOutcome } = useFormStore();
   const [showGuidance, setShowGuidance] = React.useState(true);
   const [isAnalyzing, setIsAnalyzing] = React.useState<Record<string, boolean>>({});
+  const [isSuggesting, setIsSuggesting] = React.useState<Record<string, boolean>>({});
   const [error, setError] = React.useState<Record<string, string>>({});
   const [activeTab, setActiveTab] = React.useState<UserLevel>('beginner');
   const [suggestions, setSuggestions] = React.useState<Record<string, Array<{
@@ -17,6 +18,17 @@ export function UserEndgame() {
     type: 'improvement' | 'warning' | 'positive';
   }>>>({});
   const [suggestedOutcomes, setSuggestedOutcomes] = React.useState<Record<string, string>>({});
+  const [breakdowns, setBreakdowns] = React.useState<Record<string, {
+    how: string;
+    who: string;
+    why: string;
+    results: string;
+    roles?: {
+      individual: string;
+      manager?: string;
+      director?: string;
+    };
+  }>>({});
 
   const examples = {
     beginner: {
@@ -41,10 +53,38 @@ export function UserEndgame() {
 
   const handleOutcomeChange = (level: UserLevel, text: string) => {
     updateOutcome(level, text);
-    // Clear feedback when text changes
     setSuggestions(prev => ({ ...prev, [level]: [] }));
     setSuggestedOutcomes(prev => ({ ...prev, [level]: '' }));
     setError(prev => ({ ...prev, [level]: '' }));
+  };
+
+  const handleGetSuggestion = async (level: UserLevel) => {
+    if (!productDescription) return;
+    
+    setIsSuggesting(prev => ({ ...prev, [level]: true }));
+    setError(prev => ({ ...prev, [level]: '' }));
+    
+    try {
+      const result = await suggestUserEndgame(level, productDescription);
+      setSuggestedOutcomes(prev => ({
+        ...prev,
+        [level]: result.suggestion
+      }));
+      setBreakdowns(prev => ({
+        ...prev,
+        [level]: {
+          ...result.breakdown,
+          roles: result.roles
+        }
+      }));
+    } catch (error) {
+      setError(prev => ({
+        ...prev,
+        [level]: error instanceof Error ? error.message : 'An unexpected error occurred'
+      }));
+    } finally {
+      setIsSuggesting(prev => ({ ...prev, [level]: false }));
+    }
   };
 
   const handleGetFeedback = async (level: UserLevel) => {
@@ -57,7 +97,6 @@ export function UserEndgame() {
     try {
       const result = await analyzeText(outcome.text, 'User Endgame');
       
-      // Group feedbacks by category
       const groupedSuggestions = [
         ...result.feedbacks.map(f => ({
           category: f.category as 'How' | 'Who' | 'Why' | 'Results',
@@ -76,7 +115,6 @@ export function UserEndgame() {
         [level]: groupedSuggestions
       }));
 
-      // Set suggested outcome if provided
       if (result.suggestedText) {
         setSuggestedOutcomes(prev => ({
           ...prev,
@@ -173,6 +211,7 @@ export function UserEndgame() {
       <div className="space-y-8">
         {(['beginner', 'intermediate', 'advanced'] as const).map((level) => {
           const outcome = outcomes.find(o => o.level === level);
+          const breakdown = breakdowns[level];
           
           return (
             <div key={level} className="space-y-4">
@@ -188,7 +227,29 @@ export function UserEndgame() {
                     : 'What advanced outcomes do power users unlock?'}
                 </p>
 
-                <div className="flex justify-end mb-2">
+                <div className="flex justify-end space-x-2 mb-2">
+                  <button
+                    onClick={() => handleGetSuggestion(level)}
+                    disabled={isSuggesting[level] || !productDescription}
+                    className={`flex items-center px-4 py-2 rounded-lg ${
+                      isSuggesting[level] || !productDescription
+                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                        : 'bg-green-600 text-white hover:bg-green-700'
+                    }`}
+                  >
+                    {isSuggesting[level] ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Generating...
+                      </>
+                    ) : (
+                      <>
+                        <Users className="w-4 h-4 mr-2" />
+                        Get AI Suggestion
+                      </>
+                    )}
+                  </button>
+
                   <button
                     onClick={() => handleGetFeedback(level)}
                     disabled={isAnalyzing[level] || !outcome?.text || outcome.text.length < 10}
@@ -227,10 +288,10 @@ export function UserEndgame() {
                 />
               )}
 
-              {!isAnalyzing[level] && suggestedOutcomes[level] && (
-                <div className="bg-green-50 border border-green-100 rounded-lg p-4 space-y-3">
+              {!isSuggesting[level] && breakdown && (
+                <div className="bg-green-50 border border-green-100 rounded-lg p-4 space-y-4">
                   <div className="flex items-center justify-between">
-                    <h4 className="font-medium text-green-900">Suggested Outcome</h4>
+                    <h4 className="font-medium text-green-900">AI Suggestion</h4>
                     <button
                       onClick={() => handleAcceptSuggestion(level)}
                       className="flex items-center text-sm text-green-700 hover:text-green-900"
@@ -239,7 +300,54 @@ export function UserEndgame() {
                       Use This Outcome
                     </button>
                   </div>
-                  <p className="text-green-800">{suggestedOutcomes[level]}</p>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <h5 className="font-medium text-green-800">How</h5>
+                      <p className="text-sm text-green-700 mt-1">{breakdown.how}</p>
+                    </div>
+                    <div>
+                      <h5 className="font-medium text-green-800">Who</h5>
+                      <p className="text-sm text-green-700 mt-1">{breakdown.who}</p>
+                    </div>
+                    <div>
+                      <h5 className="font-medium text-green-800">Why</h5>
+                      <p className="text-sm text-green-700 mt-1">{breakdown.why}</p>
+                    </div>
+                    <div>
+                      <h5 className="font-medium text-green-800">Results</h5>
+                      <p className="text-sm text-green-700 mt-1">{breakdown.results}</p>
+                    </div>
+                  </div>
+
+                  {breakdown.roles && (
+                    <div className="border-t border-green-200 pt-4">
+                      <h5 className="font-medium text-green-800 mb-2">Role-Specific Outcomes</h5>
+                      <div className="space-y-2">
+                        <div>
+                          <h6 className="text-sm font-medium text-green-800">Individual Contributors</h6>
+                          <p className="text-sm text-green-700">{breakdown.roles.individual}</p>
+                        </div>
+                        {breakdown.roles.manager && (
+                          <div>
+                            <h6 className="text-sm font-medium text-green-800">Line Managers</h6>
+                            <p className="text-sm text-green-700">{breakdown.roles.manager}</p>
+                          </div>
+                        )}
+                        {breakdown.roles.director && (
+                          <div>
+                            <h6 className="text-sm font-medium text-green-800">Functional Directors</h6>
+                            <p className="text-sm text-green-700">{breakdown.roles.director}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="border-t border-green-200 pt-4">
+                    <p className="text-sm text-green-900 font-medium">Suggested Outcome:</p>
+                    <p className="text-green-800 mt-2">{suggestedOutcomes[level]}</p>
+                  </div>
                 </div>
               )}
 

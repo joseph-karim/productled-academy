@@ -717,6 +717,108 @@ Based on this beginner user journey, suggest 3-5 features for the free tier that
   );
 }
 
+export async function suggestUserEndgame(
+  level: UserLevel,
+  productDescription: string
+): Promise<{
+  suggestion: string;
+  breakdown: {
+    how: string;
+    who: string;
+    why: string;
+    results: string;
+  };
+  roles?: {
+    individual: string;
+    manager?: string;
+    director?: string;
+  };
+}> {
+  if (!import.meta.env.VITE_OPENAI_API_KEY) {
+    throw new Error('OpenAI API key is missing');
+  }
+
+  return handleOpenAIRequest(
+    openai.chat.completions.create({
+      model: "gpt-4-turbo-preview",
+      messages: [
+        {
+          role: "system",
+          content: `You are an expert in product strategy and user journey mapping. Generate a detailed user endgame for ${level} users based on the product description.
+
+Consider the user's progression:
+- Beginner: First-time users learning the basics and getting initial value
+- Intermediate: Regular users expanding capabilities and integrating into workflows
+- Advanced: Power users scaling usage, optimizing processes, and driving organizational adoption
+
+For each level, consider different roles:
+- Individual Contributors: Direct product users
+- Line Managers: Team leads managing users
+- Functional Directors: Department heads driving strategic adoption
+
+Structure the outcome around:
+1. How: Key features/approaches enabling transformation
+2. Who: Target audience and their specific needs
+3. Why: Problems solved and pain points addressed
+4. Results: Specific, measurable outcomes (use metrics)
+
+Make suggestions:
+- Beginner: Focus on quick wins, basic features, immediate value
+- Intermediate: Emphasize workflow integration, team collaboration, efficiency gains
+- Advanced: Highlight scaling, automation, strategic impact, ROI`
+        },
+        {
+          role: "user",
+          content: `Product Description: ${productDescription}
+
+Generate a detailed ${level} user endgame that shows their transformation and success with the product.`
+        }
+      ],
+      functions: [
+        {
+          name: "suggest_user_endgame",
+          description: "Suggest user endgame outcomes",
+          parameters: {
+            type: "object",
+            properties: {
+              suggestion: {
+                type: "string",
+                description: "Complete suggested outcome text"
+              },
+              breakdown: {
+                type: "object",
+                properties: {
+                  how: { type: "string" },
+                  who: { type: "string" },
+                  why: { type: "string" },
+                  results: { type: "string" }
+                },
+                required: ["how", "who", "why", "results"]
+              },
+              roles: {
+                type: "object",
+                properties: {
+                  individual: { type: "string" },
+                  manager: { type: "string" },
+                  director: { type: "string" }
+                },
+                required: ["individual"]
+              }
+            },
+            required: ["suggestion", "breakdown"]
+          }
+        }
+      ],
+      function_call: { name: "suggest_user_endgame" }
+    }).then(completion => {
+      const result = completion.choices[0].message.function_call?.arguments;
+      if (!result) throw new Error("No suggestion received");
+      return JSON.parse(result);
+    }),
+    'suggesting user endgame'
+  );
+}
+
 export async function getAnalysisResponse(
   question: string,
   context: {
@@ -897,7 +999,7 @@ Analyze this information using the DEEP framework.`
               componentScores: {
                 type: "object",
                 properties: {
-                  productDescription: { type: "number", minimum: 0, maximum: 100 },
+                  productDescription: { type: "number", minimum: 0, maximum : 100 },
                   userEndgame: { type: "number", minimum: 0, maximum: 100 },
                   challenges: { type: "number", minimum: 0, maximum: 100 },
                   solutions: { type: "number", minimum: 0, maximum: 100 },
