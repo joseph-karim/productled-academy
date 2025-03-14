@@ -1,6 +1,6 @@
 import OpenAI from 'openai';
 import type { Feedback } from '../components/shared/FloatingFeedback';
-import type { Solution, Challenge, ModelType, Feature, UserLevel, SolutionType } from '../types';
+import type { Solution, Challenge, ModelType, Feature, UserLevel, SolutionType, IdealUser } from '../types';
 
 // Initialize OpenAI with the API key from environment variables
 const openai = new OpenAI({
@@ -39,7 +39,7 @@ const prompts: Record<string, { role: string; content: string }> = {
 1. Core Product
    - What is your product/service at its core?
    - Is it clearly defined?
-   - Is the main purpose obvious?
+   - Is it a recongizable product category?
 
 2. Features
    - What are the key features and capabilities?
@@ -51,10 +51,6 @@ const prompts: Record<string, { role: string; content: string }> = {
    - Is the differentiation clear?
    - Are comparisons effective?
 
-4. Use Case
-   - What is the primary use case?
-   - Is the target user clear?
-   - Is the problem/solution obvious?
 
 For each element:
 - Provide specific feedback (positive or needs improvement)
@@ -70,65 +66,47 @@ Also provide a suggested revision that:
   },
   'Solution': {
     role: 'system',
-    content: `You are an expert product strategist specializing in solution design. Analyze the solution and provide feedback on these core elements:
+    content: `You are an expert product strategist specializing in solution design. Analyze the solution and provide feedback. Keep all responses concise (2-3 sentences max).
 
+Key elements to consider:
 1. Problem-Solution Fit
    - Does it directly address the challenge?
    - Is the approach effective?
-   - Are there clear success metrics?
 
 2. Implementation Feasibility
    - Is it technically feasible?
-   - Are resource requirements clear?
-   - What are potential roadblocks?
+   - What are the key requirements?
 
-3. Scalability & Maintenance
-   - Can it scale with user growth?
-   - Is ongoing maintenance considered?
-   - Are there long-term implications?
-
-4. Quick Win vs Long-term
+3. Quick Win vs Long-term
    - What's the time to value?
    - Are there immediate benefits?
-   - How does it fit long-term strategy?
 
 For each element:
-- Provide specific feedback (positive or needs improvement)
-- Give concrete examples of how to improve
-- Suggest clearer alternatives
+- Provide specific, actionable feedback
+- Focus on immediate impact
+- Keep suggestions brief and clear
 
-Also provide a suggested revision that:
-- Is specific and actionable
-- Includes clear success metrics
-- Balances quick wins with sustainability
-- Considers resource constraints`
+Suggested revisions should:
+- Be specific and actionable (2-3 sentences)
+- Include clear success metrics
+- Focus on immediate value delivery`
   },
   'Challenge': {
     role: 'system',
-    content: `You are an expert in user experience and product challenges. Analyze the challenge description and provide detailed feedback in two categories:
+    content: `You are an expert in user experience and product challenges. Analyze the challenge description and provide concise feedback (2-3 sentences max).
 
-1. Inline Feedback: For specific text improvements, include:
-   - More precise problem statements
-   - Clearer impact descriptions
-   - Better quantification of the issue
+Focus on:
+1. Problem Definition
+   - Specific pain point
+   - Clear impact
+   - Frequency/severity
 
-2. Missing Elements: For each missing component, provide:
-   - Problem Definition
-     * Specific pain points
-     * Use case examples
-     * Frequency of occurrence
-   - Impact Assessment
-     * Business impact
-     * User frustration level
-     * Time/resource waste
-   - Context
-     * When/where it occurs
-     * Affected workflows
-     * User scenarios
-   - Current Workarounds
-     * Existing solutions
-     * Their limitations
-     * User adaptations`
+2. Context
+   - When/where it occurs
+   - Affected workflows
+   - User scenarios
+
+Keep all feedback brief and actionable. Suggested improvements should be clear and implementable immediately.`
   },
   'User Endgame': {
     role: 'system',
@@ -167,6 +145,179 @@ Also provide a suggested revision that:
   }
 };
 
+export async function identifyIdealUser(
+  productDescription: string
+): Promise<{
+  idealUser: {
+    title: string;
+    description: string;
+    motivation: 'Low' | 'Medium' | 'High';
+    ability: 'Low' | 'Medium' | 'High';
+  };
+  traits: string[];
+  impact: string;
+}> {
+  if (!import.meta.env.VITE_OPENAI_API_KEY) {
+    throw new Error('OpenAI API key is missing. Please add VITE_OPENAI_API_KEY to your environment variables.');
+  }
+
+  return handleOpenAIRequest(
+    openai.chat.completions.create({
+      model: "gpt-4o",  // Using standard GPT-4o for quality results
+      messages: [
+        {
+          role: "system",
+          content: `You are a product strategist specializing in ideal user identification. Based on the product description, identify the single most suitable ideal user.
+
+Consider:
+- Who would get the most value from this product?
+- Who would find success most quickly?
+- Who would be most likely to become a paying customer?
+
+Focus on motivation (how motivated they are to solve the problem) and ability (how easy it is for them to use the product).
+
+Keep your analysis concise and focused. The ideal user should be specific enough to guide product decisions but not so narrow that it limits growth potential.`
+        },
+        {
+          role: "user",
+          content: `Based on this product description, identify the ideal user:
+
+${productDescription}
+
+Please provide the ideal user profile, key traits, and business impact.`
+        }
+      ],
+      functions: [
+        {
+          name: "identify_ideal_user",
+          description: "Identify the ideal user for a product",
+          parameters: {
+            type: "object",
+            properties: {
+              idealUser: {
+                type: "object",
+                properties: {
+                  title: { type: "string" },
+                  description: { type: "string" },
+                  motivation: { 
+                    type: "string",
+                    enum: ["Low", "Medium", "High"]
+                  },
+                  ability: { 
+                    type: "string",
+                    enum: ["Low", "Medium", "High"]
+                  }
+                },
+                required: ["title", "description", "motivation", "ability"]
+              },
+              traits: {
+                type: "array",
+                items: { type: "string" },
+                description: "3-5 key traits of the ideal user"
+              },
+              impact: {
+                type: "string",
+                description: "Brief description of business impact"
+              }
+            },
+            required: ["idealUser", "traits", "impact"]
+          }
+        }
+      ],
+      function_call: { name: "identify_ideal_user" }
+    }).then(completion => {
+      const result = completion.choices[0].message.function_call?.arguments;
+      if (!result) throw new Error("No ideal user identification received");
+      return JSON.parse(result);
+    }),
+    'identifying ideal user'
+  );
+}
+
+export async function generateFromChat(
+  responses: Record<string, string>
+): Promise<{
+  productDescription?: string;
+  beginnerOutcome?: string;
+  intermediateOutcome?: string;
+  advancedOutcome?: string;
+}> {
+  if (!import.meta.env.VITE_OPENAI_API_KEY) {
+    throw new Error('OpenAI API key is missing. Please add VITE_OPENAI_API_KEY to your environment variables.');
+  }
+
+  return handleOpenAIRequest(
+    openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: `You are an expert product strategist. Based on the user's responses, generate concise content for their product (2-3 sentences max per section).
+
+Your task is to craft:
+1. A clear product description that effectively communicates:
+   - The core problem solved
+   - The primary value proposition
+   - What makes the product unique
+
+2. User outcomes that show clear progression (2-3 sentences each):
+   - Beginner: First valuable outcome achieved quickly
+   - Intermediate: Team-wide benefits and scaled usage
+   - Advanced: Enterprise-level results and strategic impact
+
+Guidelines:
+- Be extremely concise
+- Use metrics when possible (e.g., "3x faster", "50% reduction")
+- Focus on benefits over features
+- Use active voice
+- Avoid jargon`
+        },
+        {
+          role: "user",
+          content: `Here are the responses to generate content from:
+
+${Object.entries(responses).map(([key, value]) => `${key}: ${value}`).join('\n\n')}
+
+Please generate the appropriate content based on these responses.`
+        }
+      ],
+      functions: [
+        {
+          name: "generate_content",
+          description: "Generate product description and user outcomes",
+          parameters: {
+            type: "object",
+            properties: {
+              productDescription: {
+                type: "string",
+                description: "The final 2-3 sentence product description"
+              },
+              beginnerOutcome: {
+                type: "string",
+                description: "Outcome for beginner users (2-3 sentences)"
+              },
+              intermediateOutcome: {
+                type: "string",
+                description: "Outcome for intermediate users (2-3 sentences)"
+              },
+              advancedOutcome: {
+                type: "string",
+                description: "Outcome for advanced users (2-3 sentences)"
+              }
+            }
+          }
+        }
+      ],
+      function_call: { name: "generate_content" }
+    }).then(completion => {
+      const result = completion.choices[0].message.function_call?.arguments;
+      if (!result) throw new Error("No content generated");
+      return JSON.parse(result);
+    }),
+    'generating from chat'
+  );
+}
+
 export async function analyzeText(text: string, context: keyof typeof prompts): Promise<AnalysisResult> {
   if (!import.meta.env.VITE_OPENAI_API_KEY) {
     throw new Error('OpenAI API key is missing. Please add VITE_OPENAI_API_KEY to your environment variables.');
@@ -179,7 +330,7 @@ export async function analyzeText(text: string, context: keyof typeof prompts): 
 
   const completion = await handleOpenAIRequest(
     openai.chat.completions.create({
-      model: "gpt-4-turbo-preview",
+      model: "gpt-4o",
       messages: [
         contextPrompt,
         { 
@@ -298,11 +449,11 @@ export async function suggestChallenges(
 
   return handleOpenAIRequest(
     openai.chat.completions.create({
-      model: "gpt-4-turbo-preview",
+      model: "gpt-4o", // Changed from gpt-4-turbo-preview to gpt-4o
       messages: [
         {
           role: "system",
-          content: `You are an expert in user experience and product challenges. Based on the product description and user endgame, suggest potential challenges that ${level} users might face.
+          content: `You are an expert in user experience and product challenges. Based on the product description and user endgame, suggest potential challenges that ${level} users might face. Keep all responses concise (2-3 sentences max).
 
 Consider:
 - Technical complexity appropriate for the user level
@@ -311,12 +462,9 @@ Consider:
 - Integration and workflow issues
 
 For each challenge:
-1. Provide a clear, specific title
-2. Add a detailed description
-3. Rate magnitude (1-5) based on:
-   - Impact on user success
-   - Frequency of occurrence
-   - Difficulty to overcome`
+1. Provide a clear, specific title (1 sentence)
+2. Add a brief description (1-2 sentences)
+3. Rate magnitude (1-5) based on impact and frequency`
         },
         {
           role: "user",
@@ -385,42 +533,34 @@ export async function suggestSolutions(
 
   return handleOpenAIRequest(
     openai.chat.completions.create({
-      model: "gpt-4-turbo-preview",
+      model: "gpt-4o",
       messages: [
         {
           role: "system",
-          content: `You are an expert product strategist specializing in solution design. Given a user challenge and desired outcome, suggest potential solutions across three categories:
+          content: `You are an expert product strategist specializing in solution design. Given a user challenge and desired outcome, suggest potential solutions. Keep all responses concise (2-3 sentences max).
 
+Categories:
 1. Product Features
    - Core functionality
    - UI improvements
    - Technical capabilities
-   - Implementation focus
 
 2. Resources/Tools
    - Templates
    - Integrations
    - Automation tools
-   - Productivity enhancers
 
 3. Content/Guides
    - Documentation
    - Tutorials
    - Best practices
-   - Educational resources
 
 For each solution:
-1. Provide a clear, actionable description
+1. Provide a clear, actionable description (2-3 sentences)
 2. Categorize as product/resource/content
-3. Evaluate implementation cost (low/medium/high) considering:
-   - Development/creation complexity
-   - Resource requirements
-   - Time to market
+3. Evaluate implementation cost (low/medium/high)
 
-Aim for a balanced mix:
-- At least one solution from each category
-- Quick wins and strategic investments
-- Different cost levels for implementation flexibility`
+Aim for a balanced mix of quick wins and strategic solutions.`
         },
         {
           role: "user",
@@ -433,7 +573,7 @@ Challenge:
 Title: ${challengeTitle}
 ${challengeDescription ? `Description: ${challengeDescription}` : ''}
 
-Generate 3-5 solutions across product features, resources/tools, and content/guides that will help users overcome this challenge.`
+Generate 3-5 concise solutions across product features, resources/tools, and content/guides that will help users overcome this challenge.`
         }
       ],
       functions: [
@@ -493,7 +633,7 @@ export async function suggestModel(
 
   return handleOpenAIRequest(
     openai.chat.completions.create({
-      model: "gpt-4-turbo-preview",
+      model: "o3-mini", // Using o3-mini-high as requested
       messages: [
         {
           role: "system",
@@ -632,18 +772,17 @@ export async function suggestFeatures(
 
   return handleOpenAIRequest(
     openai.chat.completions.create({
-      model: "gpt-4-turbo-preview",
+      model: "o3-mini", // Using o3-mini-high as requested
       messages: [
         {
           role: "system",
-          content: `You are an expert product strategist. Based on the beginner user journey (outcome > challenges > solutions), suggest free features that will help users achieve their initial success.
+          content: `You are an expert product strategist. Based on the beginner user journey (outcome > challenges > solutions), suggest free features that will help users achieve their initial success. Keep all responses concise (2-3 sentences max).
           
 Consider:
 - Features that directly address beginner challenges
 - Quick wins that deliver value in under 7 minutes
 - Natural progression toward paid features
-- Balance between different solution types (product/resource/content)
-- Implementation cost and resource efficiency
+- Balance between different solution types
 
 Categories:
 - Core: Essential features needed for basic success
@@ -735,37 +874,32 @@ export async function suggestUserEndgame(
   };
 }> {
   if (!import.meta.env.VITE_OPENAI_API_KEY) {
-    throw new Error('OpenAI API key is missing');
+    throw new Error('OpenAI API key is missing. Please add VITE_OPENAI_API_KEY to your environment variables.');
   }
 
   return handleOpenAIRequest(
     openai.chat.completions.create({
-      model: "gpt-4-turbo-preview",
+      model: "gpt-4o",  // Using gpt-4o
       messages: [
         {
           role: "system",
-          content: `You are an expert in product strategy and user journey mapping. Generate a detailed user endgame for ${level} users based on the product description.
+          content: `You are an expert in product strategy and user journey mapping. Generate a detailed user endgame for ${level} users based on the product description. Keep responses concise (2-3 sentences per section).
 
 Consider the user's progression:
-- Beginner: First-time users learning the basics and getting initial value
-- Intermediate: Regular users expanding capabilities and integrating into workflows
-- Advanced: Power users scaling usage, optimizing processes, and driving organizational adoption
-
-For each level, consider different roles:
-- Individual Contributors: Direct product users
-- Line Managers: Team leads managing users
-- Functional Directors: Department heads driving strategic adoption
+- Beginner: First-time users learning the basics
+- Intermediate: Regular users expanding capabilities
+- Advanced: Power users scaling usage
 
 Structure the outcome around:
 1. How: Key features/approaches enabling transformation
-2. Who: Target audience and their specific needs
+2. Who: Target audience and their needs
 3. Why: Problems solved and pain points addressed
-4. Results: Specific, measurable outcomes (use metrics)
+4. Results: Specific, measurable outcomes
 
 Make suggestions:
-- Beginner: Focus on quick wins, basic features, immediate value
-- Intermediate: Emphasize workflow integration, team collaboration, efficiency gains
-- Advanced: Highlight scaling, automation, strategic impact, ROI`
+- Beginner: Focus on quick wins and immediate value
+- Intermediate: Emphasize workflow integration and efficiency
+- Advanced: Highlight scaling and strategic impact`
         },
         {
           role: "user",
@@ -783,7 +917,7 @@ Generate a detailed ${level} user endgame that shows their transformation and su
             properties: {
               suggestion: {
                 type: "string",
-                description: "Complete suggested outcome text"
+                description: "Complete suggested outcome text (2-3 sentences)"
               },
               breakdown: {
                 type: "object",
@@ -842,11 +976,11 @@ export async function getAnalysisResponse(
 
   return handleOpenAIRequest(
     openai.chat.completions.create({
-      model: "gpt-4-turbo-preview",
+      model: "o3-mini", // Using o3-mini-high as requested
       messages: [
         {
           role: "system",
-          content: `You are an expert product strategist assistant. Use the provided context to answer questions about the product's free model strategy. 
+          content: `You are an expert product strategist assistant. Use the provided context to answer questions about the product's free model strategy. Keep responses concise and focused (2-3 sentences per point).
           
 Your responses should:
 - Be specific and actionable
@@ -938,11 +1072,11 @@ export async function analyzeFormData(
 
   return handleOpenAIRequest(
     openai.chat.completions.create({
-      model: "gpt-4-turbo-preview",
+      model: "o3-mini", // Using o3-mini-high as requested
       messages: [
         {
           role: "system",
-          content: `You are an expert in product-led growth and free model analysis. Using the DEEP framework, analyze the provided information and generate comprehensive insights.
+          content: `You are an expert in product-led growth and free model analysis. Using the DEEP framework, analyze the provided information and generate comprehensive insights. Keep all responses concise (2-3 sentences per point).
 
 Consider:
 - Desirability: User appeal and value proposition
@@ -999,7 +1133,7 @@ Analyze this information using the DEEP framework.`
               componentScores: {
                 type: "object",
                 properties: {
-                  productDescription: { type: "number", minimum: 0, maximum : 100 },
+                  productDescription: { type: "number", minimum: 0, maximum: 100 },
                   userEndgame: { type: "number", minimum: 0, maximum: 100 },
                   challenges: { type: "number", minimum: 0, maximum: 100 },
                   solutions: { type: "number", minimum: 0, maximum: 100 },

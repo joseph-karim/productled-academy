@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { ProductDescription } from './steps/ProductDescription';
+import { IdealUserIdentifier } from './steps/IdealUserIdentifier';
 import { UserEndgame } from './steps/UserEndgame';
 import { ChallengeCollector } from './steps/ChallengeCollector';
 import { SolutionInput } from './steps/SolutionInput';
@@ -17,11 +18,19 @@ const steps = [
     isComplete: (state: ReturnType<typeof useFormStore.getState>) => 
       state.productDescription.length >= 10
   },
+  {
+    title: 'Ideal User',
+    component: IdealUserIdentifier,
+    isUnlocked: (state: ReturnType<typeof useFormStore.getState>) => 
+      state.productDescription.length >= 10,
+    isComplete: (state: ReturnType<typeof useFormStore.getState>) => 
+      !!state.idealUser
+  },
   { 
     title: 'User Endgame', 
     component: UserEndgame,
     isUnlocked: (state: ReturnType<typeof useFormStore.getState>) => 
-      state.productDescription.length >= 10,
+      !!state.idealUser,
     isComplete: (state: ReturnType<typeof useFormStore.getState>) => 
       state.outcomes.some(o => o.level === 'beginner' && o.text.length >= 10)
   },
@@ -105,12 +114,12 @@ export function MultiStepForm() {
                 disabled={!isUnlocked}
                 className={`text-sm px-3 py-1 rounded transition-colors ${
                   !isUnlocked
-                    ? 'text-gray-400 cursor-not-allowed'
+                    ? 'text-gray-600 cursor-not-allowed'
                     : isCurrent
-                    ? 'text-white bg-blue-600'
+                    ? 'text-[#1C1C1C] bg-[#FFD23F]'
                     : isComplete
-                    ? 'text-blue-600 hover:bg-blue-50'
-                    : 'text-gray-600 hover:bg-gray-50'
+                    ? 'text-[#FFD23F] hover:bg-[#2A2A2A]'
+                    : 'text-gray-300 hover:bg-[#2A2A2A]'
                 }`}
               >
                 {step.title}
@@ -118,9 +127,9 @@ export function MultiStepForm() {
             );
           })}
         </div>
-        <div className="h-2 bg-gray-200 rounded-full">
+        <div className="progress-bar">
           <div
-            className="h-full bg-blue-600 rounded-full transition-all duration-300"
+            className="progress-bar-fill"
             style={{
               width: `${((currentStep + 1) / steps.length) * 100}%`,
             }}
@@ -129,7 +138,7 @@ export function MultiStepForm() {
       </div>
 
       {/* Current Step */}
-      <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+      <div className="bg-[#2A2A2A] rounded-lg shadow-lg p-6 mb-6">
         <CurrentStepComponent />
       </div>
 
@@ -140,8 +149,8 @@ export function MultiStepForm() {
           disabled={currentStep === 0}
           className={`flex items-center px-4 py-2 rounded ${
             currentStep === 0
-              ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-              : 'bg-blue-600 text-white hover:bg-blue-700'
+              ? 'bg-[#2A2A2A] text-gray-600 cursor-not-allowed'
+              : 'bg-[#2A2A2A] text-white hover:border-[#FFD23F] border border-gray-700'
           }`}
         >
           <ChevronLeft className="w-5 h-5 mr-2" />
@@ -152,8 +161,8 @@ export function MultiStepForm() {
           disabled={currentStep === steps.length - 1 || !steps[currentStep].isComplete(store)}
           className={`flex items-center px-4 py-2 rounded ${
             currentStep === steps.length - 1 || !steps[currentStep].isComplete(store)
-              ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-              : 'bg-blue-600 text-white hover:bg-blue-700'
+              ? 'bg-[#2A2A2A] text-gray-600 cursor-not-allowed'
+              : 'bg-[#FFD23F] text-[#1C1C1C] hover:bg-opacity-90'
           }`}
         >
           Next

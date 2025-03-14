@@ -1,7 +1,7 @@
 import React from 'react';
 import { useFormStore } from '../../store/formStore';
 import type { Solution, SolutionType } from '../../types';
-import { MessageSquarePlus, HelpCircle, Loader2, PlusCircle } from 'lucide-react';
+import { MessageSquarePlus, HelpCircle, Loader2, PlusCircle, Sparkles } from 'lucide-react';
 import { FloatingFeedback, type Feedback } from '../shared/FloatingFeedback';
 import { analyzeText, suggestSolutions } from '../../services/ai';
 
@@ -21,6 +21,7 @@ export function SolutionInput() {
   const [isAnalyzing, setIsAnalyzing] = React.useState<Record<string, boolean>>({});
   const [showTooltip, setShowTooltip] = React.useState<Record<string, boolean>>({});
   const [isGenerating, setIsGenerating] = React.useState<Record<string, boolean>>({});
+  const [isGeneratingAll, setIsGeneratingAll] = React.useState(false);
 
   const solutionTypes: Record<SolutionType, string> = {
     product: 'Product Feature',
@@ -54,12 +55,11 @@ export function SolutionInput() {
         outcome.text
       );
       
-      // Add each suggested solution
       result.suggestions.forEach(suggestion => {
         const newSolution: Solution = {
           id: crypto.randomUUID(),
           text: suggestion.text,
-          type: 'product',
+          type: suggestion.type,
           cost: suggestion.cost,
           challengeId,
         };
@@ -69,6 +69,41 @@ export function SolutionInput() {
       console.error('Error generating solutions:', error);
     } finally {
       setIsGenerating(prev => ({ ...prev, [challengeId]: false }));
+    }
+  };
+
+  const handleGenerateAllSolutions = async () => {
+    if (!productDescription) return;
+    
+    setIsGeneratingAll(true);
+    
+    try {
+      for (const challenge of challenges) {
+        const outcome = outcomes.find(o => o.level === challenge.level);
+        if (!outcome) continue;
+        
+        const result = await suggestSolutions(
+          challenge.title,
+          challenge.description,
+          productDescription,
+          outcome.text
+        );
+        
+        result.suggestions.forEach(suggestion => {
+          const newSolution: Solution = {
+            id: crypto.randomUUID(),
+            text: suggestion.text,
+            type: suggestion.type,
+            cost: suggestion.cost,
+            challengeId: challenge.id,
+          };
+          addSolution(newSolution);
+        });
+      }
+    } catch (error) {
+      console.error('Error generating all solutions:', error);
+    } finally {
+      setIsGeneratingAll(false);
     }
   };
 
@@ -107,16 +142,13 @@ export function SolutionInput() {
     let result = [];
     let lastIndex = 0;
 
-    // Sort feedbacks by startIndex
     const sortedFeedbacks = [...solutionFeedbacks].sort((a, b) => a.startIndex - b.startIndex);
 
     sortedFeedbacks.forEach((feedback) => {
-      // Add text before the feedback
       if (feedback.startIndex > lastIndex) {
         result.push(text.slice(lastIndex, feedback.startIndex));
       }
 
-      // Add the feedback component
       result.push(
         <FloatingFeedback
           key={feedback.id}
@@ -129,7 +161,6 @@ export function SolutionInput() {
       lastIndex = feedback.endIndex;
     });
 
-    // Add remaining text
     if (lastIndex < text.length) {
       result.push(text.slice(lastIndex));
     }
@@ -141,57 +172,119 @@ export function SolutionInput() {
     <div className="space-y-8">
       <div className="flex justify-between items-start">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Solutions</h2>
-          <p className="text-gray-600">
+          <h2 className="text-2xl font-bold text-white">Solutions</h2>
+          <p className="text-gray-400">
             For each challenge, propose solutions and specify their type and implementation cost.
           </p>
         </div>
-        <button
-          onClick={() => setShowGuidance(!showGuidance)}
-          className="text-blue-600 hover:text-blue-800"
-          title={showGuidance ? "Hide guidance" : "Show guidance"}
-        >
-          <HelpCircle className="w-5 h-5" />
-        </button>
+        <div className="flex space-x-2">
+          <button
+            onClick={handleGenerateAllSolutions}
+            disabled={isGeneratingAll || !productDescription || challenges.length === 0}
+            className={`flex items-center px-4 py-2 rounded-lg ${
+              isGeneratingAll || !productDescription || challenges.length === 0
+                ? 'bg-[#333333] text-gray-500 cursor-not-allowed'
+                : 'bg-[#FFD23F] text-[#1C1C1C] hover:bg-[#FFD23F]/90'
+            }`}
+          >
+            {isGeneratingAll ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Generating All Solutions...
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-4 h-4 mr-2" />
+                Generate All Solutions
+              </>
+            )}
+          </button>
+          <button
+            onClick={() => setShowGuidance(!showGuidance)}
+            className="text-[#FFD23F] hover:text-[#FFD23F]/80"
+            title={showGuidance ? "Hide guidance" : "Show guidance"}
+          >
+            <HelpCircle className="w-5 h-5" />
+          </button>
+        </div>
       </div>
 
       {showGuidance && (
-        <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 space-y-4">
+        <div className="description-framework">
           <div>
-            <h3 className="font-medium text-blue-900">Solution Framework</h3>
-            <ul className="mt-2 list-disc list-inside text-blue-800 space-y-2 text-sm">
-              <li>Be specific about how the solution addresses the challenge</li>
-              <li>Consider technical feasibility and implementation requirements</li>
-              <li>Balance quick wins with long-term solutions</li>
-              <li>Think about scalability and maintenance</li>
+            <h3 className="framework-heading">Solution Framework</h3>
+            <ul className="mt-2 space-y-2">
+              <li className="framework-list-item">
+                <span className="framework-bullet" />
+                <span>Be specific about how the solution addresses the challenge</span>
+              </li>
+              <li className="framework-list-item">
+                <span className="framework-bullet" />
+                <span>Consider technical feasibility and implementation requirements</span>
+              </li>
+              <li className="framework-list-item">
+                <span className="framework-bullet" />
+                <span>Balance quick wins with long-term solutions</span>
+              </li>
+              <li className="framework-list-item">
+                <span className="framework-bullet" />
+                <span>Think about scalability and maintenance</span>
+              </li>
             </ul>
           </div>
           
-          <div>
-            <h3 className="font-medium text-blue-900">Solution Types</h3>
-            <div className="mt-2 grid grid-cols-3 gap-4 text-sm">
+          <div className="mt-6">
+            <h3 className="framework-heading">Solution Types</h3>
+            <div className="mt-2 grid grid-cols-3 gap-4">
               <div>
-                <h4 className="font-medium text-blue-900">Product Features</h4>
-                <ul className="list-disc list-inside text-blue-800 space-y-1">
-                  <li>Core functionality</li>
-                  <li>UI improvements</li>
-                  <li>Technical capabilities</li>
+                <h4 className="text-white font-medium mb-2">Product Features</h4>
+                <ul className="space-y-2">
+                  <li className="framework-list-item">
+                    <span className="framework-bullet" />
+                    <span>Core functionality</span>
+                  </li>
+                  <li className="framework-list-item">
+                    <span className="framework-bullet" />
+                    <span>UI improvements</span>
+                  </li>
+                  <li className="framework-list-item">
+                    <span className="framework-bullet" />
+                    <span>Technical capabilities</span>
+                  </li>
                 </ul>
               </div>
               <div>
-                <h4 className="font-medium text-blue-900">Resources/Tools</h4>
-                <ul className="list-disc list-inside text-blue-800 space-y-1">
-                  <li>Templates</li>
-                  <li>Integrations</li>
-                  <li>Automation tools</li>
+                <h4 className="text-white font-medium mb-2">Resources/Tools</h4>
+                <ul className="space-y-2">
+                  <li className="framework-list-item">
+                    <span className="framework-bullet" />
+                    <span>Templates</span>
+                  </li>
+                  <li className="framework-list-item">
+                    <span className="framework-bullet" />
+                    <span>Integrations</span>
+                  </li>
+                  <li className="framework-list-item">
+                    <span className="framework-bullet" />
+                    <span>Automation tools</span>
+                  </li>
                 </ul>
               </div>
               <div>
-                <h4 className="font-medium text-blue-900">Content/Guides</h4>
-                <ul className="list-disc list-inside text-blue-800 space-y-1">
-                  <li>Documentation</li>
-                  <li>Tutorials</li>
-                  <li>Best practices</li>
+                <h4 className="text-white font-medium mb-2">Content/Guides</h4>
+                <ul className="space-y-2">
+                  <li className="framework-list-item">
+                    <span className="framework-bullet" />
+                    <span>Documentation</span>
+                  </li>
+                  <li className="framework-list-item">
+                    <span className="framework-bullet" />
+                    <span>Tutorials</span>
+                  </li>
+                  <li className="framework-list-item">
+                    <span className="framework-bullet" />
+                    <span>Best practices</span>
+                  </li>
                 </ul>
               </div>
             </div>
@@ -200,38 +293,31 @@ export function SolutionInput() {
       )}
 
       {challenges.map((challenge) => {
-        const outcome = outcomes.find(o => o.level === challenge.level);
+        const challengeSolutions = solutions.filter(s => s.challengeId === challenge.id);
         
         return (
           <div key={challenge.id} className="space-y-4">
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <h3 className="text-lg font-semibold text-gray-800">
+            <div className="bg-[#2A2A2A] p-4 rounded-lg">
+              <h3 className="text-lg font-semibold text-white">
                 {challenge.title}
               </h3>
               {challenge.description && (
-                <p className="text-gray-600 mt-2">{challenge.description}</p>
+                <p className="text-gray-400 mt-2">{challenge.description}</p>
               )}
-              <div className="mt-2 flex items-center space-x-4 text-sm text-gray-500">
+              <div className="mt-2 flex items-center space-x-4 text-sm text-gray-400">
                 <span>Level: <span className="capitalize">{challenge.level}</span></span>
                 <span>Magnitude: {challenge.magnitude}</span>
               </div>
             </div>
 
-            <div className="flex items-center justify-between">
-              <button
-                onClick={() => handleAddSolution(challenge.id)}
-                className="flex items-center px-4 py-2 text-sm font-medium text-blue-600 border border-blue-600 rounded-lg hover:bg-blue-50"
-              >
-                <PlusCircle className="w-4 h-4 mr-2" />
-                Add Solution
-              </button>
+            <div className="flex items-center justify-between space-x-2">
               <button
                 onClick={() => handleGetSuggestions(challenge.id)}
-                disabled={isGenerating[challenge.id] || !productDescription || !outcome}
+                disabled={isGenerating[challenge.id] || !productDescription}
                 className={`flex items-center px-4 py-2 text-sm font-medium rounded-lg ${
-                  isGenerating[challenge.id] || !productDescription || !outcome
-                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                    : 'bg-blue-600 text-white hover:bg-blue-700'
+                  isGenerating[challenge.id] || !productDescription
+                    ? 'bg-[#333333] text-gray-500 cursor-not-allowed'
+                    : 'bg-[#FFD23F] text-[#1C1C1C] hover:bg-[#FFD23F]/90'
                 }`}
               >
                 {isGenerating[challenge.id] ? (
@@ -246,106 +332,121 @@ export function SolutionInput() {
                   </>
                 )}
               </button>
+              <button
+                onClick={() => handleAddSolution(challenge.id)}
+                className="flex items-center px-4 py-2 text-sm font-medium rounded-lg bg-[#FFD23F] text-[#1C1C1C] hover:bg-[#FFD23F]/90"
+              >
+                <PlusCircle className="w-4 h-4 mr-2" />
+                Add Solution
+              </button>
             </div>
 
             <div className="space-y-4">
-              {solutions
-                .filter((s) => s.challengeId === challenge.id)
-                .map((solution) => (
-                  <div key={solution.id} className="bg-white rounded-lg border border-gray-200 p-4 space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                      <div className="md:col-span-2">
-                        <input
-                          type="text"
-                          value={solution.text}
-                          onChange={(e) => updateSolution(solution.id, { text: e.target.value })}
-                          className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          placeholder="Describe your solution..."
-                        />
-                      </div>
-                      <div>
-                        <select
-                          value={solution.type}
-                          onChange={(e) =>
-                            updateSolution(solution.id, {
-                              type: e.target.value as SolutionType,
-                            })
-                          }
-                          className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        >
-                          {Object.entries(solutionTypes).map(([value, label]) => (
-                            <option key={value} value={value}>{label}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <select
-                          value={solution.cost}
-                          onChange={(e) =>
-                            updateSolution(solution.id, {
-                              cost: e.target.value as 'low' | 'medium' | 'high',
-                            })
-                          }
-                          className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        >
-                          <option value="low">Low Cost</option>
-                          <option value="medium">Medium Cost</option>
-                          <option value="high">High Cost</option>
-                        </select>
-                      </div>
+              {challengeSolutions.map((solution) => (
+                <div key={solution.id} className="bg-[#2A2A2A] rounded-lg border border-[#333333] p-4 space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="md:col-span-2">
+                      <input
+                        type="text"
+                        value={solution.text}
+                        onChange={(e) => updateSolution(solution.id, { text: e.target.value })}
+                        className="w-full p-2 bg-[#1C1C1C] text-white border border-[#333333] rounded-lg focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent"
+                        placeholder="Describe your solution..."
+                      />
                     </div>
-
-                    <div className="flex justify-between items-center">
-                      <button
-                        onClick={() => removeSolution(solution.id)}
-                        className="text-red-600 hover:text-red-800"
+                    <div>
+                      <select
+                        value={solution.type}
+                        onChange={(e) =>
+                          updateSolution(solution.id, {
+                            type: e.target.value as SolutionType,
+                          })
+                        }
+                        className="w-full p-2 bg-[#1C1C1C] text-white border border-[#333333] rounded-lg focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent"
                       >
-                        Remove
-                      </button>
-
-                      <div className="relative">
-                        <button
-                          onClick={() => handleGetFeedback(solution.id, solution.text)}
-                          onMouseEnter={() => setShowTooltip(prev => ({ ...prev, [solution.id]: true }))}
-                          onMouseLeave={() => setShowTooltip(prev => ({ ...prev, [solution.id]: false }))}
-                          disabled={isAnalyzing[solution.id] || solution.text.length < 10}
-                          className={`flex items-center px-4 py-2 rounded-lg ${
-                            isAnalyzing[solution.id] || solution.text.length < 10
-                              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                              : 'bg-blue-600 text-white hover:bg-blue-700'
-                          }`}
-                        >
-                          {isAnalyzing[solution.id] ? (
-                            <>
-                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                              Analyzing...
-                            </>
-                          ) : (
-                            <>
-                              <MessageSquarePlus className="w-4 h-4 mr-2" />
-                              Get Feedback
-                            </>
-                          )}
-                        </button>
-                        
-                        {showTooltip[solution.id] && !isAnalyzing[solution.id] && (
-                          <div className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2">
-                            <div className="bg-gray-900 text-white text-sm rounded-lg py-1 px-3 whitespace-nowrap">
-                              Get AI feedback on your solution
-                              <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
-                            </div>
-                          </div>
-                        )}
-                      </div>
+                        {Object.entries(solutionTypes).map(([value, label]) => (
+                          <option key={value} value={value}>{label}</option>
+                        ))}
+                      </select>
                     </div>
-
-                    {!isAnalyzing[solution.id] && feedbacks[solution.id]?.length > 0 && (
-                      <div className="prose prose-sm max-w-none p-4 bg-gray-50 rounded-lg">
-                        {renderTextWithFeedback(solution.id, solution.text)}
-                      </div>
-                    )}
+                    <div>
+                      <select
+                        value={solution.cost}
+                        onChange={(e) =>
+                          updateSolution(solution.id, {
+                            cost: e.target.value as 'low' | 'medium' | 'high',
+                          })
+                        }
+                        className="w-full p-2 bg-[#1C1C1C] text-white border border-[#333333] rounded-lg focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent"
+                      >
+                        <option value="low">Low Cost</option>
+                        <option value="medium">Medium Cost</option>
+                        <option value="high">High Cost</option>
+                      </select>
+                    </div>
                   </div>
-                ))}
+
+                  <div className="flex justify-between items-center">
+                    <button
+                      onClick={() => removeSolution(solution.id)}
+                      className="text-red-400 hover:text-red-300"
+                    >
+                      Remove
+                    </button>
+
+                    <div className="relative">
+                      <button
+                        onClick={() => handleGetFeedback(solution.id, solution.text)}
+                        onMouseEnter={() => setShowTooltip(prev => ({ ...prev, [solution.id]: true }))}
+                        onMouseLeave={() => setShowTooltip(prev => ({ ...prev, [solution.id]: false }))}
+                        disabled={isAnalyzing[solution.id] || solution.text.length < 10}
+                        className={`flex items-center px-4 py-2 rounded-lg ${
+                          isAnalyzing[solution.id] || solution.text.length < 10
+                            ? 'bg-[#333333] text-gray-500 cursor-not-allowed'
+                            : 'bg-[#FFD23F] text-[#1C1C1C] hover:bg-[#FFD23F]/90'
+                        }`}
+                      >
+                        {isAnalyzing[solution.id] ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Analyzing...
+                          </>
+                        ) : (
+                          <>
+                            <MessageSquarePlus className="w-4 h-4 mr-2" />
+                            Get Feedback
+                          </>
+                        )}
+                      </button>
+                      
+                      {showTooltip[solution.id] && !isAnalyzing[solution.id] && (
+                        <div className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2">
+                          <div className="bg-[#1C1C1C] text-white text-sm rounded-lg py-1 px-3 whitespace-nowrap">
+                            Get AI feedback on your solution
+                            <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-[#1C1C1C]"></div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {!isAnalyzing[solution.id] && feedbacks[solution.id]?.length > 0 && (
+                    <div className="prose prose-sm max-w-none p-4 bg-[#1C1C1C] rounded-lg">
+                      {renderTextWithFeedback(solution.id, solution.text)}
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              {challengeSolutions.length > 0 && (
+                <button
+                  onClick={() => handleAddSolution(challenge.id)}
+                  className="w-full flex items-center justify-center px-4 py-3 rounded-lg border-2 border-dashed border-[#FFD23F] text-[#FFD23F] hover:bg-[#FFD23F]/10"
+                >
+                  <PlusCircle className="w-5 h-5 mr-2" />
+                  Add Another Solution
+                </button>
+              )}
             </div>
           </div>
         );

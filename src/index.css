@@ -1,3 +1,176 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+  --pl-dark: #1C1C1C;
+  --pl-gray: #2A2A2A;
+  --pl-yellow: #FFD23F;
+  --pl-border: #333333;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: var(--pl-dark);
+  color: white;
+}
+
+/* Typography */
+h1, h2, h3, h4, h5, h6 {
+  @apply font-bold tracking-tight;
+}
+
+/* Custom button styles */
+.pl-button {
+  @apply bg-[#FFD23F] text-[#1C1C1C] font-semibold px-4 py-2 rounded-lg 
+         hover:bg-opacity-90 transition-colors duration-200;
+}
+
+.pl-button-outline {
+  @apply border-2 border-[#FFD23F] text-[#FFD23F] font-semibold px-4 py-2 rounded-lg
+         hover:bg-[#FFD23F] hover:text-[#1C1C1C] transition-colors duration-200;
+}
+
+/* Custom card styles */
+.pl-card {
+  @apply bg-[#2A2A2A] border border-[#333333] rounded-lg p-6;
+}
+
+/* Custom input styles */
+.pl-input {
+  @apply bg-[#2A2A2A] border border-[#333333] rounded-lg px-4 py-2 text-white
+         focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent
+         placeholder-gray-500;
+}
+
+/* Custom select styles */
+.pl-select {
+  @apply bg-[#2A2A2A] border border-[#333333] rounded-lg px-4 py-2 text-white
+         focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent;
+}
+
+/* Progress bar */
+.progress-bar {
+  @apply h-2 bg-[#333333] rounded-full overflow-hidden;
+}
+
+.progress-bar-fill {
+  @apply h-full bg-[#FFD23F] rounded-full transition-all duration-300;
+}
+
+/* Form elements */
+textarea, input[type="text"], input[type="number"], select {
+  @apply bg-[#2A2A2A] border border-[#333333] text-white placeholder-gray-500;
+}
+
+textarea:focus, input[type="text"]:focus, input[type="number"]:focus, select:focus {
+  @apply ring-[#FFD23F] border-[#FFD23F];
+}
+
+/* Button variants */
+.btn-primary {
+  @apply bg-[#FFD23F] text-[#1C1C1C] hover:bg-opacity-90 font-semibold;
+}
+
+.btn-secondary {
+  @apply bg-[#2A2A2A] text-white border border-[#333333] hover:border-[#FFD23F];
+}
+
+.btn-outline {
+  @apply border-2 border-[#FFD23F] text-[#FFD23F] hover:bg-[#FFD23F] hover:text-[#1C1C1C];
+}
+
+/* Card and panel styles */
+.panel {
+  @apply bg-[#2A2A2A] border border-[#333333];
+}
+
+/* Framework box */
+.framework-box {
+  @apply bg-[#2A2A2A] border border-[#333333] rounded-lg p-6;
+}
+
+.framework-title {
+  @apply text-[#FFD23F] font-semibold mb-4;
+}
+
+.framework-section {
+  @apply space-y-2;
+}
+
+.framework-list {
+  @apply space-y-2 text-gray-300;
+}
+
+.framework-example {
+  @apply mt-4 p-4 bg-[#333333] rounded-lg text-gray-300;
+}
+
+/* Feedback colors */
+.feedback-positive {
+  @apply bg-[#2A2A2A] border border-[#FFD23F] text-[#FFD23F];
+}
+
+.feedback-warning {
+  @apply bg-[#2A2A2A] border border-amber-500 text-amber-500;
+}
+
+.feedback-improvement {
+  @apply bg-[#2A2A2A] border border-gray-500 text-gray-300;
+}
+
+/* Description Framework */
+.description-framework {
+  @apply bg-[#2A2A2A] border border-[#333333] rounded-lg p-6 space-y-6;
+}
+
+.framework-grid {
+  @apply grid grid-cols-2 gap-8;
+}
+
+.framework-column {
+  @apply space-y-4;
+}
+
+.framework-heading {
+  @apply text-[#FFD23F] font-semibold;
+}
+
+.framework-list-item {
+  @apply flex items-start space-x-2 text-gray-300;
+}
+
+.framework-bullet {
+  @apply w-1.5 h-1.5 mt-2 rounded-full bg-[#FFD23F];
+}
+
+/* Chat elements */
+.chat-container {
+  @apply bg-[#2A2A2A] rounded-lg shadow-xl;
+}
+
+.chat-header {
+  @apply bg-[#FFD23F] text-[#1C1C1C] px-6 py-4;
+}
+
+.chat-messages {
+  @apply p-4 space-y-4;
+}
+
+.chat-message {
+  @apply max-w-[75%] rounded-lg p-3;
+}
+
+.chat-message-user {
+  @apply bg-[#FFD23F] text-[#1C1C1C];
+}
+
+.chat-message-system {
+  @apply bg-[#333333] text-white;
+}
+
+.chat-input {
+  @apply bg-[#2A2A2A] border border-[#333333] rounded-lg;
+}

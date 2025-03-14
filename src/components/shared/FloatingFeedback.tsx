@@ -47,19 +47,19 @@ export function FloatingFeedback({ feedback, onAccept, onDismiss }: FloatingFeed
 
   const typeStyles = {
     improvement: {
-      highlight: 'bg-blue-100 border-b-2 border-blue-400',
-      tooltip: 'bg-blue-50 border-blue-200',
-      button: 'text-blue-600 hover:text-blue-800'
+      highlight: 'bg-[#2A2A2A] border-b-2 border-[#FFD23F]',
+      tooltip: 'bg-[#2A2A2A] border-[#FFD23F]',
+      button: 'text-[#FFD23F] hover:text-[#FFD23F]/80'
     },
     warning: {
-      highlight: 'bg-yellow-100 border-b-2 border-yellow-400',
-      tooltip: 'bg-yellow-50 border-yellow-200',
-      button: 'text-yellow-600 hover:text-yellow-800'
+      highlight: 'bg-[#2A2A2A] border-b-2 border-amber-500',
+      tooltip: 'bg-[#2A2A2A] border-amber-500',
+      button: 'text-amber-500 hover:text-amber-400'
     },
     positive: {
-      highlight: 'bg-green-100 border-b-2 border-green-400',
-      tooltip: 'bg-green-50 border-green-200',
-      button: 'text-green-600 hover:text-green-800'
+      highlight: 'bg-[#2A2A2A] border-b-2 border-green-500',
+      tooltip: 'bg-[#2A2A2A] border-green-500',
+      button: 'text-green-500 hover:text-green-400'
     }
   };
 
@@ -79,18 +79,18 @@ export function FloatingFeedback({ feedback, onAccept, onDismiss }: FloatingFeed
           ref={refs.setFloating}
           style={floatingStyles}
           {...getFloatingProps()}
-          className={`z-50 p-3 rounded-lg shadow-lg border ${styles.tooltip} max-w-xs`}
+          className={`z-50 p-3 rounded-lg shadow-lg border ${styles.tooltip} max-w-xs text-white`}
         >
           <FloatingArrow ref={arrowRef} context={context} className="fill-current" />
           <div className="space-y-2">
-            <p className="text-sm text-gray-700">{feedback.suggestion}</p>
+            <p className="text-sm">{feedback.suggestion}</p>
             <div className="flex justify-end space-x-2">
               <button
                 onClick={() => {
                   onDismiss();
                   setIsOpen(false);
                 }}
-                className="flex items-center px-2 py-1 text-xs text-gray-600 hover:text-gray-800"
+                className="flex items-center px-2 py-1 text-xs text-gray-400 hover:text-gray-300"
               >
                 <XCircle className="w-3 h-3 mr-1" />
                 Dismiss

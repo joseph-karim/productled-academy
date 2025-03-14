@@ -38,11 +38,49 @@ export type Feature = {
   };
 };
 
+export type IdealUser = {
+  title: string;
+  description: string;
+  motivation: 'Low' | 'Medium' | 'High';
+  ability: 'Low' | 'Medium' | 'High';
+  traits: string[];
+  impact: string;
+};
+
+export type UserJourney = {
+  discovery: {
+    problem: string;
+    trigger: string;
+    initialThought: string;
+  };
+  signup: {
+    friction: string;
+    timeToValue: string;
+    guidance: string[];
+  };
+  activation: {
+    firstWin: string;
+    ahaFeature: string;
+    timeToSuccess: string;
+  };
+  engagement: {
+    coreTasks: string[];
+    collaboration: string[];
+    limitations: string[];
+  };
+  conversion: {
+    triggers: string[];
+    nextFeatures: string[];
+  };
+};
+
 export type FormState = {
   productDescription: string;
+  idealUser?: IdealUser;
   outcomes: UserOutcome[];
   challenges: Challenge[];
   solutions: Solution[];
   selectedModel: ModelType | null;
   freeFeatures: Feature[];
+  userJourney?: UserJourney;
 };
