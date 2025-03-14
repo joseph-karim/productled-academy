@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useFormStore } from '../store/formStore';
-import { Mic, Loader2, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { Mic, Loader2, X } from 'lucide-react';
 import { VoiceChat } from './VoiceChat';
 import { Chart as ChartJS, RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend } from 'chart.js';
 import { Radar } from 'react-chartjs-2';
-import { analyzeFormData } from '../services/ai';
+import { analyzeFormData } from '../services/ai/analysis';
+import { ComponentCard } from './analysis/ComponentCard';
 
 ChartJS.register(
   RadialLinearScale,
@@ -15,173 +16,21 @@ ChartJS.register(
   Legend
 );
 
-// Improved ComponentCard with expandable interface
-export function ComponentCard({ title, analysis }) {
-  const [isExpanded, setIsExpanded] = useState(false);
-
-  // Determine color based on score
-  const getScoreColor = (score) => {
-    if (score >= 85) return 'text-green-500';
-    if (score >= 70) return 'text-[#FFD23F]';
-    return 'text-red-500';
-  };
-
-  return (
-    <div className="bg-[#2A2A2A] rounded-lg overflow-hidden">
-      <div 
-        className="flex justify-between items-center p-4 cursor-pointer"
-        onClick={() => setIsExpanded(!isExpanded)}
-      >
-        <div className="flex items-center">
-          <h4 className="text-white font-medium">{title}</h4>
-        </div>
-        <div className="flex items-center space-x-3">
-          <div className={`font-semibold ${getScoreColor(analysis.score)}`}>
-            {analysis.score}/100
-          </div>
-          {isExpanded ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
-        </div>
-      </div>
-
-      {isExpanded && (
-        <div className="px-4 pb-4 pt-0 bg-[#1C1C1C] border-t border-[#333333]">
-          {/* Summary section */}
-          {analysis.summary && (
-            <div className="mb-4 pt-3">
-              <p className="text-gray-300 text-sm">{analysis.summary}</p>
-            </div>
-          )}
-          
-          {analysis.strengths && analysis.strengths.length > 0 && (
-            <div className="mb-4">
-              <h5 className="text-[#FFD23F] text-sm font-medium mb-2">Strengths</h5>
-              <ul className="space-y-2">
-                {analysis.strengths.map((strength, index) => (
-                  <li key={index} className="flex items-start space-x-2">
-                    <span className="flex-shrink-0 w-1.5 h-1.5 mt-1.5 rounded-full bg-green-500" />
-                    <span className="text-gray-300 text-sm">{strength}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {analysis.recommendations && analysis.recommendations.length > 0 && (
-            <div>
-              <h5 className="text-[#FFD23F] text-sm font-medium mb-2">Recommendations</h5>
-              <ul className="space-y-2">
-                {analysis.recommendations.map((recommendation, index) => (
-                  <li key={index} className="flex items-start space-x-2">
-                    <span className="flex-shrink-0 w-1.5 h-1.5 mt-1.5 rounded-full bg-[#FFD23F]" />
-                    <span className="text-gray-300 text-sm">{recommendation}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
 export function Analysis() {
   const store = useFormStore();
   const [showVoiceChat, setShowVoiceChat] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [hasInitiatedAnalysis, setHasInitiatedAnalysis] = useState(false);
-  const [error, setError] = useState(null);
 
-  // Generate component summaries based on analysis data
-  // This function ensures we have consistent, pre-processed summaries
-  const generateComponentSummaries = (analysis) => {
-    if (!analysis) return null;
-    
-    // Create standard component summaries with coherent descriptions
-    return {
-      productDescription: {
-        title: "Product Description",
-        analysis: {
-          score: analysis.componentScores.productDescription,
-          summary: `Your product description scores ${analysis.componentScores.productDescription}/100, indicating ${analysis.componentScores.productDescription >= 85 ? 'exceptional clarity' : analysis.componentScores.productDescription >= 70 ? 'good positioning' : 'some improvement opportunities'} in how you articulate your value proposition.`,
-          strengths: analysis.componentFeedback.productDescription.strengths,
-          recommendations: analysis.componentFeedback.productDescription.recommendations
-        }
-      },
-      idealUser: {
-        title: "Ideal User",
-        analysis: {
-          score: analysis.componentScores.idealUser,
-          summary: `Your ideal user definition scores ${analysis.componentScores.idealUser}/100, showing ${analysis.componentScores.idealUser >= 85 ? 'precise targeting' : analysis.componentScores.idealUser >= 70 ? 'solid understanding' : 'opportunities to refine'} your target audience characteristics.`,
-          strengths: analysis.componentFeedback.idealUser.strengths,
-          recommendations: analysis.componentFeedback.idealUser.recommendations
-        }
-      },
-      userEndgame: {
-        title: "User Endgame",
-        analysis: {
-          score: analysis.componentScores.userEndgame,
-          summary: `Your user endgame scores ${analysis.componentScores.userEndgame}/100, ${analysis.componentScores.userEndgame >= 85 ? 'clearly demonstrating' : analysis.componentScores.userEndgame >= 70 ? 'effectively showing' : 'somewhat illustrating'} the transformation users experience with your product.`,
-          strengths: analysis.componentFeedback.userEndgame.strengths,
-          recommendations: analysis.componentFeedback.userEndgame.recommendations
-        }
-      },
-      challenges: {
-        title: "Challenges",
-        analysis: {
-          score: analysis.componentScores.challenges,
-          summary: `Your challenge analysis scores ${analysis.componentScores.challenges}/100, ${analysis.componentScores.challenges >= 85 ? 'thoroughly addressing' : analysis.componentScores.challenges >= 70 ? 'adequately covering' : 'partially identifying'} obstacles your users face.`,
-          strengths: analysis.componentFeedback.challenges.strengths,
-          recommendations: analysis.componentFeedback.challenges.recommendations
-        }
-      },
-      solutions: {
-        title: "Solutions",
-        analysis: {
-          score: analysis.componentScores.solutions,
-          summary: `Your solutions score ${analysis.componentScores.solutions}/100, ${analysis.componentScores.solutions >= 85 ? 'excellently resolving' : analysis.componentScores.solutions >= 70 ? 'effectively addressing' : 'partially solving'} the challenges identified in your strategy.`,
-          strengths: analysis.componentFeedback.solutions.strengths,
-          recommendations: analysis.componentFeedback.solutions.recommendations
-        }
-      },
-      modelSelection: {
-        title: "Model Selection",
-        analysis: {
-          score: analysis.componentScores.modelSelection,
-          summary: `Your model selection scores ${analysis.componentScores.modelSelection}/100, indicating ${analysis.componentScores.modelSelection >= 85 ? 'ideal alignment' : analysis.componentScores.modelSelection >= 70 ? 'good fit' : 'potential misalignment'} with your product and user journey.`,
-          strengths: analysis.componentFeedback.modelSelection.strengths,
-          recommendations: analysis.componentFeedback.modelSelection.recommendations
-        }
-      },
-      freeFeatures: {
-        title: "Free Features",
-        analysis: {
-          score: analysis.componentScores.freeFeatures || 0,
-          summary: `Your free features selection scores ${analysis.componentScores.freeFeatures || 0}/100, ${analysis.componentScores.freeFeatures >= 85 ? 'expertly balancing' : analysis.componentScores.freeFeatures >= 70 ? 'effectively balancing' : 'somewhat balancing'} value delivery and conversion potential.`,
-          strengths: analysis.componentFeedback.freeFeatures?.strengths || [],
-          recommendations: analysis.componentFeedback.freeFeatures?.recommendations || []
-        }
-      },
-      userJourney: {
-        title: "User Journey",
-        analysis: {
-          score: analysis.componentScores.userJourney,
-          summary: `Your user journey mapping scores ${analysis.componentScores.userJourney}/100, ${analysis.componentScores.userJourney >= 85 ? 'comprehensively plotting' : analysis.componentScores.userJourney >= 70 ? 'clearly outlining' : 'partially defining'} the path from awareness to conversion.`,
-          strengths: analysis.componentFeedback.userJourney.strengths,
-          recommendations: analysis.componentFeedback.userJourney.recommendations
-        }
-      }
-    };
-  };
-
-  // Run the analysis once when the component mounts or when required data changes
+  // Run the analysis once when the component mounts
   useEffect(() => {
     const analyzeData = async () => {
-      // Skip if we're already analyzing or if analysis is complete
+      // Skip if we're already analyzing or if analysis exists
       if (isAnalyzing || store.analysis || hasInitiatedAnalysis) return;
       
       // Get the beginner outcome text
-      const beginnerOutcome = store.outcomes?.find(o => o.level === 'beginner')?.text || '';
+      const beginnerOutcome = store.outcomes.find(o => o.level === 'beginner')?.text || '';
       
       if (!store.productDescription || !beginnerOutcome || !store.selectedModel) {
         setError("Please complete all previous sections before viewing the analysis.");
@@ -192,19 +41,68 @@ export function Analysis() {
       setHasInitiatedAnalysis(true);
       
       try {
-        // Only run the analysis if it hasn't been done before
-        const result = await analyzeFormData(
-          store.productDescription,
-          store.idealUser || {},
-          beginnerOutcome,
-          store.challenges || [],
-          store.solutions || [],
-          store.selectedModel,
-          store.freeFeatures || [],
-          store.userJourney
-        );
+        // Safe data handling for arrays that might be undefined
+        const safeIdealUser = store.idealUser || {
+          title: '',
+          description: '',
+          motivation: 'Medium' as const,
+          ability: 'Medium' as const,
+          traits: [],
+          impact: ''
+        };
         
-        // Store the analysis result
+        // Safe challenges handling
+        const safeChallengesToPass = Array.isArray(store.challenges) 
+          ? store.challenges.map(c => ({
+              title: c?.title || '',
+              description: c?.description || '',
+              magnitude: typeof c?.magnitude === 'number' ? c.magnitude : 1,
+              level: c?.level || 'beginner'
+            }))
+          : [];
+        
+        // Safe solutions handling
+        const safeSolutionsToPass = Array.isArray(store.solutions)
+          ? store.solutions.map(s => ({
+              text: s?.text || '',
+              type: s?.type || '',
+              cost: s?.cost || ''
+            }))
+          : [];
+        
+        // Safe features handling
+        const safeFeaturesToPass = Array.isArray(store.freeFeatures)
+          ? store.freeFeatures.map(f => ({
+              name: f?.name || '',
+              description: f?.description || ''
+            }))
+          : [];
+        
+        // Log analysis request with safe data
+        console.log('Starting analysis with:', {
+          productDescription: store.productDescription,
+          idealUser: safeIdealUser,
+          userEndgame: beginnerOutcome,
+          challenges: safeChallengesToPass,
+          solutions: safeSolutionsToPass,
+          selectedModel: store.selectedModel,
+          freeFeatures: safeFeaturesToPass
+        });
+
+        // Call the analysis function with safe data
+        const result = await analyzeFormData({
+          productDescription: store.productDescription,
+          idealUser: safeIdealUser,
+          userEndgame: beginnerOutcome,
+          challenges: safeChallengesToPass,
+          solutions: safeSolutionsToPass,
+          selectedModel: store.selectedModel,
+          freeFeatures: safeFeaturesToPass,
+          userJourney: store.userJourney
+        });
+        
+        console.log('Analysis completed:', result);
+        
         store.setAnalysis(result);
         setError(null);
       } catch (error) {
@@ -242,24 +140,7 @@ export function Analysis() {
     );
   }
 
-  // Create pre-processed component analysis with coherent summaries
-  const componentAnalysis = generateComponentSummaries(store.analysis);
-  
-  // Only proceed if we have valid component analysis
-  if (!componentAnalysis) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center space-y-4">
-          <X className="w-8 h-8 mx-auto text-red-500" />
-          <p className="text-gray-400">
-            Unable to process analysis results. Please try again.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  const { deepScore, actionPlan, testing, summary } = store.analysis;
+  const { deepScore, componentScores, componentFeedback, actionPlan, testing, summary } = store.analysis;
 
   const radarData = {
     labels: ['Desirability', 'Effectiveness', 'Efficiency', 'Polish'],
@@ -331,6 +212,58 @@ export function Analysis() {
     maintainAspectRatio: false
   };
 
+  // Generate component analysis data
+  const componentAnalysis = {
+    productDescription: {
+      title: "Product Description",
+      score: componentScores.productDescription,
+      strengths: componentFeedback.productDescription.strengths,
+      recommendations: componentFeedback.productDescription.recommendations
+    },
+    idealUser: {
+      title: "Ideal User",
+      score: componentScores.idealUser,
+      strengths: componentFeedback.idealUser.strengths,
+      recommendations: componentFeedback.idealUser.recommendations
+    },
+    userEndgame: {
+      title: "User Endgame",
+      score: componentScores.userEndgame,
+      strengths: componentFeedback.userEndgame.strengths,
+      recommendations: componentFeedback.userEndgame.recommendations
+    },
+    challenges: {
+      title: "Challenges",
+      score: componentScores.challenges,
+      strengths: componentFeedback.challenges.strengths,
+      recommendations: componentFeedback.challenges.recommendations
+    },
+    solutions: {
+      title: "Solutions",
+      score: componentScores.solutions,
+      strengths: componentFeedback.solutions.strengths,
+      recommendations: componentFeedback.solutions.recommendations
+    },
+    modelSelection: {
+      title: "Model Selection",
+      score: componentScores.modelSelection,
+      strengths: componentFeedback.modelSelection.strengths,
+      recommendations: componentFeedback.modelSelection.recommendations
+    },
+    freeFeatures: {
+      title: "Free Features",
+      score: componentScores.freeFeatures,
+      strengths: componentFeedback.freeFeatures.strengths,
+      recommendations: componentFeedback.freeFeatures.recommendations
+    },
+    userJourney: {
+      title: "User Journey",
+      score: componentScores.userJourney,
+      strengths: componentFeedback.userJourney.strengths,
+      recommendations: componentFeedback.userJourney.recommendations
+    }
+  };
+
   return (
     <div className="space-y-8">
       {/* Overview Section */}
@@ -371,13 +304,14 @@ export function Analysis() {
       {/* Component Analysis */}
       <div className="space-y-4">
         <h3 className="text-xl font-semibold text-white">Component Analysis</h3>
-        
         <div className="space-y-3">
           {Object.entries(componentAnalysis).map(([key, component]) => (
             <ComponentCard 
               key={key}
               title={component.title}
-              analysis={component.analysis}
+              score={component.score}
+              strengths={component.strengths}
+              recommendations={component.recommendations}
             />
           ))}
         </div>

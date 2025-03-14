@@ -1,7 +1,8 @@
 import React from 'react';
 import { useFormStore } from '../../store/formStore';
 import { HelpCircle, Loader2, MessageSquarePlus } from 'lucide-react';
-import { analyzeText, suggestUserEndgame } from '../../services/ai';
+import { analyzeText } from '../../services/ai/feedback';
+import { suggestUserEndgame } from '../../services/ai/users';
 import type { UserLevel } from '../../types';
 import { ErrorMessage } from '../shared/ErrorMessage';
 import { ChatAssistantButton } from '../shared/ChatAssistantButton';

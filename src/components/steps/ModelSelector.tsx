@@ -1,6 +1,6 @@
 import React from 'react';
 import { useFormStore } from '../../store/formStore';
-import { suggestModel } from '../../services/ai';
+import { suggestModel } from '../../services/ai/suggestions';
 import type { ModelType } from '../../types';
 import { MessageSquarePlus, Loader2, HelpCircle } from 'lucide-react';
 

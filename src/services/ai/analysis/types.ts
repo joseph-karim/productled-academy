@@ -24,8 +24,8 @@ export interface AnalysisInput {
   }>;
   selectedModel: string;
   freeFeatures: Array<{
-    name?: string;
-    description?: string;
+    name: string;
+    description: string;
   }>;
   userJourney?: any;
 }

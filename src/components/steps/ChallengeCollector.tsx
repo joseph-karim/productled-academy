@@ -3,7 +3,8 @@ import { useFormStore } from '../../store/formStore';
 import { UserLevel, Challenge } from '../../types';
 import { MessageSquarePlus, HelpCircle, Loader2, PlusCircle } from 'lucide-react';
 import { FloatingFeedback, type Feedback } from '../shared/FloatingFeedback';
-import { analyzeText, suggestChallenges } from '../../services/ai';
+import { analyzeText } from '../../services/ai/feedback';
+import { suggestChallenges } from '../../services/ai/suggestions';
 
 export function ChallengeCollector() {
   const { 

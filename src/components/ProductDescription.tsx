@@ -1,8 +1,9 @@
 import React from 'react';
 import { useFormStore } from '../store/formStore';
 import { HelpCircle, Loader2, MessageSquarePlus, CheckCircle } from 'lucide-react';
-import { analyzeText } from '../services/ai';
-import { ErrorMessage } from './shared/ErrorMessage';
+import { analyzeText } from '../services/ai/feedback';
+import { ErrorMessage } from '../shared/ErrorMessage';
+import { ProductDescriptionLauncher } from '../wizard/ProductDescriptionLauncher';
 
 export function ProductDescription() {
   const { productDescription, setProductDescription } = useFormStore();
