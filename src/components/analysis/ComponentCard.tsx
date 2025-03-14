@@ -3,15 +3,12 @@ import { ChevronDown, ChevronUp } from 'lucide-react';
 
 interface ComponentCardProps {
   title: string;
-  analysis: {
-    score: number;
-    summary: string;
-    strengths: string[];
-    recommendations: string[];
-  };
+  score: number;
+  strengths: string[];
+  recommendations: string[];
 }
 
-export function ComponentCard({ title, analysis }: ComponentCardProps) {
+export function ComponentCard({ title, score, strengths, recommendations }: ComponentCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
   const getScoreColor = (score: number) => {
@@ -27,19 +24,14 @@ export function ComponentCard({ title, analysis }: ComponentCardProps) {
         className="flex items-center justify-between p-4 cursor-pointer"
         onClick={() => setIsExpanded(!isExpanded)}
       >
-        <div className="flex-grow">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-medium text-white">{title}</h3>
-            <div className="flex items-center space-x-3">
-              <span className={`text-2xl font-bold ${getScoreColor(analysis.score)}`}>
-                {analysis.score}/100
-              </span>
-              <div className="text-gray-400">
-                {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
-              </div>
-            </div>
+        <h3 className="text-lg font-medium text-white">{title}</h3>
+        <div className="flex items-center space-x-3">
+          <span className={`text-2xl font-bold ${getScoreColor(score)}`}>
+            {score}/100
+          </span>
+          <div className="text-gray-400">
+            {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
           </div>
-          <p className="text-sm text-gray-400 mt-1">{analysis.summary}</p>
         </div>
       </div>
 
@@ -49,7 +41,7 @@ export function ComponentCard({ title, analysis }: ComponentCardProps) {
           <div>
             <h4 className="text-sm font-medium text-green-400 mb-2">Strengths</h4>
             <ul className="space-y-2">
-              {analysis.strengths.map((strength, index) => (
+              {strengths.map((strength, index) => (
                 <li key={index} className="flex items-start space-x-2">
                   <span className="flex-shrink-0 w-1.5 h-1.5 mt-2 rounded-full bg-green-400" />
                   <span className="text-gray-300">{strength}</span>
@@ -62,7 +54,7 @@ export function ComponentCard({ title, analysis }: ComponentCardProps) {
           <div>
             <h4 className="text-sm font-medium text-[#FFD23F] mb-2">Recommendations</h4>
             <ul className="space-y-2">
-              {analysis.recommendations.map((recommendation, index) => (
+              {recommendations.map((recommendation, index) => (
                 <li key={index} className="flex items-start space-x-2">
                   <span className="flex-shrink-0 w-1.5 h-1.5 mt-2 rounded-full bg-[#FFD23F]" />
                   <span className="text-gray-300">{recommendation}</span>

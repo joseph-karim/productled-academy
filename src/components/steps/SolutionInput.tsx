@@ -3,7 +3,8 @@ import { useFormStore } from '../../store/formStore';
 import type { Solution, SolutionType } from '../../types';
 import { MessageSquarePlus, HelpCircle, Loader2, PlusCircle, Sparkles } from 'lucide-react';
 import { FloatingFeedback, type Feedback } from '../shared/FloatingFeedback';
-import { analyzeText, suggestSolutions } from '../../services/ai';
+import { analyzeText } from '../../services/ai/feedback';
+import { suggestSolutions } from '../../services/ai/suggestions';
 
 export function SolutionInput() {
   const { 

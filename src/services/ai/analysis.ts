@@ -1,6 +1,9 @@
 import { openai, handleOpenAIRequest } from './client';
 import type { Challenge, Solution, ModelType, Feature, IdealUser, UserJourney, Analysis } from '../../types';
 
+// Updated analyzeFormData function with proper null/undefined checks
+// to fix "Cannot read properties of undefined (reading 'map')" error
+
 export async function analyzeFormData(
   productDescription: string,
   idealUser: IdealUser,
@@ -9,21 +12,61 @@ export async function analyzeFormData(
   solutions: Solution[],
   selectedModel: ModelType,
   freeFeatures: Feature[],
-  userJourney?: UserJourney
+  userJourney?: any
 ): Promise<Analysis> {
-  // Format the ideal user traits for the prompt
-  const idealUserTraits = Array.isArray(idealUser?.traits) 
-    ? idealUser.traits.join(', ') 
-    : typeof idealUser?.traits === 'string' 
-      ? idealUser.traits 
-      : '';
+  // Format the ideal user traits for the prompt with null checks
+  const idealUserTraits = idealUser?.traits
+    ? Array.isArray(idealUser.traits) 
+      ? idealUser.traits.join(', ') 
+      : typeof idealUser.traits === 'string' 
+        ? idealUser.traits 
+        : ''
+    : '';
 
-  // Format challenges with levels
-  const formattedChallenges = challenges.map(c => {
-    const level = c.level || 'unspecified';
-    const magnitude = c.magnitude || 'unspecified';
-    return `- ${c.title} (Level: ${level}, Magnitude: ${magnitude})`;
-  }).join('\n');
+  // Format challenges with levels using safe null checks
+  const formattedChallenges = Array.isArray(challenges) 
+    ? challenges.map(c => {
+        const level = c?.level || 'unspecified';
+        const magnitude = c?.magnitude || 'unspecified';
+        return `- ${c?.title || 'Untitled Challenge'} (Level: ${level}, Magnitude: ${magnitude})`;
+      }).join('\n')
+    : 'No challenges provided';
+
+  // Format solutions with safe null checks
+  const formattedSolutions = Array.isArray(solutions)
+    ? solutions.map(s => {
+        return `- ${s?.text || 'Untitled Solution'} (Type: ${s?.type || 'not specified'}, Cost: ${s?.cost || 'not specified'})`;
+      }).join('\n')
+    : 'No solutions provided';
+
+  // Format free features with safe null checks
+  const formattedFeatures = Array.isArray(freeFeatures)
+    ? freeFeatures.map(f => {
+        return `- ${f?.name || 'Unnamed'}: ${f?.description || 'No description'}`;
+      }).join('\n')
+    : 'No features provided';
+
+  // Create a validated input object
+  const validatedInput = {
+    productDescription: productDescription || 'No product description provided',
+    idealUser: {
+      title: idealUser?.title || 'Not specified',
+      description: idealUser?.description || 'Not specified',
+      motivation: idealUser?.motivation || 'Not specified',
+      ability: idealUser?.ability || 'Not specified',
+      traits: idealUserTraits,
+      impact: idealUser?.impact || 'Not specified'
+    },
+    userEndgame: userEndgame || 'No user endgame provided',
+    challenges: formattedChallenges,
+    solutions: formattedSolutions,
+    selectedModel: selectedModel || 'not specified',
+    freeFeatures: formattedFeatures,
+    userJourney: userJourney ? JSON.stringify(userJourney) : 'Not provided'
+  };
+
+  // Log the validated input for debugging
+  console.log('Validated input for analysis:', validatedInput);
 
   return handleOpenAIRequest(
     openai.chat.completions.create({
@@ -39,44 +82,48 @@ Consider:
 - Efficiency: Resource utilization and implementation
 - Polish: User experience and cohesiveness
 
-Provide:
+Your analysis must follow this exact structure:
 1. DEEP scores (0-10 for each dimension)
-2. Component-specific scores (0-100)
-3. Key strengths and weaknesses
-4. Actionable recommendations
-5. Implementation timeline
-6. Testing framework
-7. A concise executive summary that highlights key insights and next steps`
+2. A concise summary (3-5 sentences) of the overall strategy
+3. 3-5 key overall strengths 
+4. 3-5 key overall weaknesses
+5. 3-5 actionable overall recommendations
+6. Component-specific scores (0-100) for all eight components
+7. For each component, provide 2-3 specific strengths and recommendations
+8. Implementation timeline (immediate, medium, and long-term actions)
+9. Testing framework with A/B tests and metrics
+
+Be specific, actionable, and focused on product-led growth strategies.`
         },
         {
           role: "user",
           content: `
-Product Description: ${productDescription}
+Product Description: ${validatedInput.productDescription}
 
 Ideal User:
-- Title: ${idealUser?.title || 'Not specified'}
-- Description: ${idealUser?.description || 'Not specified'}
-- Motivation: ${idealUser?.motivation || 'Not specified'}
-- Technical Ability: ${idealUser?.ability || 'Not specified'}
-- Traits: ${idealUserTraits}
-- Impact: ${idealUser?.impact || 'Not specified'}
+- Title: ${validatedInput.idealUser.title}
+- Description: ${validatedInput.idealUser.description}
+- Motivation: ${validatedInput.idealUser.motivation}
+- Technical Ability: ${validatedInput.idealUser.ability}
+- Traits: ${validatedInput.idealUser.traits}
+- Impact: ${validatedInput.idealUser.impact}
 
-User Endgame: ${userEndgame}
+User Endgame: ${validatedInput.userEndgame}
 
 Challenges:
-${formattedChallenges}
+${validatedInput.challenges}
 
 Solutions:
-${solutions.map(s => `- ${s.text} (Type: ${s.type || 'not specified'}, Cost: ${s.cost || 'not specified'})`).join('\n')}
+${validatedInput.solutions}
 
-Selected Model: ${selectedModel}
+Selected Model: ${validatedInput.selectedModel}
 
 Free Features:
-${freeFeatures.map(f => `- ${f.name || 'Unnamed'}: ${f.description || 'No description'}`).join('\n')}
+${validatedInput.freeFeatures}
 
-User Journey Canvas: ${userJourney ? JSON.stringify(userJourney) : 'Not provided'}
+User Journey Canvas: ${validatedInput.userJourney}
 
-Analyze this information using the DEEP framework. For each component, provide specific strengths and actionable recommendations. Create a comprehensive analysis that evaluates the free model strategy across all dimensions.`
+Please analyze this information using the DEEP framework. Follow the structure outlined in your instructions to provide a comprehensive, consistent analysis of this free model strategy.`
         }
       ],
       functions: [
@@ -95,6 +142,25 @@ Analyze this information using the DEEP framework. For each component, provide s
                   polish: { type: "number", minimum: 0, maximum: 10 }
                 },
                 required: ["desirability", "effectiveness", "efficiency", "polish"]
+              },
+              summary: { 
+                type: "string",
+                description: "A concise summary of the overall analysis"
+              },
+              strengths: {
+                type: "array", 
+                items: { type: "string" },
+                description: "Overall strengths identified in the analysis"
+              },
+              weaknesses: {
+                type: "array", 
+                items: { type: "string" },
+                description: "Overall weaknesses identified in the analysis"
+              },
+              recommendations: {
+                type: "array", 
+                items: { type: "string" },
+                description: "Overall recommendations based on the analysis"
               },
               componentScores: {
                 type: "object",
@@ -180,18 +246,6 @@ Analyze this information using the DEEP framework. For each component, provide s
                 },
                 required: ["productDescription", "idealUser", "userEndgame", "challenges", "solutions", "modelSelection", "freeFeatures", "userJourney"]
               },
-              strengths: {
-                type: "array",
-                items: { type: "string" }
-              },
-              weaknesses: {
-                type: "array",
-                items: { type: "string" }
-              },
-              recommendations: {
-                type: "array",
-                items: { type: "string" }
-              },
               actionPlan: {
                 type: "object",
                 properties: {
@@ -226,18 +280,37 @@ Analyze this information using the DEEP framework. For each component, provide s
                   }
                 },
                 required: ["abTests", "metrics"]
-              },
-              summary: { type: "string" }
+              }
             },
-            required: ["deepScore", "componentScores", "componentFeedback", "strengths", "weaknesses", "recommendations", "actionPlan", "testing", "summary"]
+            required: ["deepScore", "summary", "strengths", "weaknesses", "recommendations", "componentScores", "componentFeedback", "actionPlan", "testing"]
           }
         }
       ],
       function_call: { name: "provide_analysis" }
     }).then(completion => {
+      console.log("Received OpenAI completion response");
+      
       const result = completion.choices[0].message.function_call?.arguments;
-      if (!result) throw new Error("No analysis received");
-      return JSON.parse(result);
+      if (!result) {
+        console.error("No analysis result received in function_call arguments");
+        throw new Error("No analysis received");
+      }
+      
+      try {
+        const parsedResult = JSON.parse(result);
+        console.log("Successfully parsed analysis result");
+        
+        // Validate required fields
+        if (!parsedResult.deepScore || !parsedResult.strengths || !parsedResult.weaknesses) {
+          console.error("Missing required fields in analysis result", parsedResult);
+          throw new Error("Incomplete analysis results");
+        }
+        
+        return parsedResult;
+      } catch (parseError) {
+        console.error("Error parsing analysis result:", parseError);
+        throw new Error(`Failed to parse analysis result: ${parseError.message}`);
+      }
     }),
     'analyzing form data'
   );

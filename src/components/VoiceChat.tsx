@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useFormStore } from '../store/formStore';
 import { Mic, MicOff, Volume2, VolumeX, AlertCircle, X, Loader2 } from 'lucide-react';
-import Vapi from '@vapi-ai/web';
+import { Vapi } from '@vapi-ai/web';
 
 interface VoiceChatProps {
   onClose: () => void;
@@ -17,7 +17,7 @@ export function VoiceChat({ onClose }: VoiceChatProps) {
   const [isInitializing, setIsInitializing] = useState(true);
   const [isConnecting, setIsConnecting] = useState(false);
   
-  const vapiRef = useRef<any>(null);
+  const vapiRef = useRef<Vapi | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll messages
@@ -71,10 +71,7 @@ ${recommendations.map((r, i) => `${i + 1}. ${r}`).join('\n')}`;
         }
 
         // Initialize Vapi client
-        vapiRef.current = new Vapi({
-          apiKey,
-          debug: true
-        });
+        vapiRef.current = new Vapi(apiKey);
 
         // Request microphone permission early
         await navigator.mediaDevices.getUserMedia({ 

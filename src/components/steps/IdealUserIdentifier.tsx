@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useFormStore } from '../../store/formStore';
 import { HelpCircle, Loader2, MessageSquarePlus, CheckCircle } from 'lucide-react';
-import { identifyIdealUser } from '../../services/ai';
+import { identifyIdealUser } from '../../services/ai/users';
 import { ErrorMessage } from '../shared/ErrorMessage';
 import { IdealUserWizard } from '../wizard/IdealUserWizard';
 import type { IdealUser } from '../../types';
