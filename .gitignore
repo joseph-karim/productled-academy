@@ -27,3 +27,8 @@ dist-ssr
 # Environment variables
 .env
 .env.*
+!.env.example
+
+# Build output
+build
+out
