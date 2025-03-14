@@ -1,12 +1,16 @@
 import { openai, handleOpenAIRequest } from './client';
-import type { Challenge, Solution, ModelType, Feature, IdealUser, UserJourney, Analysis } from '../../types';
-
-// Updated analyzeFormData function with proper null/undefined checks
-// to fix "Cannot read properties of undefined (reading 'map')" error
+import type { Challenge, Solution, ModelType, Feature, Analysis } from '../types';
 
 export async function analyzeFormData(
   productDescription: string,
-  idealUser: IdealUser,
+  idealUser: {
+    title: string;
+    description: string;
+    motivation: 'Low' | 'Medium' | 'High';
+    ability: 'Low' | 'Medium' | 'High';
+    traits: string[];
+    impact: string;
+  },
   userEndgame: string,
   challenges: Challenge[],
   solutions: Solution[],
@@ -14,59 +18,32 @@ export async function analyzeFormData(
   freeFeatures: Feature[],
   userJourney?: any
 ): Promise<Analysis> {
-  // Format the ideal user traits for the prompt with null checks
-  const idealUserTraits = idealUser?.traits
-    ? Array.isArray(idealUser.traits) 
-      ? idealUser.traits.join(', ') 
-      : typeof idealUser.traits === 'string' 
-        ? idealUser.traits 
-        : ''
+  // Validate required fields
+  if (!productDescription || !userEndgame || !selectedModel) {
+    throw new Error('Missing required fields for analysis');
+  }
+
+  // Format the ideal user traits
+  const idealUserTraits = Array.isArray(idealUser?.traits) 
+    ? idealUser.traits.join(', ') 
     : '';
 
-  // Format challenges with levels using safe null checks
-  const formattedChallenges = Array.isArray(challenges) 
-    ? challenges.map(c => {
-        const level = c?.level || 'unspecified';
-        const magnitude = c?.magnitude || 'unspecified';
-        return `- ${c?.title || 'Untitled Challenge'} (Level: ${level}, Magnitude: ${magnitude})`;
-      }).join('\n')
-    : 'No challenges provided';
+  // Format challenges with levels
+  const formattedChallenges = challenges.map(c => {
+    const level = c.level || 'unspecified';
+    const magnitude = c.magnitude || 'unspecified';
+    return `- ${c.title} (Level: ${level}, Magnitude: ${magnitude})`;
+  }).join('\n');
 
-  // Format solutions with safe null checks
-  const formattedSolutions = Array.isArray(solutions)
-    ? solutions.map(s => {
-        return `- ${s?.text || 'Untitled Solution'} (Type: ${s?.type || 'not specified'}, Cost: ${s?.cost || 'not specified'})`;
-      }).join('\n')
-    : 'No solutions provided';
+  // Format solutions
+  const formattedSolutions = solutions.map(s => {
+    return `- ${s.text} (Type: ${s.type}, Cost: ${s.cost})`;
+  }).join('\n');
 
-  // Format free features with safe null checks
-  const formattedFeatures = Array.isArray(freeFeatures)
-    ? freeFeatures.map(f => {
-        return `- ${f?.name || 'Unnamed'}: ${f?.description || 'No description'}`;
-      }).join('\n')
-    : 'No features provided';
-
-  // Create a validated input object
-  const validatedInput = {
-    productDescription: productDescription || 'No product description provided',
-    idealUser: {
-      title: idealUser?.title || 'Not specified',
-      description: idealUser?.description || 'Not specified',
-      motivation: idealUser?.motivation || 'Not specified',
-      ability: idealUser?.ability || 'Not specified',
-      traits: idealUserTraits,
-      impact: idealUser?.impact || 'Not specified'
-    },
-    userEndgame: userEndgame || 'No user endgame provided',
-    challenges: formattedChallenges,
-    solutions: formattedSolutions,
-    selectedModel: selectedModel || 'not specified',
-    freeFeatures: formattedFeatures,
-    userJourney: userJourney ? JSON.stringify(userJourney) : 'Not provided'
-  };
-
-  // Log the validated input for debugging
-  console.log('Validated input for analysis:', validatedInput);
+  // Format free features
+  const formattedFeatures = freeFeatures.map(f => {
+    return `- ${f.name}: ${f.description}`;
+  }).join('\n');
 
   return handleOpenAIRequest(
     openai.chat.completions.create({
@@ -98,30 +75,30 @@ Be specific, actionable, and focused on product-led growth strategies.`
         {
           role: "user",
           content: `
-Product Description: ${validatedInput.productDescription}
+Product Description: ${productDescription}
 
 Ideal User:
-- Title: ${validatedInput.idealUser.title}
-- Description: ${validatedInput.idealUser.description}
-- Motivation: ${validatedInput.idealUser.motivation}
-- Technical Ability: ${validatedInput.idealUser.ability}
-- Traits: ${validatedInput.idealUser.traits}
-- Impact: ${validatedInput.idealUser.impact}
+- Title: ${idealUser?.title || 'Not specified'}
+- Description: ${idealUser?.description || 'Not specified'}
+- Motivation: ${idealUser?.motivation || 'Not specified'}
+- Technical Ability: ${idealUser?.ability || 'Not specified'}
+- Traits: ${idealUserTraits}
+- Impact: ${idealUser?.impact || 'Not specified'}
 
-User Endgame: ${validatedInput.userEndgame}
+User Endgame: ${userEndgame}
 
 Challenges:
-${validatedInput.challenges}
+${formattedChallenges}
 
 Solutions:
-${validatedInput.solutions}
+${formattedSolutions}
 
-Selected Model: ${validatedInput.selectedModel}
+Selected Model: ${selectedModel}
 
 Free Features:
-${validatedInput.freeFeatures}
+${formattedFeatures}
 
-User Journey Canvas: ${validatedInput.userJourney}
+User Journey Canvas: ${userJourney ? JSON.stringify(userJourney) : 'Not provided'}
 
 Please analyze this information using the DEEP framework. Follow the structure outlined in your instructions to provide a comprehensive, consistent analysis of this free model strategy.`
         }
@@ -149,18 +126,15 @@ Please analyze this information using the DEEP framework. Follow the structure o
               },
               strengths: {
                 type: "array", 
-                items: { type: "string" },
-                description: "Overall strengths identified in the analysis"
+                items: { type: "string" }
               },
               weaknesses: {
                 type: "array", 
-                items: { type: "string" },
-                description: "Overall weaknesses identified in the analysis"
+                items: { type: "string" }
               },
               recommendations: {
                 type: "array", 
-                items: { type: "string" },
-                description: "Overall recommendations based on the analysis"
+                items: { type: "string" }
               },
               componentScores: {
                 type: "object",
@@ -288,29 +262,9 @@ Please analyze this information using the DEEP framework. Follow the structure o
       ],
       function_call: { name: "provide_analysis" }
     }).then(completion => {
-      console.log("Received OpenAI completion response");
-      
       const result = completion.choices[0].message.function_call?.arguments;
-      if (!result) {
-        console.error("No analysis result received in function_call arguments");
-        throw new Error("No analysis received");
-      }
-      
-      try {
-        const parsedResult = JSON.parse(result);
-        console.log("Successfully parsed analysis result");
-        
-        // Validate required fields
-        if (!parsedResult.deepScore || !parsedResult.strengths || !parsedResult.weaknesses) {
-          console.error("Missing required fields in analysis result", parsedResult);
-          throw new Error("Incomplete analysis results");
-        }
-        
-        return parsedResult;
-      } catch (parseError) {
-        console.error("Error parsing analysis result:", parseError);
-        throw new Error(`Failed to parse analysis result: ${parseError.message}`);
-      }
+      if (!result) throw new Error("No analysis received");
+      return JSON.parse(result);
     }),
     'analyzing form data'
   );

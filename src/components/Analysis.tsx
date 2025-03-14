@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useFormStore } from '../store/formStore';
 import { Mic, Loader2, X } from 'lucide-react';
 import { VoiceChat } from './VoiceChat';
@@ -22,6 +22,7 @@ export function Analysis() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasInitiatedAnalysis, setHasInitiatedAnalysis] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Run the analysis once when the component mounts
   useEffect(() => {
@@ -30,9 +31,10 @@ export function Analysis() {
       if (isAnalyzing || store.analysis || hasInitiatedAnalysis) return;
       
       // Get the beginner outcome text
-      const beginnerOutcome = store.outcomes.find(o => o.level === 'beginner')?.text || '';
+      const beginnerOutcome = store.outcomes.find(o => o.level === 'beginner');
       
-      if (!store.productDescription || !beginnerOutcome || !store.selectedModel) {
+      // Verify all required data is present
+      if (!store.productDescription || !beginnerOutcome?.text || !store.selectedModel || !store.idealUser) {
         setError("Please complete all previous sections before viewing the analysis.");
         return;
       }
@@ -41,80 +43,29 @@ export function Analysis() {
       setHasInitiatedAnalysis(true);
       
       try {
-        // Safe data handling for arrays that might be undefined
-        const safeIdealUser = store.idealUser || {
-          title: '',
-          description: '',
-          motivation: 'Medium' as const,
-          ability: 'Medium' as const,
-          traits: [],
-          impact: ''
-        };
-        
-        // Safe challenges handling
-        const safeChallengesToPass = Array.isArray(store.challenges) 
-          ? store.challenges.map(c => ({
-              title: c?.title || '',
-              description: c?.description || '',
-              magnitude: typeof c?.magnitude === 'number' ? c.magnitude : 1,
-              level: c?.level || 'beginner'
-            }))
-          : [];
-        
-        // Safe solutions handling
-        const safeSolutionsToPass = Array.isArray(store.solutions)
-          ? store.solutions.map(s => ({
-              text: s?.text || '',
-              type: s?.type || '',
-              cost: s?.cost || ''
-            }))
-          : [];
-        
-        // Safe features handling
-        const safeFeaturesToPass = Array.isArray(store.freeFeatures)
-          ? store.freeFeatures.map(f => ({
-              name: f?.name || '',
-              description: f?.description || ''
-            }))
-          : [];
-        
-        // Log analysis request with safe data
-        console.log('Starting analysis with:', {
-          productDescription: store.productDescription,
-          idealUser: safeIdealUser,
-          userEndgame: beginnerOutcome,
-          challenges: safeChallengesToPass,
-          solutions: safeSolutionsToPass,
-          selectedModel: store.selectedModel,
-          freeFeatures: safeFeaturesToPass
-        });
-
-        // Call the analysis function with safe data
-        const result = await analyzeFormData({
-          productDescription: store.productDescription,
-          idealUser: safeIdealUser,
-          userEndgame: beginnerOutcome,
-          challenges: safeChallengesToPass,
-          solutions: safeSolutionsToPass,
-          selectedModel: store.selectedModel,
-          freeFeatures: safeFeaturesToPass,
-          userJourney: store.userJourney
-        });
-        
-        console.log('Analysis completed:', result);
+        const result = await analyzeFormData(
+          store.productDescription,
+          store.idealUser,
+          beginnerOutcome.text,
+          store.challenges,
+          store.solutions,
+          store.selectedModel,
+          store.freeFeatures,
+          store.userJourney
+        );
         
         store.setAnalysis(result);
         setError(null);
       } catch (error) {
         console.error('Error analyzing data:', error);
-        setError(error instanceof Error ? error.message : 'An unexpected error occurred');
+        setError(error instanceof Error ? error.message : 'An unexpected error occurred during analysis');
       } finally {
         setIsAnalyzing(false);
       }
     };
 
     analyzeData();
-  }, [store.productDescription, store.idealUser, store.selectedModel, store.challenges, store.solutions, store.freeFeatures, isAnalyzing, store.analysis, hasInitiatedAnalysis, store]);
+  }, [store, isAnalyzing, hasInitiatedAnalysis]);
 
   if (isAnalyzing) {
     return (
