@@ -1,8 +1,9 @@
 import React from 'react';
 import { useFormStore } from '../../store/formStore';
-import { HelpCircle, Loader2, MessageSquarePlus, CheckCircle } from 'lucide-react';
+import { HelpCircle, Loader2, MessageSquarePlus } from 'lucide-react';
 import { analyzeText } from '../../services/ai';
 import { ErrorMessage } from '../shared/ErrorMessage';
+import { ProductDescriptionLauncher } from '../wizard/ProductDescriptionLauncher';
 
 export function ProductDescription() {
   const { productDescription, setProductDescription } = useFormStore();
@@ -19,7 +20,6 @@ export function ProductDescription() {
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newText = e.target.value;
     setProductDescription(newText);
-    // Clear feedback when text changes
     setSuggestions([]);
     setError(null);
     setSuggestedDescription(null);
@@ -35,7 +35,6 @@ export function ProductDescription() {
     try {
       const result = await analyzeText(productDescription, 'Product Description');
       
-      // Group feedbacks by category
       const groupedSuggestions = [
         ...result.feedbacks.map(f => ({
           category: f.category || 'General',
@@ -51,7 +50,6 @@ export function ProductDescription() {
 
       setSuggestions(groupedSuggestions);
 
-      // Set suggested description if provided
       if (result.suggestedText) {
         setSuggestedDescription(result.suggestedText);
       }
@@ -62,26 +60,18 @@ export function ProductDescription() {
     }
   };
 
-  const handleAcceptSuggestion = () => {
-    if (suggestedDescription) {
-      setProductDescription(suggestedDescription);
-      setSuggestedDescription(null);
-      setSuggestions([]);
-    }
-  };
-
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-start">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Product Description</h2>
-          <p className="text-gray-600 mt-1">
+          <h2 className="text-2xl font-bold text-white">Product Description</h2>
+          <p className="text-gray-400 mt-1">
             Describe what your product/service is and does. Focus on the core functionality and key features.
           </p>
         </div>
         <button
           onClick={() => setShowGuidance(!showGuidance)}
-          className="text-blue-600 hover:text-blue-800"
+          className="text-[#FFD23F] hover:text-[#FFD23F]/80"
           title={showGuidance ? "Hide guidance" : "Show guidance"}
         >
           <HelpCircle className="w-5 h-5" />
@@ -89,38 +79,62 @@ export function ProductDescription() {
       </div>
 
       {showGuidance && (
-        <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 space-y-4">
+        <div className="description-framework">
           <div>
-            <h3 className="font-medium text-blue-900">Description Framework</h3>
-            <div className="mt-2 grid grid-cols-2 gap-4">
-              <div>
-                <h4 className="font-medium text-blue-800">Core Elements</h4>
-                <ul className="mt-1 list-disc list-inside text-blue-700 space-y-1 text-sm">
-                  <li>What is your product/service at its core?</li>
-                  <li>What are the key features and capabilities?</li>
-                  <li>What makes it unique or different?</li>
-                  <li>What is the primary use case?</li>
+            <h3 className="framework-heading">Description Framework</h3>
+            <div className="framework-grid">
+              <div className="framework-column">
+                <h4 className="text-white font-medium">Core Elements</h4>
+                <ul className="space-y-2">
+                  <li className="framework-list-item">
+                    <span className="framework-bullet" />
+                    <span>What is your product/service at its core?</span>
+                  </li>
+                  <li className="framework-list-item">
+                    <span className="framework-bullet" />
+                    <span>What are the key features and capabilities?</span>
+                  </li>
+                  <li className="framework-list-item">
+                    <span className="framework-bullet" />
+                    <span>What makes it unique or different?</span>
+                  </li>
+                  <li className="framework-list-item">
+                    <span className="framework-bullet" />
+                    <span>What is the primary use case?</span>
+                  </li>
                 </ul>
               </div>
-              <div>
-                <h4 className="font-medium text-blue-800">Tips</h4>
-                <ul className="mt-1 list-disc list-inside text-blue-700 space-y-1 text-sm">
-                  <li>Be clear and concise</li>
-                  <li>Focus on value delivered</li>
-                  <li>Highlight differentiators</li>
-                  <li>Use specific examples</li>
+              <div className="framework-column">
+                <h4 className="text-white font-medium">Tips</h4>
+                <ul className="space-y-2">
+                  <li className="framework-list-item">
+                    <span className="framework-bullet" />
+                    <span>Be clear and concise</span>
+                  </li>
+                  <li className="framework-list-item">
+                    <span className="framework-bullet" />
+                    <span>Focus on value delivered</span>
+                  </li>
+                  <li className="framework-list-item">
+                    <span className="framework-bullet" />
+                    <span>Highlight differentiators</span>
+                  </li>
+                  <li className="framework-list-item">
+                    <span className="framework-bullet" />
+                    <span>Use specific examples</span>
+                  </li>
                 </ul>
               </div>
             </div>
           </div>
           
-          <div>
-            <h4 className="font-medium text-blue-900">Example</h4>
-            <p className="text-sm text-blue-800 mt-1">
+          <div className="mt-6">
+            <h4 className="text-white font-medium mb-2">Example</h4>
+            <div className="framework-example">
               "Our AI-powered document collaboration platform helps teams create and edit contracts 3x faster. 
               Unlike traditional PDF tools, we offer real-time collaboration, smart templates, and automated 
               workflows that eliminate manual document preparation and streamline the entire contract lifecycle."
-            </p>
+            </div>
           </div>
         </div>
       )}
@@ -129,18 +143,19 @@ export function ProductDescription() {
         <textarea
           value={productDescription}
           onChange={handleTextChange}
-          className="w-full h-40 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="pl-input w-full h-40"
           placeholder="Enter your product description..."
         />
         
-        <div className="flex justify-end">
+        <div className="flex justify-end space-x-2">
+          <ProductDescriptionLauncher />
           <button
             onClick={handleGetFeedback}
             disabled={isAnalyzing || productDescription.length < 10}
             className={`flex items-center px-4 py-2 rounded-lg ${
               isAnalyzing || productDescription.length < 10
-                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                : 'bg-blue-600 text-white hover:bg-blue-700'
+                ? 'bg-[#333333] text-gray-500 cursor-not-allowed'
+                : 'bg-[#FFD23F] text-[#1C1C1C] hover:bg-[#FFD23F]/90'
             }`}
           >
             {isAnalyzing ? (
@@ -165,18 +180,8 @@ export function ProductDescription() {
         )}
         
         {!isAnalyzing && suggestedDescription && (
-          <div className="bg-green-50 border border-green-100 rounded-lg p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <h4 className="font-medium text-green-900">Suggested Description</h4>
-              <button
-                onClick={handleAcceptSuggestion}
-                className="flex items-center text-sm text-green-700 hover:text-green-900"
-              >
-                <CheckCircle className="w-4 h-4 mr-1" />
-                Use This Description
-              </button>
-            </div>
-            <p className="text-green-800">{suggestedDescription}</p>
+          <div className="bg-[#2A2A2A] border border-[#333333] rounded-lg p-4">
+            <p className="text-[#FFD23F]">{suggestedDescription}</p>
           </div>
         )}
         
@@ -188,27 +193,19 @@ export function ProductDescription() {
 
               return (
                 <div key={category} className="space-y-2">
-                  <h4 className="font-medium text-gray-900">{category}</h4>
+                  <h4 className="font-medium text-white">{category}</h4>
                   {categorySuggestions.map((suggestion, index) => (
                     <div
                       key={index}
                       className={`p-3 rounded-lg ${
                         suggestion.type === 'improvement'
-                          ? 'bg-blue-50 border border-blue-100'
+                          ? 'bg-[#2A2A2A] border border-[#FFD23F] text-[#FFD23F]'
                           : suggestion.type === 'warning'
-                          ? 'bg-amber-50 border border-amber-100'
-                          : 'bg-green-50 border border-green-100'
+                          ? 'bg-[#2A2A2A] border border-amber-500 text-amber-500'
+                          : 'bg-[#2A2A2A] border border-green-500 text-green-500'
                       }`}
                     >
-                      <p className={`text-sm ${
-                        suggestion.type === 'improvement'
-                          ? 'text-blue-800'
-                          : suggestion.type === 'warning'
-                          ? 'text-amber-800'
-                          : 'text-green-800'
-                      }`}>
-                        {suggestion.text}
-                      </p>
+                      <p className="text-sm">{suggestion.text}</p>
                     </div>
                   ))}
                 </div>

@@ -1,15 +1,15 @@
 import React from 'react';
 import { useFormStore } from '../../store/formStore';
-import { HelpCircle, Loader2, MessageSquarePlus, CheckCircle, Users } from 'lucide-react';
+import { HelpCircle, Loader2, MessageSquarePlus } from 'lucide-react';
 import { analyzeText, suggestUserEndgame } from '../../services/ai';
 import type { UserLevel } from '../../types';
 import { ErrorMessage } from '../shared/ErrorMessage';
+import { ChatAssistantButton } from '../shared/ChatAssistantButton';
 
 export function UserEndgame() {
-  const { productDescription, outcomes, updateOutcome } = useFormStore();
+  const { outcomes, updateOutcome, idealUser } = useFormStore();
   const [showGuidance, setShowGuidance] = React.useState(true);
   const [isAnalyzing, setIsAnalyzing] = React.useState<Record<string, boolean>>({});
-  const [isSuggesting, setIsSuggesting] = React.useState<Record<string, boolean>>({});
   const [error, setError] = React.useState<Record<string, string>>({});
   const [activeTab, setActiveTab] = React.useState<UserLevel>('beginner');
   const [suggestions, setSuggestions] = React.useState<Record<string, Array<{
@@ -18,36 +18,43 @@ export function UserEndgame() {
     type: 'improvement' | 'warning' | 'positive';
   }>>>({});
   const [suggestedOutcomes, setSuggestedOutcomes] = React.useState<Record<string, string>>({});
-  const [breakdowns, setBreakdowns] = React.useState<Record<string, {
-    how: string;
-    who: string;
-    why: string;
-    results: string;
-    roles?: {
-      individual: string;
-      manager?: string;
-      director?: string;
-    };
-  }>>({});
 
   const examples = {
     beginner: {
-      how: "Simple drag-and-drop interface and pre-built templates",
-      who: "Non-technical users who need to create professional documents",
-      why: "Manual document creation is time-consuming and error-prone",
-      results: "Create first document in under 5 minutes, 60% faster than traditional methods"
+      how: `Using ${idealUser?.traits[0] || 'intuitive features'} and guided workflows`,
+      who: idealUser?.title || "First-time users learning the basics",
+      why: idealUser?.description || "Need to achieve initial success quickly",
+      results: idealUser?.impact || "Create first successful outcome in under 5 minutes"
     },
     intermediate: {
-      how: "Advanced customization options and workflow automation",
-      who: "Teams managing regular document workflows",
-      why: "Need to scale document operations while maintaining consistency",
-      results: "50% reduction in review cycles, 40% increase in team productivity"
+      how: "Team-wide workflows and collaboration features",
+      who: `Team of ${idealUser?.title}s` || "Growing teams",
+      why: "Need to scale operations and improve team efficiency",
+      results: "50% reduction in manual work, improved team coordination"
     },
     advanced: {
-      how: "API integration, custom branding, and enterprise controls",
-      who: "Large organizations with complex document needs",
-      why: "Require enterprise-grade security and compliance features",
-      results: "90% automation of document workflows, $200K annual cost savings"
+      how: "Enterprise controls and strategic automation",
+      who: `${idealUser?.title} leaders in enterprise organizations` || "Enterprise teams",
+      why: "Need organization-wide impact and governance",
+      results: "90% automation of workflows, significant cost savings"
+    }
+  };
+
+  const levelContexts = {
+    beginner: {
+      title: "Individual Success",
+      description: `Focus on how a single ${idealUser?.title || 'user'} achieves their first wins and builds confidence with the product.`,
+      prompt: `What transformation does a new ${idealUser?.title || 'user'} achieve? Consider their immediate goals and quick wins.`
+    },
+    intermediate: {
+      title: "Team Impact",
+      description: `Think about how your ideal user leads their team to success. How do they use your product to improve team performance?`,
+      prompt: "How does success scale from individual to team level? What team-wide benefits are unlocked?"
+    },
+    advanced: {
+      title: "Business Transformation",
+      description: "Consider the broader business impact. How does your product drive organizational change and strategic outcomes?",
+      prompt: "What enterprise-level results demonstrate full transformation? Think about business metrics and strategic impact."
     }
   };
 
@@ -56,35 +63,6 @@ export function UserEndgame() {
     setSuggestions(prev => ({ ...prev, [level]: [] }));
     setSuggestedOutcomes(prev => ({ ...prev, [level]: '' }));
     setError(prev => ({ ...prev, [level]: '' }));
-  };
-
-  const handleGetSuggestion = async (level: UserLevel) => {
-    if (!productDescription) return;
-    
-    setIsSuggesting(prev => ({ ...prev, [level]: true }));
-    setError(prev => ({ ...prev, [level]: '' }));
-    
-    try {
-      const result = await suggestUserEndgame(level, productDescription);
-      setSuggestedOutcomes(prev => ({
-        ...prev,
-        [level]: result.suggestion
-      }));
-      setBreakdowns(prev => ({
-        ...prev,
-        [level]: {
-          ...result.breakdown,
-          roles: result.roles
-        }
-      }));
-    } catch (error) {
-      setError(prev => ({
-        ...prev,
-        [level]: error instanceof Error ? error.message : 'An unexpected error occurred'
-      }));
-    } finally {
-      setIsSuggesting(prev => ({ ...prev, [level]: false }));
-    }
   };
 
   const handleGetFeedback = async (level: UserLevel) => {
@@ -131,12 +109,48 @@ export function UserEndgame() {
     }
   };
 
-  const handleAcceptSuggestion = (level: UserLevel) => {
-    const suggestedOutcome = suggestedOutcomes[level];
-    if (suggestedOutcome) {
-      updateOutcome(level, suggestedOutcome);
-      setSuggestedOutcomes(prev => ({ ...prev, [level]: '' }));
-      setSuggestions(prev => ({ ...prev, [level]: [] }));
+  const handleGetSuggestion = async (level: UserLevel) => {
+    if (!idealUser) return;
+    
+    setIsAnalyzing(prev => ({ ...prev, [level]: true }));
+    setError(prev => ({ ...prev, [level]: '' }));
+    
+    try {
+      const result = await suggestUserEndgame(level, idealUser.description);
+      updateOutcome(level, result.suggestion);
+      
+      setSuggestions(prev => ({
+        ...prev,
+        [level]: [
+          {
+            category: 'How',
+            text: result.breakdown.how,
+            type: 'positive'
+          },
+          {
+            category: 'Who',
+            text: result.breakdown.who,
+            type: 'positive'
+          },
+          {
+            category: 'Why',
+            text: result.breakdown.why,
+            type: 'positive'
+          },
+          {
+            category: 'Results',
+            text: result.breakdown.results,
+            type: 'positive'
+          }
+        ]
+      }));
+    } catch (error) {
+      setError(prev => ({
+        ...prev,
+        [level]: error instanceof Error ? error.message : 'An unexpected error occurred'
+      }));
+    } finally {
+      setIsAnalyzing(prev => ({ ...prev, [level]: false }));
     }
   };
 
@@ -144,14 +158,14 @@ export function UserEndgame() {
     <div className="space-y-6">
       <div className="flex justify-between items-start">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">User Endgame</h2>
-          <p className="text-gray-600 mt-1">
-            Describe the transformation and value your users achieve. Focus on how you solve their problems, who benefits, why it matters, and measurable results.
+          <h2 className="text-2xl font-bold text-white">User Endgame</h2>
+          <p className="text-gray-400">
+            Define the transformation and value your users achieve at each level, starting with your ideal user's individual success.
           </p>
         </div>
         <button
           onClick={() => setShowGuidance(!showGuidance)}
-          className="text-blue-600 hover:text-blue-800"
+          className="text-[#FFD23F] hover:text-[#FFD23F]/80"
           title={showGuidance ? "Hide guidance" : "Show guidance"}
         >
           <HelpCircle className="w-5 h-5" />
@@ -159,19 +173,33 @@ export function UserEndgame() {
       </div>
 
       {showGuidance && (
-        <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 space-y-4">
+        <div className="description-framework">
           <div>
-            <h3 className="font-medium text-blue-900">Value Proposition Structure</h3>
-            <ul className="mt-2 list-disc list-inside text-blue-800 space-y-2 text-sm">
-              <li>How: Key features/approach that enable the transformation</li>
-              <li>Who: Target audience segments and their needs</li>
-              <li>Why: Problems solved and pain points addressed</li>
-              <li>Results: Specific, measurable outcomes and benefits</li>
-            </ul>
+            <h3 className="framework-heading">Success Framework</h3>
+            <div className="grid grid-cols-3 gap-4 mt-4">
+              <div className="bg-[#1C1C1C] p-4 rounded-lg">
+                <h4 className="text-[#FFD23F] font-medium mb-2">Individual Success</h4>
+                <p className="text-sm text-gray-300">
+                  Start with your ideal user's first wins. What immediate value do they achieve?
+                </p>
+              </div>
+              <div className="bg-[#1C1C1C] p-4 rounded-lg">
+                <h4 className="text-[#FFD23F] font-medium mb-2">Team Impact</h4>
+                <p className="text-sm text-gray-300">
+                  How does success scale to their team? What collective benefits are unlocked?
+                </p>
+              </div>
+              <div className="bg-[#1C1C1C] p-4 rounded-lg">
+                <h4 className="text-[#FFD23F] font-medium mb-2">Business Transformation</h4>
+                <p className="text-sm text-gray-300">
+                  What organization-wide impact demonstrates complete transformation?
+                </p>
+              </div>
+            </div>
           </div>
 
-          <div className="border-t border-blue-100 pt-4">
-            <h3 className="font-medium text-blue-900 mb-3">Examples by User Level</h3>
+          <div className="mt-6">
+            <h3 className="framework-heading mb-3">Example Progression</h3>
             <div className="flex space-x-2 mb-4">
               {(['beginner', 'intermediate', 'advanced'] as const).map((tab) => (
                 <button
@@ -179,8 +207,8 @@ export function UserEndgame() {
                   onClick={() => setActiveTab(tab)}
                   className={`px-4 py-2 rounded-lg capitalize ${
                     activeTab === tab
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-blue-100 text-blue-800 hover:bg-blue-200'
+                      ? 'bg-[#FFD23F] text-[#1C1C1C]'
+                      : 'bg-[#2A2A2A] text-gray-300 hover:bg-[#333333]'
                   }`}
                 >
                   {tab}
@@ -190,17 +218,17 @@ export function UserEndgame() {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <h4 className="font-medium text-blue-900 mb-2">How & Who</h4>
-                <div className="space-y-2 text-sm text-blue-800">
-                  <p><span className="font-medium">How:</span> {examples[activeTab].how}</p>
-                  <p><span className="font-medium">Who:</span> {examples[activeTab].who}</p>
+                <h4 className="text-white font-medium mb-2">How & Who</h4>
+                <div className="space-y-2 text-gray-300">
+                  <p><span className="text-[#FFD23F]">How:</span> {examples[activeTab].how}</p>
+                  <p><span className="text-[#FFD23F]">Who:</span> {examples[activeTab].who}</p>
                 </div>
               </div>
               <div>
-                <h4 className="font-medium text-blue-900 mb-2">Why & Results</h4>
-                <div className="space-y-2 text-sm text-blue-800">
-                  <p><span className="font-medium">Why:</span> {examples[activeTab].why}</p>
-                  <p><span className="font-medium">Results:</span> {examples[activeTab].results}</p>
+                <h4 className="text-white font-medium mb-2">Why & Results</h4>
+                <div className="space-y-2 text-gray-300">
+                  <p><span className="text-[#FFD23F]">Why:</span> {examples[activeTab].why}</p>
+                  <p><span className="text-[#FFD23F]">Results:</span> {examples[activeTab].results}</p>
                 </div>
               </div>
             </div>
@@ -211,52 +239,51 @@ export function UserEndgame() {
       <div className="space-y-8">
         {(['beginner', 'intermediate', 'advanced'] as const).map((level) => {
           const outcome = outcomes.find(o => o.level === level);
-          const breakdown = breakdowns[level];
+          const context = levelContexts[level];
           
           return (
             <div key={level} className="space-y-4">
               <div>
-                <label className="block text-lg font-medium text-gray-900 capitalize mb-1">
-                  {level} User Outcome {level === 'beginner' && <span className="text-red-500">*</span>}
-                </label>
-                <p className="text-sm text-gray-600 mb-2">
-                  {level === 'beginner' 
-                    ? 'What transformation do new users achieve with your product?'
-                    : level === 'intermediate'
-                    ? 'How do regular users expand their capabilities?'
-                    : 'What advanced outcomes do power users unlock?'}
-                </p>
+                <div className="flex items-baseline justify-between">
+                  <div>
+                    <h3 className="text-lg font-medium text-white">{context.title}</h3>
+                    <p className="text-sm text-gray-400 mt-1">{context.description}</p>
+                  </div>
+                  {level !== 'beginner' && (
+                    <span className="text-xs text-gray-500 italic">Optional</span>
+                  )}
+                </div>
 
-                <div className="flex justify-end space-x-2 mb-2">
+                <div className="flex justify-end space-x-2 mb-2 mt-4">
                   <button
                     onClick={() => handleGetSuggestion(level)}
-                    disabled={isSuggesting[level] || !productDescription}
+                    disabled={!idealUser || isAnalyzing[level]}
                     className={`flex items-center px-4 py-2 rounded-lg ${
-                      isSuggesting[level] || !productDescription
-                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                        : 'bg-green-600 text-white hover:bg-green-700'
+                      !idealUser || isAnalyzing[level]
+                        ? 'bg-[#333333] text-gray-500 cursor-not-allowed'
+                        : 'bg-[#2A2A2A] text-[#FFD23F] border border-[#FFD23F] hover:bg-[#FFD23F] hover:text-[#1C1C1C]'
                     }`}
                   >
-                    {isSuggesting[level] ? (
+                    {isAnalyzing[level] ? (
                       <>
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                         Generating...
                       </>
                     ) : (
                       <>
-                        <Users className="w-4 h-4 mr-2" />
+                        <MessageSquarePlus className="w-4 h-4 mr-2" />
                         Get AI Suggestion
                       </>
                     )}
                   </button>
-
+                  <ChatAssistantButton label="Use Chat Assistant" />
                   <button
                     onClick={() => handleGetFeedback(level)}
                     disabled={isAnalyzing[level] || !outcome?.text || outcome.text.length < 10}
                     className={`flex items-center px-4 py-2 rounded-lg ${
                       isAnalyzing[level] || !outcome?.text || outcome.text.length < 10
-                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                        : 'bg-blue-600 text-white hover:bg-blue-700'
+                        ? 'bg-[#333333] text-gray-500 cursor-not-allowed'
+                        : 'bg-[#FFD23F] text-[#1C1C1C] hover:bg-[#FFD23F]/90'
                     }`}
                   >
                     {isAnalyzing[level] ? (
@@ -276,8 +303,8 @@ export function UserEndgame() {
                 <textarea
                   value={outcome?.text || ''}
                   onChange={(e) => handleOutcomeChange(level, e.target.value)}
-                  className="w-full h-32 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder={`Describe the transformation and outcomes for ${level} users...`}
+                  className="pl-input w-full h-32"
+                  placeholder={context.prompt}
                 />
               </div>
 
@@ -288,66 +315,9 @@ export function UserEndgame() {
                 />
               )}
 
-              {!isSuggesting[level] && breakdown && (
-                <div className="bg-green-50 border border-green-100 rounded-lg p-4 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-medium text-green-900">AI Suggestion</h4>
-                    <button
-                      onClick={() => handleAcceptSuggestion(level)}
-                      className="flex items-center text-sm text-green-700 hover:text-green-900"
-                    >
-                      <CheckCircle className="w-4 h-4 mr-1" />
-                      Use This Outcome
-                    </button>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <h5 className="font-medium text-green-800">How</h5>
-                      <p className="text-sm text-green-700 mt-1">{breakdown.how}</p>
-                    </div>
-                    <div>
-                      <h5 className="font-medium text-green-800">Who</h5>
-                      <p className="text-sm text-green-700 mt-1">{breakdown.who}</p>
-                    </div>
-                    <div>
-                      <h5 className="font-medium text-green-800">Why</h5>
-                      <p className="text-sm text-green-700 mt-1">{breakdown.why}</p>
-                    </div>
-                    <div>
-                      <h5 className="font-medium text-green-800">Results</h5>
-                      <p className="text-sm text-green-700 mt-1">{breakdown.results}</p>
-                    </div>
-                  </div>
-
-                  {breakdown.roles && (
-                    <div className="border-t border-green-200 pt-4">
-                      <h5 className="font-medium text-green-800 mb-2">Role-Specific Outcomes</h5>
-                      <div className="space-y-2">
-                        <div>
-                          <h6 className="text-sm font-medium text-green-800">Individual Contributors</h6>
-                          <p className="text-sm text-green-700">{breakdown.roles.individual}</p>
-                        </div>
-                        {breakdown.roles.manager && (
-                          <div>
-                            <h6 className="text-sm font-medium text-green-800">Line Managers</h6>
-                            <p className="text-sm text-green-700">{breakdown.roles.manager}</p>
-                          </div>
-                        )}
-                        {breakdown.roles.director && (
-                          <div>
-                            <h6 className="text-sm font-medium text-green-800">Functional Directors</h6>
-                            <p className="text-sm text-green-700">{breakdown.roles.director}</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="border-t border-green-200 pt-4">
-                    <p className="text-sm text-green-900 font-medium">Suggested Outcome:</p>
-                    <p className="text-green-800 mt-2">{suggestedOutcomes[level]}</p>
-                  </div>
+              {!isAnalyzing[level] && suggestedOutcomes[level] && (
+                <div className="bg-[#2A2A2A] border border-[#FFD23F] rounded-lg p-4">
+                  <p className="text-[#FFD23F]">{suggestedOutcomes[level]}</p>
                 </div>
               )}
 
@@ -359,27 +329,19 @@ export function UserEndgame() {
 
                     return (
                       <div key={category} className="space-y-2">
-                        <h4 className="font-medium text-gray-900">{category}</h4>
+                        <h4 className="font-medium text-white">{category}</h4>
                         {categorySuggestions.map((suggestion, index) => (
                           <div
                             key={index}
                             className={`p-3 rounded-lg ${
                               suggestion.type === 'improvement'
-                                ? 'bg-blue-50 border border-blue-100'
+                                ? 'bg-[#2A2A2A] border border-[#FFD23F] text-[#FFD23F]'
                                 : suggestion.type === 'warning'
-                                ? 'bg-amber-50 border border-amber-100'
-                                : 'bg-green-50 border border-green-100'
+                                ? 'bg-[#2A2A2A] border border-amber-500 text-amber-500'
+                                : 'bg-[#2A2A2A] border border-green-500 text-green-500'
                             }`}
                           >
-                            <p className={`text-sm ${
-                              suggestion.type === 'improvement'
-                                ? 'text-blue-800'
-                                : suggestion.type === 'warning'
-                                ? 'text-amber-800'
-                                : 'text-green-800'
-                            }`}>
-                              {suggestion.text}
-                            </p>
+                            <p className="text-sm">{suggestion.text}</p>
                           </div>
                         ))}
                       </div>

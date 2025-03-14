@@ -1,7 +1,7 @@
 import React from 'react';
 import { useFormStore } from '../../store/formStore';
 import { UserLevel, Challenge } from '../../types';
-import { MessageSquarePlus, HelpCircle, Loader2, AlertCircle, PlusCircle } from 'lucide-react';
+import { MessageSquarePlus, HelpCircle, Loader2, PlusCircle } from 'lucide-react';
 import { FloatingFeedback, type Feedback } from '../shared/FloatingFeedback';
 import { analyzeText, suggestChallenges } from '../../services/ai';
 
@@ -14,11 +14,12 @@ export function ChallengeCollector() {
     updateChallenge, 
     removeChallenge 
   } = useFormStore();
+  
   const [showGuidance, setShowGuidance] = React.useState(true);
   const [feedbacks, setFeedbacks] = React.useState<Record<string, Feedback[]>>({});
   const [isAnalyzing, setIsAnalyzing] = React.useState<Record<string, boolean>>({});
-  const [isGenerating, setIsGenerating] = React.useState<Record<string, boolean>>({});
   const [showTooltip, setShowTooltip] = React.useState<Record<string, boolean>>({});
+  const [isGenerating, setIsGenerating] = React.useState<Record<string, boolean>>({});
 
   const userLevels: UserLevel[] = ['beginner', 'intermediate', 'advanced'];
 
@@ -41,7 +42,6 @@ export function ChallengeCollector() {
   };
 
   const handleAddChallenge = (level: UserLevel) => {
-    // Only allow adding challenges if there's a corresponding outcome
     const outcome = outcomes.find(o => o.level === level);
     if (!outcome) {
       alert(`Please define the ${level} user outcome first`);
@@ -71,7 +71,6 @@ export function ChallengeCollector() {
         outcome.text
       );
       
-      // Add each suggested challenge
       suggestions.forEach(suggestion => {
         const newChallenge: Challenge = {
           id: crypto.randomUUID(),
@@ -122,16 +121,13 @@ export function ChallengeCollector() {
     let result = [];
     let lastIndex = 0;
 
-    // Sort feedbacks by startIndex
     const sortedFeedbacks = [...challengeFeedbacks].sort((a, b) => a.startIndex - b.startIndex);
 
     sortedFeedbacks.forEach((feedback) => {
-      // Add text before the feedback
       if (feedback.startIndex > lastIndex) {
         result.push(text.slice(lastIndex, feedback.startIndex));
       }
 
-      // Add the feedback component
       result.push(
         <FloatingFeedback
           key={feedback.id}
@@ -144,7 +140,6 @@ export function ChallengeCollector() {
       lastIndex = feedback.endIndex;
     });
 
-    // Add remaining text
     if (lastIndex < text.length) {
       result.push(text.slice(lastIndex));
     }
@@ -156,15 +151,15 @@ export function ChallengeCollector() {
     <div className="space-y-8">
       <div className="flex justify-between items-start">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">User Challenges</h2>
-          <p className="text-gray-600">
+          <h2 className="text-2xl font-bold text-white">User Challenges</h2>
+          <p className="text-gray-400">
             Identify the key challenges your users face at different experience levels.
             Rate the magnitude of each challenge from 1 (minor) to 5 (major).
           </p>
         </div>
         <button
           onClick={() => setShowGuidance(!showGuidance)}
-          className="text-blue-600 hover:text-blue-800"
+          className="text-[#FFD23F] hover:text-[#FFD23F]/80"
           title={showGuidance ? "Hide guidance" : "Show guidance"}
         >
           <HelpCircle className="w-5 h-5" />
@@ -172,26 +167,41 @@ export function ChallengeCollector() {
       </div>
 
       {showGuidance && (
-        <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 space-y-4">
+        <div className="description-framework">
           <div>
-            <h3 className="font-medium text-blue-900">Challenge Framework</h3>
-            <ul className="mt-2 list-disc list-inside text-blue-800 space-y-2 text-sm">
-              <li>Be specific about the difficulty or limitation</li>
-              <li>Explain the impact on user productivity or goals</li>
-              <li>Consider both technical and non-technical aspects</li>
-              <li>Think about immediate and long-term challenges</li>
+            <h3 className="framework-heading">Challenge Framework</h3>
+            <ul className="mt-2 space-y-2">
+              <li className="framework-list-item">
+                <span className="framework-bullet" />
+                <span>Be specific about the difficulty or limitation</span>
+              </li>
+              <li className="framework-list-item">
+                <span className="framework-bullet" />
+                <span>Explain the impact on user productivity or goals</span>
+              </li>
+              <li className="framework-list-item">
+                <span className="framework-bullet" />
+                <span>Consider both technical and non-technical aspects</span>
+              </li>
+              <li className="framework-list-item">
+                <span className="framework-bullet" />
+                <span>Think about immediate and long-term challenges</span>
+              </li>
             </ul>
           </div>
           
-          <div>
-            <h3 className="font-medium text-blue-900">Examples by Level</h3>
+          <div className="mt-6">
+            <h3 className="framework-heading">Examples by Level</h3>
             <div className="mt-2 grid grid-cols-1 md:grid-cols-3 gap-4">
               {userLevels.map((level) => (
                 <div key={level} className="text-sm">
-                  <h4 className="font-medium text-blue-900 capitalize mb-1">{level}</h4>
-                  <ul className="list-disc list-inside text-blue-800 space-y-1">
+                  <h4 className="text-white font-medium capitalize mb-2">{level}</h4>
+                  <ul className="space-y-2">
                     {examples[level].map((example, index) => (
-                      <li key={index} className="text-xs">{example}</li>
+                      <li key={index} className="framework-list-item">
+                        <span className="framework-bullet" />
+                        <span>{example}</span>
+                      </li>
                     ))}
                   </ul>
                 </div>
@@ -203,19 +213,20 @@ export function ChallengeCollector() {
 
       {userLevels.map((level) => {
         const outcome = outcomes.find(o => o.level === level);
+        const levelChallenges = challenges.filter(c => c.level === level);
         
         return (
           <div key={level} className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-xl font-semibold text-gray-800 capitalize">{level} Users</h3>
+                <h3 className="text-xl font-semibold text-white capitalize">{level} Users</h3>
                 {outcome && (
-                  <p className="text-sm text-gray-600 mt-1">
+                  <p className="text-sm text-gray-400 mt-1">
                     Outcome: {outcome.text}
                   </p>
                 )}
                 {!outcome && (
-                  <p className="text-sm text-amber-600 mt-1">
+                  <p className="text-sm text-[#FFD23F] mt-1">
                     Please define the {level} user outcome first
                   </p>
                 )}
@@ -226,8 +237,8 @@ export function ChallengeCollector() {
                   disabled={!outcome}
                   className={`flex items-center px-4 py-2 text-sm font-medium rounded-lg ${
                     !outcome
-                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                      : 'text-blue-600 border border-blue-600 hover:bg-blue-50'
+                      ? 'bg-[#333333] text-gray-500 cursor-not-allowed'
+                      : 'bg-[#FFD23F] text-[#1C1C1C] hover:bg-[#FFD23F]/90'
                   }`}
                 >
                   <PlusCircle className="w-4 h-4 mr-2" />
@@ -238,8 +249,8 @@ export function ChallengeCollector() {
                   disabled={isGenerating[level] || !outcome || !productDescription}
                   className={`flex items-center px-4 py-2 text-sm font-medium rounded-lg ${
                     isGenerating[level] || !outcome || !productDescription
-                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                      : 'bg-blue-600 text-white hover:bg-blue-700'
+                      ? 'bg-[#333333] text-gray-500 cursor-not-allowed'
+                      : 'bg-[#FFD23F] text-[#1C1C1C] hover:bg-[#FFD23F]/90'
                   }`}
                 >
                   {isGenerating[level] ? (
@@ -258,92 +269,105 @@ export function ChallengeCollector() {
             </div>
             
             <div className="space-y-4">
-              {challenges
-                .filter((c) => c.level === level)
-                .map((challenge) => (
-                  <div key={challenge.id} className="bg-white rounded-lg border border-gray-200 p-4 space-y-4">
-                    <div className="space-y-4">
-                      <div>
-                        <input
-                          type="text"
-                          value={challenge.title}
-                          onChange={(e) => updateChallenge(challenge.id, { title: e.target.value })}
-                          className="w-full p-2 text-lg font-medium text-gray-900 border-none focus:ring-0"
-                          placeholder="Challenge title..."
-                        />
-                        <textarea
-                          value={challenge.description}
-                          onChange={(e) => updateChallenge(challenge.id, { description: e.target.value })}
-                          className="w-full mt-2 p-2 text-gray-600 border-none focus:ring-0 resize-none"
-                          placeholder="Optional: Provide more details about this challenge..."
-                          rows={2}
-                        />
-                      </div>
-
-                      <div className="flex items-center space-x-4">
-                        <div className="flex-grow">
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Magnitude
-                          </label>
-                          <select
-                            value={challenge.magnitude}
-                            onChange={(e) =>
-                              updateChallenge(challenge.id, {
-                                magnitude: parseInt(e.target.value),
-                              })
-                            }
-                            className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          >
-                            {[1, 2, 3, 4, 5].map((n) => (
-                              <option key={n} value={n}>
-                                {n} {n === 1 ? '(minor)' : n === 5 ? '(major)' : ''}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                      </div>
+              {levelChallenges.map((challenge) => (
+                <div key={challenge.id} className="bg-[#2A2A2A] rounded-lg border border-[#333333] p-4 space-y-4">
+                  <div className="space-y-4">
+                    <div>
+                      <input
+                        type="text"
+                        value={challenge.title}
+                        onChange={(e) => updateChallenge(challenge.id, { title: e.target.value })}
+                        className="w-full p-2 text-lg font-medium bg-[#1C1C1C] text-white border-none focus:ring-2 focus:ring-[#FFD23F] rounded-lg"
+                        placeholder="Challenge title..."
+                      />
+                      <textarea
+                        value={challenge.description}
+                        onChange={(e) => updateChallenge(challenge.id, { description: e.target.value })}
+                        className="w-full mt-2 p-2 text-gray-300 bg-[#1C1C1C] border-none focus:ring-2 focus:ring-[#FFD23F] rounded-lg resize-none"
+                        placeholder="Optional: Provide more details about this challenge..."
+                        rows={2}
+                      />
                     </div>
 
-                    <div className="flex justify-between items-center">
-                      <button
-                        onClick={() => removeChallenge(challenge.id)}
-                        className="text-red-600 hover:text-red-800"
-                      >
-                        Remove
-                      </button>
-
-                      <button
-                        onClick={() => handleGetFeedback(challenge.id, challenge.title, challenge.description)}
-                        onMouseEnter={() => setShowTooltip(prev => ({ ...prev, [challenge.id]: true }))}
-                        onMouseLeave={() => setShowTooltip(prev => ({ ...prev, [challenge.id]: false }))}
-                        disabled={isAnalyzing[challenge.id] || challenge.title.length < 3}
-                        className={`flex items-center px-4 py-2 rounded-lg ${
-                          isAnalyzing[challenge.id] || challenge.title.length < 3
-                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                            : 'bg-blue-600 text-white hover:bg-blue-700'
-                        }`}
-                      >
-                        {isAnalyzing[challenge.id] ? (
-                          <>
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            Analyzing...
-                          </>
-                        ) : (
-                          <>
-                            <MessageSquarePlus className="w-4 h-4 mr-2" />
-                            Get Feedback
-                          </>
-                        )}
-                      </button>
-                    </div>
-
-                    {!isAnalyzing[challenge.id] && feedbacks[challenge.id]?.length > 0 && (
-                      <div className="prose prose-sm max-w-none p-4 bg-gray-50 rounded-lg">
-                        {renderTextWithFeedback(challenge.id, challenge.description || challenge.title)}
+                    <div className="flex items-center space-x-4">
+                      <div className="flex-grow">
+                        <label className="block text-sm font-medium text-white mb-1">
+                          Magnitude
+                        </label>
+                        <select
+                          value={challenge.magnitude}
+                          onChange={(e) =>
+                            updateChallenge(challenge.id, {
+                              magnitude: parseInt(e.target.value),
+                            })
+                          }
+                          className="w-full p-2 bg-[#1C1C1C] text-white border border-[#333333] rounded-lg focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent"
+                        >
+                          {[1, 2, 3, 4, 5].map((n) => (
+                            <option key={n} value={n}>
+                              {n} {n === 1 ? '(minor)' : n === 5 ? '(major)' : ''}
+                            </option>
+                          ))}
+                        </select>
                       </div>
-                    )}
+                    </div>
                   </div>
-                ))}
+
+                  <div className="flex justify-between items-center">
+                    <button
+                      onClick={() => removeChallenge(challenge.id)}
+                      className="text-red-400 hover:text-red-300"
+                    >
+                      Remove
+                    </button>
+
+                    <button
+                      onClick={() => handleGetFeedback(challenge.id, challenge.title, challenge.description)}
+                      onMouseEnter={() => setShowTooltip(prev => ({ ...prev, [challenge.id]: true }))}
+                      onMouseLeave={() => setShowTooltip(prev => ({ ...prev, [challenge.id]: false }))}
+                      disabled={isAnalyzing[challenge.id] || challenge.title.length < 3}
+                      className={`flex items-center px-4 py-2 rounded-lg ${
+                        isAnalyzing[challenge.id] || challenge.title.length < 3
+                          ? 'bg-[#333333] text-gray-500 cursor-not-allowed'
+                          : 'bg-[#FFD23F] text-[#1C1C1C] hover:bg-[#FFD23F]/90'
+                      }`}
+                    >
+                      {isAnalyzing[challenge.id] ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Analyzing...
+                        </>
+                      ) : (
+                        <>
+                          <MessageSquarePlus className="w-4 h-4 mr-2" />
+                          Get Feedback
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  {!isAnalyzing[challenge.id] && feedbacks[challenge.id]?.length > 0 && (
+                    <div className="prose prose-sm max-w-none p-4 bg-[#1C1C1C] rounded-lg">
+                      {renderTextWithFeedback(challenge.id, challenge.description || challenge.title)}
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              {levelChallenges.length > 0 && (
+                <button
+                  onClick={() => handleAddChallenge(level)}
+                  disabled={!outcome}
+                  className={`w-full flex items-center justify-center px-4 py-3 rounded-lg border-2 border-dashed ${
+                    !outcome
+                      ? 'border-[#333333] text-gray-500 cursor-not-allowed'
+                      : 'border-[#FFD23F] text-[#FFD23F] hover:bg-[#FFD23F]/10'
+                  }`}
+                >
+                  <PlusCircle className="w-5 h-5 mr-2" />
+                  Add Another Challenge
+                </button>
+              )}
             </div>
           </div>
         );
