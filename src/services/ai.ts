@@ -1033,11 +1033,13 @@ Provide a clear, specific answer based on this context.`
 
 export async function analyzeFormData(
   productDescription: string,
+  idealUser: IdealUser,
   userEndgame: string,
   challenges: Challenge[],
   solutions: Solution[],
   selectedModel: ModelType,
-  freeFeatures: Feature[]
+  freeFeatures: Feature[],
+  userJourney?: any
 ): Promise<{
   deepScore: {
     desirability: number;
@@ -1050,11 +1052,47 @@ export async function analyzeFormData(
   recommendations: string[];
   componentScores: {
     productDescription: number;
+    idealUser: number;
     userEndgame: number;
     challenges: number;
     solutions: number;
     modelSelection: number;
     freeFeatures: number;
+    userJourney: number;
+  };
+  componentFeedback: {
+    productDescription: {
+      strengths: string[];
+      recommendations: string[];
+    };
+    idealUser: {
+      strengths: string[];
+      recommendations: string[];
+    };
+    userEndgame: {
+      strengths: string[];
+      recommendations: string[];
+    };
+    challenges: {
+      strengths: string[];
+      recommendations: string[];
+    };
+    solutions: {
+      strengths: string[];
+      recommendations: string[];
+    };
+    modelSelection: {
+      strengths: string[];
+      recommendations: string[];
+    };
+    freeFeatures: {
+      strengths: string[];
+      recommendations: string[];
+    };
+    userJourney: {
+      strengths: string[];
+      recommendations: string[];
+    };
   };
   actionPlan: {
     immediate: string[];
@@ -1065,14 +1103,29 @@ export async function analyzeFormData(
     abTests: string[];
     metrics: string[];
   };
+  summary: string;
 }> {
   if (!import.meta.env.VITE_OPENAI_API_KEY) {
     throw new Error('OpenAI API key is missing. Please add VITE_OPENAI_API_KEY to your environment variables.');
   }
 
+  // Format the ideal user traits for the prompt
+  const idealUserTraits = Array.isArray(idealUser?.traits) 
+    ? idealUser.traits.join(', ') 
+    : typeof idealUser?.traits === 'string' 
+      ? idealUser.traits 
+      : '';
+
+  // Format challenges with levels
+  const formattedChallenges = challenges.map(c => {
+    const level = c.level || 'unspecified';
+    const magnitude = c.magnitude || 'unspecified';
+    return `- ${c.title} (Level: ${level}, Magnitude: ${magnitude})`;
+  }).join('\n');
+
   return handleOpenAIRequest(
     openai.chat.completions.create({
-      model: "o3-mini", // Using o3-mini-high as requested
+      model: "o3-mini",
       messages: [
         {
           role: "system",
@@ -1086,31 +1139,43 @@ Consider:
 
 Provide:
 1. DEEP scores (0-10 for each dimension)
-2. Component-specific scores (0-100)
-3. Key strengths and weaknesses
-4. Actionable recommendations
-5. Implementation timeline
-6. Testing framework`
+2. Component-specific scores (0-100) for all seven sections
+3. Key strengths and recommendations for each component
+4. Overall strengths and weaknesses
+5. Actionable recommendations
+6. Implementation timeline
+7. Testing framework
+8. A concise executive summary that highlights key insights and next steps`
         },
         {
           role: "user",
           content: `
 Product Description: ${productDescription}
 
+Ideal User:
+- Title: ${idealUser?.title || 'Not specified'}
+- Description: ${idealUser?.description || 'Not specified'}
+- Motivation: ${idealUser?.motivation || 'Not specified'}
+- Technical Ability: ${idealUser?.ability || 'Not specified'}
+- Traits: ${idealUserTraits}
+- Impact: ${idealUser?.impact || 'Not specified'}
+
 User Endgame: ${userEndgame}
 
 Challenges:
-${challenges.map(c => `- ${c.title} (Level: ${c.level}, Magnitude: ${c.magnitude})`).join('\n')}
+${formattedChallenges}
 
 Solutions:
-${solutions.map(s => `- ${s.text} (Type: ${s.type}, Cost: ${s.cost})`).join('\n')}
+${solutions.map(s => `- ${s.text} (Type: ${s.type || 'not specified'}, Cost: ${s.cost || 'not specified'})`).join('\n')}
 
 Selected Model: ${selectedModel}
 
 Free Features:
-${freeFeatures.map(f => `- ${f.name}: ${f.description}`).join('\n')}
+${freeFeatures.map(f => `- ${f.name || 'Unnamed'}: ${f.description || 'No description'}`).join('\n')}
 
-Analyze this information using the DEEP framework.`
+User Journey Canvas: ${userJourney ? JSON.stringify(userJourney) : 'Not provided'}
+
+Analyze this information using the DEEP framework. For each component, provide specific strengths and actionable recommendations. Create a comprehensive analysis that evaluates the free model strategy across all dimensions.`
         }
       ],
       functions: [
@@ -1134,13 +1199,85 @@ Analyze this information using the DEEP framework.`
                 type: "object",
                 properties: {
                   productDescription: { type: "number", minimum: 0, maximum: 100 },
+                  idealUser: { type: "number", minimum: 0, maximum: 100 },
                   userEndgame: { type: "number", minimum: 0, maximum: 100 },
                   challenges: { type: "number", minimum: 0, maximum: 100 },
                   solutions: { type: "number", minimum: 0, maximum: 100 },
                   modelSelection: { type: "number", minimum: 0, maximum: 100 },
-                  freeFeatures: { type: "number", minimum: 0, maximum: 100 }
+                  freeFeatures: { type: "number", minimum: 0, maximum: 100 },
+                  userJourney: { type: "number", minimum: 0, maximum: 100 }
                 },
-                required: ["productDescription", "userEndgame", "challenges", "solutions", "modelSelection", "freeFeatures"]
+                required: ["productDescription", "idealUser", "userEndgame", "challenges", "solutions", "modelSelection", "freeFeatures", "userJourney"]
+              },
+              componentFeedback: {
+                type: "object",
+                properties: {
+                  productDescription: {
+                    type: "object",
+                    properties: {
+                      strengths: { type: "array", items: { type: "string" }},
+                      recommendations: { type: "array", items: { type: "string" }}
+                    },
+                    required: ["strengths", "recommendations"]
+                  },
+                  idealUser: {
+                    type: "object",
+                    properties: {
+                      strengths: { type: "array", items: { type: "string" }},
+                      recommendations: { type: "array", items: { type: "string" }}
+                    },
+                    required: ["strengths", "recommendations"]
+                  },
+                  userEndgame: {
+                    type: "object",
+                    properties: {
+                      strengths: { type: "array", items: { type: "string" }},
+                      recommendations: { type: "array", items: { type: "string" }}
+                    },
+                    required: ["strengths", "recommendations"]
+                  },
+                  challenges: {
+                    type: "object",
+                    properties: {
+                      strengths: { type: "array", items: { type: "string" }},
+                      recommendations: { type: "array", items: { type: "string" }}
+                    },
+                    required: ["strengths", "recommendations"]
+                  },
+                  solutions: {
+                    type: "object",
+                    properties: {
+                      strengths: { type: "array", items: { type: "string" }},
+                      recommendations: { type: "array", items: { type: "string" }}
+                    },
+                    required: ["strengths", "recommendations"]
+                  },
+                  modelSelection: {
+                    type: "object",
+                    properties: {
+                      strengths: { type: "array", items: { type: "string" }},
+                      recommendations: { type: "array", items: { type: "string" }}
+                    },
+                    required: ["strengths", "recommendations"]
+                  },
+                  freeFeatures: {
+                    type: "object",
+                    properties: {
+                      strengths: { type: "array", items: { type: "string" }},
+                      recommendations: { type: "array", items: { type: "string" }}
+                    },
+                    required: ["strengths", "recommendations"]
+                  },
+                  userJourney: {
+                    type: "object",
+                    properties: {
+                      strengths: { type: "array", items: { type: "string" }},
+                      recommendations: { type: "array", items: { type: "string" }}
+                    },
+                    required: ["strengths", "recommendations"]
+                  }
+                },
+                required: ["productDescription", "idealUser", "userEndgame", "challenges", "solutions", "modelSelection", "freeFeatures", "userJourney"]
               },
               strengths: {
                 type: "array",
@@ -1188,9 +1325,10 @@ Analyze this information using the DEEP framework.`
                   }
                 },
                 required: ["abTests", "metrics"]
-              }
+              },
+              summary: { type: "string" }
             },
-            required: ["deepScore", "componentScores", "strengths", "weaknesses", "recommendations", "actionPlan", "testing"]
+            required: ["deepScore", "componentScores", "componentFeedback", "strengths", "weaknesses", "recommendations", "actionPlan", "testing", "summary"]
           }
         }
       ],

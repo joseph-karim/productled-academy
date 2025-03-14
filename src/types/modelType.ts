@@ -1,0 +1,1 @@
+export type ModelType = 'opt-in-trial' | 'opt-out-trial' | 'usage-trial' | 'freemium' | 'new-product' | 'sandbox';

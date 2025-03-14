@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { FormState, Challenge, Solution, ModelType, Feature, UserOutcome, UserJourney, IdealUser } from '../types';
+import type { FormState, Challenge, Solution, ModelType, Feature, UserOutcome, UserJourney, IdealUser, Analysis } from '../types';
 
 interface FormStore extends FormState {
   setProductDescription: (description: string) => void;
@@ -17,6 +17,7 @@ interface FormStore extends FormState {
   updateFeature: (id: string, feature: Partial<Feature>) => void;
   removeFeature: (id: string) => void;
   setUserJourney: (journey: UserJourney) => void;
+  setAnalysis: (analysis: Analysis | null) => void;
 }
 
 export const useFormStore = create<FormStore>((set) => ({
@@ -28,6 +29,7 @@ export const useFormStore = create<FormStore>((set) => ({
   selectedModel: null,
   freeFeatures: [],
   userJourney: undefined,
+  analysis: null,
 
   setProductDescription: (description) =>
     set({ productDescription: description }),
@@ -104,4 +106,7 @@ export const useFormStore = create<FormStore>((set) => ({
 
   setUserJourney: (journey) =>
     set({ userJourney: journey }),
+
+  setAnalysis: (analysis) =>
+    set({ analysis }),
 }));
