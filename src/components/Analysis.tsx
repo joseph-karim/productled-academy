@@ -1,19 +1,9 @@
 import React from 'react';
 import { useFormStore } from '../store/formStore';
-import {
-  Chart as ChartJS,
-  RadialLinearScale,
-  PointElement,
-  LineElement,
-  Filler,
-  Tooltip,
-  Legend,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-} from 'chart.js';
+import { MessageSquare, Send, ArrowRight, AlertCircle, Loader2, Mic, ChevronDown, ChevronUp } from 'lucide-react';
+import { VoiceChat } from './VoiceChat';
+import { Chart as ChartJS, RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend, CategoryScale, LinearScale, BarElement } from 'chart.js';
 import { Radar, Bar } from 'react-chartjs-2';
-import { MessageSquare, Loader2, AlertCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { analyzeFormData, getAnalysisResponse } from '../services/ai';
 
 ChartJS.register(
@@ -39,6 +29,7 @@ export function Analysis() {
     actionPlan: false,
     testing: false
   });
+  const [showVoiceChat, setShowVoiceChat] = React.useState(false);
   const [analysis, setAnalysis] = React.useState<{
     deepScore: {
       desirability: number;
@@ -72,7 +63,6 @@ export function Analysis() {
 
   React.useEffect(() => {
     const analyzeData = async () => {
-      // Get the beginner outcome text
       const beginnerOutcome = store.outcomes.find(o => o.level === 'beginner')?.text || '';
       
       if (!store.productDescription || !beginnerOutcome || !store.selectedModel) {
@@ -545,9 +535,20 @@ export function Analysis() {
                 </>
               )}
             </button>
+            <button
+              onClick={() => setShowVoiceChat(true)}
+              className="flex items-center px-4 py-2 rounded-lg bg-[#FFD23F] text-[#1C1C1C] hover:bg-[#FFD23F]/90"
+            >
+              <Mic className="w-4 h-4 mr-2" />
+              Voice Chat
+            </button>
           </div>
         </div>
       </div>
+
+      {showVoiceChat && (
+        <VoiceChat onClose={() => setShowVoiceChat(false)} />
+      )}
     </div>
   );
 }

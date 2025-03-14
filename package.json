@@ -7,12 +7,12 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview",
-    "test": "vitest"
+    "preview": "vite preview"
   },
   "dependencies": {
     "@floating-ui/dom": "^1.6.3",
     "@floating-ui/react": "^0.26.9",
+    "@vapi-ai/web": "^2.2.2",
     "ai": "^3.0.1",
     "chart.js": "^4.4.2",
     "lucide-react": "^0.344.0",
