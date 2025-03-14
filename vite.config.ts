@@ -4,6 +4,10 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   plugins: [react()],
   optimizeDeps: {
-    exclude: ['lucide-react']
+    exclude: ['lucide-react'],
+    include: ['@daily-co/daily-js', '@vapi-ai/web']
+  },
+  resolve: {
+    dedupe: ['@daily-co/daily-js', '@vapi-ai/web']
   }
 });
