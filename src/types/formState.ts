@@ -16,5 +16,6 @@ export interface FormState {
   selectedModel: ModelType | null;
   freeFeatures: Feature[];
   userJourney?: UserJourney;
+  callToAction?: string;
   analysis: Analysis | null;
 }

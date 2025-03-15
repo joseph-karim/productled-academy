@@ -69,7 +69,7 @@ const steps = [
     title: 'Analysis', 
     component: Analysis,
     isUnlocked: (state: ReturnType<typeof useFormStore.getState>) => 
-      state.selectedModel !== null,
+      state.userJourney !== undefined,
     isComplete: (state: ReturnType<typeof useFormStore.getState>) => true
   },
 ];
