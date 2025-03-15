@@ -13,8 +13,7 @@
 
 body {
   font-family: 'Inter', sans-serif;
-  background-color: var(--pl-dark);
-  color: white;
+  @apply bg-[#1C1C1C] text-white min-h-screen;
 }
 
 /* Typography */

@@ -17,6 +17,7 @@ interface FormStore extends FormState {
   updateFeature: (id: string, feature: Partial<Feature>) => void;
   removeFeature: (id: string) => void;
   setUserJourney: (journey: UserJourney) => void;
+  setCallToAction: (text: string) => void;
   setAnalysis: (analysis: Analysis | null) => void;
 }
 
@@ -29,6 +30,7 @@ export const useFormStore = create<FormStore>((set) => ({
   selectedModel: null,
   freeFeatures: [],
   userJourney: undefined,
+  callToAction: undefined,
   analysis: null,
 
   setProductDescription: (description) =>
@@ -106,6 +108,9 @@ export const useFormStore = create<FormStore>((set) => ({
 
   setUserJourney: (journey) =>
     set({ userJourney: journey }),
+
+  setCallToAction: (text) =>
+    set({ callToAction: text }),
 
   setAnalysis: (analysis) =>
     set({ analysis }),
