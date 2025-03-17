@@ -1,5 +1,6 @@
 import React from 'react';
 import { MultiStepForm } from './components/MultiStepForm';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 function App() {
   return (
@@ -17,7 +18,9 @@ function App() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-        <MultiStepForm />
+        <ErrorBoundary>
+          <MultiStepForm />
+        </ErrorBoundary>
       </main>
     </div>
   );
