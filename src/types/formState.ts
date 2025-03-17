@@ -18,4 +18,7 @@ export interface FormState {
   userJourney?: UserJourney;
   callToAction?: string;
   analysis: Analysis | null;
+  processingState: {
+    [key: string]: boolean;
+  };
 }

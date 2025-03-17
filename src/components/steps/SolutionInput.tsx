@@ -14,7 +14,8 @@ export function SolutionInput() {
     solutions, 
     addSolution, 
     updateSolution, 
-    removeSolution 
+    removeSolution,
+    setProcessingState 
   } = useFormStore();
   
   const [showGuidance, setShowGuidance] = React.useState(true);
@@ -47,6 +48,7 @@ export function SolutionInput() {
     if (!challenge || !productDescription || !outcome) return;
     
     setIsGenerating(prev => ({ ...prev, [challengeId]: true }));
+    setProcessingState({ solutions: true });
     
     try {
       const result = await suggestSolutions(
@@ -70,6 +72,7 @@ export function SolutionInput() {
       console.error('Error generating solutions:', error);
     } finally {
       setIsGenerating(prev => ({ ...prev, [challengeId]: false }));
+      setProcessingState({ solutions: false });
     }
   };
 
@@ -77,6 +80,7 @@ export function SolutionInput() {
     if (!productDescription) return;
     
     setIsGeneratingAll(true);
+    setProcessingState({ solutions: true });
     
     try {
       for (const challenge of challenges) {
@@ -105,6 +109,7 @@ export function SolutionInput() {
       console.error('Error generating all solutions:', error);
     } finally {
       setIsGeneratingAll(false);
+      setProcessingState({ solutions: false });
     }
   };
 
@@ -112,6 +117,8 @@ export function SolutionInput() {
     if (text.length < 10) return;
     
     setIsAnalyzing(prev => ({ ...prev, [solutionId]: true }));
+    setProcessingState({ solutions: true });
+    
     try {
       const result = await analyzeText(text, 'Solution');
       setFeedbacks(prev => ({ ...prev, [solutionId]: result.feedbacks }));
@@ -119,6 +126,7 @@ export function SolutionInput() {
       console.error('Error getting feedback:', error);
     } finally {
       setIsAnalyzing(prev => ({ ...prev, [solutionId]: false }));
+      setProcessingState({ solutions: false });
     }
   };
 
