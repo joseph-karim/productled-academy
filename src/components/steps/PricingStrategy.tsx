@@ -1,13 +1,40 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { usePackageStore } from '../../store/packageStore';
 import { useFormStore } from '../../store/formStore';
-import { HelpCircle, Loader2, AlertCircle } from 'lucide-react';
+import { HelpCircle, Loader2, AlertCircle, PlusCircle, Trash2 } from 'lucide-react';
 import type { PricingStrategy as PricingStrategyType } from '../../types/package';
+
+// Default strategy state
+const defaultStrategy: PricingStrategyType = {
+  model: 'freemium',
+  basis: 'per-user',
+  freePackage: {
+    features: [],
+    limitations: [],
+    conversionGoals: []
+  },
+  paidPackage: {
+    features: [],
+    valueMetrics: [],
+    targetConversion: 0
+  }
+};
 
 export function PricingStrategy() {
   const { pricingStrategy, setPricingStrategy, setProcessingState } = usePackageStore();
   const { selectedModel, outcomes, challenges, solutions } = useFormStore();
   const [showGuidance, setShowGuidance] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Initialize strategy if not set
+  useEffect(() => {
+    if (!pricingStrategy) {
+      setPricingStrategy({
+        ...defaultStrategy,
+        model: selectedModel || 'freemium'
+      });
+    }
+  }, [pricingStrategy, selectedModel, setPricingStrategy]);
 
   // Check if advanced data is available
   const hasAdvancedData = Boolean(
@@ -25,11 +52,100 @@ export function PricingStrategy() {
     });
 
   const handleStrategyChange = (updates: Partial<PricingStrategyType>) => {
-    setPricingStrategy({
-      ...pricingStrategy!,
-      ...updates
+    if (!pricingStrategy) return;
+
+    try {
+      setProcessingState({ pricingStrategy: true });
+      setError(null);
+
+      // Create new strategy object with updates
+      const newStrategy = {
+        ...pricingStrategy,
+        ...updates,
+        // Ensure nested objects are properly merged
+        freePackage: {
+          ...pricingStrategy.freePackage,
+          ...(updates.freePackage || {})
+        },
+        paidPackage: {
+          ...pricingStrategy.paidPackage,
+          ...(updates.paidPackage || {})
+        }
+      };
+
+      // Validate the new strategy
+      if (!newStrategy.basis || !newStrategy.model) {
+        throw new Error('Invalid pricing strategy configuration');
+      }
+
+      setPricingStrategy(newStrategy);
+    } catch (err) {
+      console.error('Error updating pricing strategy:', err);
+      setError(err instanceof Error ? err.message : 'Failed to update pricing strategy');
+    } finally {
+      setProcessingState({ pricingStrategy: false });
+    }
+  };
+
+  // Array field handlers
+  const addArrayItem = (field: 'limitations' | 'conversionGoals' | 'valueMetrics') => {
+    if (!pricingStrategy) return;
+
+    const package_ = field === 'valueMetrics' ? 'paidPackage' : 'freePackage';
+    const currentArray = pricingStrategy[package_][field];
+
+    handleStrategyChange({
+      [package_]: {
+        ...pricingStrategy[package_],
+        [field]: [...currentArray, '']
+      }
     });
   };
+
+  const updateArrayItem = (
+    field: 'limitations' | 'conversionGoals' | 'valueMetrics',
+    index: number,
+    value: string
+  ) => {
+    if (!pricingStrategy) return;
+
+    const package_ = field === 'valueMetrics' ? 'paidPackage' : 'freePackage';
+    const currentArray = [...pricingStrategy[package_][field]];
+    currentArray[index] = value;
+
+    handleStrategyChange({
+      [package_]: {
+        ...pricingStrategy[package_],
+        [field]: currentArray
+      }
+    });
+  };
+
+  const removeArrayItem = (
+    field: 'limitations' | 'conversionGoals' | 'valueMetrics',
+    index: number
+  ) => {
+    if (!pricingStrategy) return;
+
+    const package_ = field === 'valueMetrics' ? 'paidPackage' : 'freePackage';
+    const currentArray = [...pricingStrategy[package_][field]];
+    currentArray.splice(index, 1);
+
+    handleStrategyChange({
+      [package_]: {
+        ...pricingStrategy[package_],
+        [field]: currentArray
+      }
+    });
+  };
+
+  if (!pricingStrategy) {
+    return (
+      <div className="flex items-center justify-center min-h-[200px]">
+        <Loader2 className="w-8 h-8 animate-spin text-[#FFD23F]" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -47,6 +163,13 @@ export function PricingStrategy() {
           <HelpCircle className="w-5 h-5" />
         </button>
       </div>
+
+      {error && (
+        <div className="bg-red-900/20 border border-red-500 text-red-400 p-4 rounded flex items-start">
+          <AlertCircle className="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" />
+          <p>{error}</p>
+        </div>
+      )}
 
       {showGuidance && (
         <div className="bg-[#2A2A2A] p-6 rounded-lg space-y-4">
@@ -88,7 +211,6 @@ export function PricingStrategy() {
             </div>
           </div>
 
-          {/* Advanced Package Guidance */}
           {hasAdvancedData && (
             <div className="mt-6 border-t border-[#333333] pt-4">
               <h4 className="text-[#FFD23F] font-medium mb-3">Advanced Package Considerations</h4>
@@ -160,7 +282,7 @@ export function PricingStrategy() {
         <div className="space-y-4">
           <h3 className="text-lg font-medium text-white">Pricing Basis</h3>
           <select
-            value={pricingStrategy?.basis || 'per-user'}
+            value={pricingStrategy.basis}
             onChange={(e) => handleStrategyChange({ 
               basis: e.target.value as PricingStrategyType['basis']
             })}
@@ -175,40 +297,74 @@ export function PricingStrategy() {
         {/* Free Package Strategy */}
         <div className="space-y-4">
           <h3 className="text-lg font-medium text-white">Free Package Strategy</h3>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-400 mb-2">
+          
+          {/* Limitations */}
+          <div>
+            <div className="flex justify-between items-center mb-2">
+              <label className="block text-sm font-medium text-gray-400">
                 Limitations
               </label>
-              <textarea
-                value={pricingStrategy?.freePackage.limitations.join('\n')}
-                onChange={(e) => handleStrategyChange({
-                  freePackage: {
-                    ...pricingStrategy?.freePackage!,
-                    limitations: e.target.value.split('\n').filter(Boolean)
-                  }
-                })}
-                className="w-full bg-[#1C1C1C] text-white p-2 rounded border border-[#333333] focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent"
-                placeholder="Enter limitations (one per line)..."
-                rows={3}
-              />
+              <button
+                onClick={() => addArrayItem('limitations')}
+                className="text-[#FFD23F] hover:text-[#FFD23F]/80 text-sm flex items-center"
+              >
+                <PlusCircle className="w-4 h-4 mr-1" />
+                Add Limitation
+              </button>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-400 mb-2">
+            <div className="space-y-2">
+              {pricingStrategy.freePackage.limitations.map((limitation, index) => (
+                <div key={index} className="flex items-center space-x-2">
+                  <input
+                    type="text"
+                    value={limitation}
+                    onChange={(e) => updateArrayItem('limitations', index, e.target.value)}
+                    className="flex-1 bg-[#1C1C1C] text-white p-2 rounded border border-[#333333] focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent"
+                    placeholder="Enter limitation..."
+                  />
+                  <button
+                    onClick={() => removeArrayItem('limitations', index)}
+                    className="text-red-400 hover:text-red-300 p-1"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Conversion Goals */}
+          <div>
+            <div className="flex justify-between items-center mb-2">
+              <label className="block text-sm font-medium text-gray-400">
                 Conversion Goals
               </label>
-              <textarea
-                value={pricingStrategy?.freePackage.conversionGoals.join('\n')}
-                onChange={(e) => handleStrategyChange({
-                  freePackage: {
-                    ...pricingStrategy?.freePackage!,
-                    conversionGoals: e.target.value.split('\n').filter(Boolean)
-                  }
-                })}
-                className="w-full bg-[#1C1C1C] text-white p-2 rounded border border-[#333333] focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent"
-                placeholder="Enter conversion goals (one per line)..."
-                rows={3}
-              />
+              <button
+                onClick={() => addArrayItem('conversionGoals')}
+                className="text-[#FFD23F] hover:text-[#FFD23F]/80 text-sm flex items-center"
+              >
+                <PlusCircle className="w-4 h-4 mr-1" />
+                Add Goal
+              </button>
+            </div>
+            <div className="space-y-2">
+              {pricingStrategy.freePackage.conversionGoals.map((goal, index) => (
+                <div key={index} className="flex items-center space-x-2">
+                  <input
+                    type="text"
+                    value={goal}
+                    onChange={(e) => updateArrayItem('conversionGoals', index, e.target.value)}
+                    className="flex-1 bg-[#1C1C1C] text-white p-2 rounded border border-[#333333] focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent"
+                    placeholder="Enter conversion goal..."
+                  />
+                  <button
+                    onClick={() => removeArrayItem('conversionGoals', index)}
+                    className="text-red-400 hover:text-red-300 p-1"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -216,42 +372,60 @@ export function PricingStrategy() {
         {/* Paid Package Strategy */}
         <div className="space-y-4">
           <h3 className="text-lg font-medium text-white">Paid Package Strategy</h3>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-400 mb-2">
+          
+          {/* Value Metrics */}
+          <div>
+            <div className="flex justify-between items-center mb-2">
+              <label className="block text-sm font-medium text-gray-400">
                 Value Metrics
               </label>
-              <textarea
-                value={pricingStrategy?.paidPackage.valueMetrics.join('\n')}
-                onChange={(e) => handleStrategyChange({
-                  paidPackage: {
-                    ...pricingStrategy?.paidPackage!,
-                    valueMetrics: e.target.value.split('\n').filter(Boolean)
-                  }
-                })}
-                className="w-full bg-[#1C1C1C] text-white p-2 rounded border border-[#333333] focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent"
-                placeholder="Enter value metrics (one per line)..."
-                rows={3}
-              />
+              <button
+                onClick={() => addArrayItem('valueMetrics')}
+                className="text-[#FFD23F] hover:text-[#FFD23F]/80 text-sm flex items-center"
+              >
+                <PlusCircle className="w-4 h-4 mr-1" />
+                Add Metric
+              </button>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-400 mb-2">
-                Target Conversion Rate (%)
-              </label>
-              <input
-                type="number"
-                min="0"
-                max="100"
-                value={pricingStrategy?.paidPackage.targetConversion || 0}
-                onChange={(e) => handleStrategyChange({
-                  paidPackage: {
-                    ...pricingStrategy?.paidPackage!,
-                    targetConversion: parseInt(e.target.value)
-                  }
-                })}
-                className="w-full bg-[#1C1C1C] text-white p-2 rounded border border-[#333333] focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent"
-              />
+            <div className="space-y-2">
+              {pricingStrategy.paidPackage.valueMetrics.map((metric, index) => (
+                <div key={index} className="flex items-center space-x-2">
+                  <input
+                    type="text"
+                    value={metric}
+                    onChange={(e) => updateArrayItem('valueMetrics', index, e.target.value)}
+                    className="flex-1 bg-[#1C1C1C] text-white p-2 rounded border border-[#333333] focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent"
+                    placeholder="Enter value metric..."
+                  />
+                  <button
+                    onClick={() => removeArrayItem('valueMetrics', index)}
+                    className="text-red-400 hover:text-red-300 p-1"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                </div>
+              ))}
             </div>
+          </div>
+
+          {/* Target Conversion Rate */}
+          <div>
+            <label className="block text-sm font-medium text-gray-400 mb-2">
+              Target Conversion Rate (%)
+            </label>
+            <input
+              type="number"
+              min="0"
+              max="100"
+              value={pricingStrategy.paidPackage.targetConversion}
+              onChange={(e) => handleStrategyChange({
+                paidPackage: {
+                  ...pricingStrategy.paidPackage,
+                  targetConversion: Math.max(0, Math.min(100, parseInt(e.target.value) || 0))
+                }
+              })}
+              className="w-full bg-[#1C1C1C] text-white p-2 rounded border border-[#333333] focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent"
+            />
           </div>
         </div>
       </div>

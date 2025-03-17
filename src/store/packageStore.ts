@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { devtools } from 'zustand/middleware';
 import type { PackageFeature, PricingTier, PricingStrategy } from '../types/package';
 
 interface PackageState {
@@ -8,6 +9,7 @@ interface PackageState {
   processingState: {
     [key: string]: boolean;
   };
+  error: string | null;
   
   // Feature Management
   addFeature: (feature: PackageFeature) => void;
@@ -24,53 +26,82 @@ interface PackageState {
   
   // Processing State
   setProcessingState: (state: { [key: string]: boolean }) => void;
+  
+  // Error Handling
+  setError: (error: string | null) => void;
+  
+  // Reset State
+  reset: () => void;
 }
 
-export const usePackageStore = create<PackageState>((set) => ({
+const initialState = {
   features: [],
   pricingTiers: [],
   pricingStrategy: null,
   processingState: {},
+  error: null
+};
 
-  addFeature: (feature) =>
-    set((state) => ({
-      features: [...state.features, feature],
-    })),
+export const usePackageStore = create<PackageState>()(
+  devtools(
+    (set) => ({
+      ...initialState,
 
-  updateFeature: (id, feature) =>
-    set((state) => ({
-      features: state.features.map((f) =>
-        f.id === id ? { ...f, ...feature } : f
-      ),
-    })),
+      addFeature: (feature) =>
+        set((state) => ({
+          features: [...state.features, feature],
+          error: null
+        })),
 
-  removeFeature: (id) =>
-    set((state) => ({
-      features: state.features.filter((f) => f.id !== id),
-    })),
+      updateFeature: (id, feature) =>
+        set((state) => ({
+          features: state.features.map((f) =>
+            f.id === id ? { ...f, ...feature } : f
+          ),
+          error: null
+        })),
 
-  addPricingTier: (tier) =>
-    set((state) => ({
-      pricingTiers: [...state.pricingTiers, tier],
-    })),
+      removeFeature: (id) =>
+        set((state) => ({
+          features: state.features.filter((f) => f.id !== id),
+          error: null
+        })),
 
-  updatePricingTier: (id, tier) =>
-    set((state) => ({
-      pricingTiers: state.pricingTiers.map((t) =>
-        t.id === id ? { ...t, ...tier } : t
-      ),
-    })),
+      addPricingTier: (tier) =>
+        set((state) => ({
+          pricingTiers: [...state.pricingTiers, tier],
+          error: null
+        })),
 
-  removePricingTier: (id) =>
-    set((state) => ({
-      pricingTiers: state.pricingTiers.filter((t) => t.id !== id),
-    })),
+      updatePricingTier: (id, tier) =>
+        set((state) => ({
+          pricingTiers: state.pricingTiers.map((t) =>
+            t.id === id ? { ...t, ...tier } : t
+          ),
+          error: null
+        })),
 
-  setPricingStrategy: (strategy) =>
-    set({ pricingStrategy: strategy }),
+      removePricingTier: (id) =>
+        set((state) => ({
+          pricingTiers: state.pricingTiers.filter((t) => t.id !== id),
+          error: null
+        })),
 
-  setProcessingState: (state) =>
-    set((prev) => ({
-      processingState: { ...prev.processingState, ...state },
-    })),
-}));
+      setPricingStrategy: (strategy) =>
+        set({ 
+          pricingStrategy: strategy,
+          error: null
+        }),
+
+      setProcessingState: (state) =>
+        set((prev) => ({
+          processingState: { ...prev.processingState, ...state }
+        })),
+
+      setError: (error) => set({ error }),
+
+      reset: () => set(initialState)
+    }),
+    { name: 'package-store' }
+  )
+);
