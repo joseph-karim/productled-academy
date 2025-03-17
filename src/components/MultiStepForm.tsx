@@ -16,7 +16,7 @@ const steps = [
     component: ProductDescription,
     isUnlocked: (state: ReturnType<typeof useFormStore.getState>) => true,
     isComplete: (state: ReturnType<typeof useFormStore.getState>) => 
-      state.productDescription.length >= 10
+      state.productDescription.length >= 10 && !state.processingState.productDescription
   },
   {
     title: 'Ideal User',
@@ -24,23 +24,36 @@ const steps = [
     isUnlocked: (state: ReturnType<typeof useFormStore.getState>) => 
       state.productDescription.length >= 10,
     isComplete: (state: ReturnType<typeof useFormStore.getState>) => 
-      !!state.idealUser
+      !!state.idealUser && !state.processingState.idealUser
   },
   { 
     title: 'User Endgame', 
     component: UserEndgame,
     isUnlocked: (state: ReturnType<typeof useFormStore.getState>) => 
       !!state.idealUser,
-    isComplete: (state: ReturnType<typeof useFormStore.getState>) => 
-      state.outcomes.some(o => o.level === 'beginner' && o.text.length >= 10)
+    isComplete: (state: ReturnType<typeof useFormStore.getState>) => {
+      const beginnerOutcome = state.outcomes.find(o => o.level === 'beginner');
+      const intermediateOutcome = state.outcomes.find(o => o.level === 'intermediate');
+      return (
+        beginnerOutcome?.text.length >= 10 &&
+        intermediateOutcome?.text.length >= 10 &&
+        !state.processingState.userEndgame
+      );
+    }
   },
   { 
     title: 'Challenges', 
     component: ChallengeCollector,
-    isUnlocked: (state: ReturnType<typeof useFormStore.getState>) => 
-      state.outcomes.some(o => o.level === 'beginner' && o.text.length >= 10),
+    isUnlocked: (state: ReturnType<typeof useFormStore.getState>) => {
+      const beginnerOutcome = state.outcomes.find(o => o.level === 'beginner');
+      const intermediateOutcome = state.outcomes.find(o => o.level === 'intermediate');
+      return (
+        beginnerOutcome?.text.length >= 10 &&
+        intermediateOutcome?.text.length >= 10
+      );
+    },
     isComplete: (state: ReturnType<typeof useFormStore.getState>) => 
-      state.challenges.length > 0
+      state.challenges.length > 0 && !state.processingState.challenges
   },
   { 
     title: 'Solutions', 
@@ -48,7 +61,7 @@ const steps = [
     isUnlocked: (state: ReturnType<typeof useFormStore.getState>) => 
       state.challenges.length > 0,
     isComplete: (state: ReturnType<typeof useFormStore.getState>) => 
-      state.solutions.length > 0
+      state.solutions.length > 0 && !state.processingState.solutions
   },
   { 
     title: 'Model Selection', 
@@ -56,85 +69,20 @@ const steps = [
     isUnlocked: (state: ReturnType<typeof useFormStore.getState>) => 
       state.solutions.length > 0,
     isComplete: (state: ReturnType<typeof useFormStore.getState>) => 
-      state.selectedModel !== null
+      state.selectedModel !== null && !state.processingState.modelSelection
   },
   { 
     title: 'Free Model Canvas', 
     component: FreeModelCanvas,
     isUnlocked: (state: ReturnType<typeof useFormStore.getState>) => 
       state.selectedModel !== null,
-    isComplete: (state: ReturnType<typeof useFormStore.getState>) => {
-      // Check if userJourney exists and has all required sections
-      const hasValidJourney = state.userJourney && 
-        state.userJourney.discovery &&
-        state.userJourney.signup &&
-        state.userJourney.activation &&
-        state.userJourney.engagement &&
-        state.userJourney.conversion;
-
-      // Check if each section has required content
-      const hasRequiredContent = hasValidJourney &&
-        // Discovery section
-        state.userJourney.discovery.problem.length > 0 &&
-        state.userJourney.discovery.trigger.length > 0 &&
-        // Signup section
-        state.userJourney.signup.friction.length > 0 &&
-        state.userJourney.signup.timeToValue.length > 0 &&
-        state.userJourney.signup.guidance.length > 0 &&
-        // Activation section
-        state.userJourney.activation.firstWin.length > 0 &&
-        state.userJourney.activation.ahaFeature.length > 0 &&
-        // Engagement section
-        state.userJourney.engagement.coreTasks.length > 0 &&
-        state.userJourney.engagement.limitations.length > 0 &&
-        // Conversion section
-        state.userJourney.conversion.triggers.length > 0 &&
-        state.userJourney.conversion.nextFeatures.length > 0;
-
-      // Check if call to action is set
-      const hasCallToAction = typeof state.callToAction === 'string' && 
-        state.callToAction.length > 0;
-
-      return hasRequiredContent && hasCallToAction;
-    }
+    isComplete: (state: ReturnType<typeof useFormStore.getState>) => true
   },
   { 
     title: 'Analysis', 
     component: Analysis,
-    isUnlocked: (state: ReturnType<typeof useFormStore.getState>) => {
-      // Check if userJourney exists and has all required sections
-      const hasValidJourney = state.userJourney && 
-        state.userJourney.discovery &&
-        state.userJourney.signup &&
-        state.userJourney.activation &&
-        state.userJourney.engagement &&
-        state.userJourney.conversion;
-
-      // Check if each section has required content
-      const hasRequiredContent = hasValidJourney &&
-        // Discovery section
-        state.userJourney.discovery.problem.length > 0 &&
-        state.userJourney.discovery.trigger.length > 0 &&
-        // Signup section
-        state.userJourney.signup.friction.length > 0 &&
-        state.userJourney.signup.timeToValue.length > 0 &&
-        state.userJourney.signup.guidance.length > 0 &&
-        // Activation section
-        state.userJourney.activation.firstWin.length > 0 &&
-        state.userJourney.activation.ahaFeature.length > 0 &&
-        // Engagement section
-        state.userJourney.engagement.coreTasks.length > 0 &&
-        state.userJourney.engagement.limitations.length > 0 &&
-        // Conversion section
-        state.userJourney.conversion.triggers.length > 0 &&
-        state.userJourney.conversion.nextFeatures.length > 0;
-
-      // Check if call to action is set
-      const hasCallToAction = typeof state.callToAction === 'string' && 
-        state.callToAction.length > 0;
-
-      return hasRequiredContent && hasCallToAction;
-    },
+    isUnlocked: (state: ReturnType<typeof useFormStore.getState>) => 
+      state.selectedModel !== null,
     isComplete: (state: ReturnType<typeof useFormStore.getState>) => true
   },
 ];

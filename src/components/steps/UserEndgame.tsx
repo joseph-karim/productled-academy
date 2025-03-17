@@ -7,6 +7,12 @@ import type { UserLevel } from '../../types';
 import { ErrorMessage } from '../shared/ErrorMessage';
 import { ChatAssistantButton } from '../shared/ChatAssistantButton';
 
+const levelLabels = {
+  beginner: "Beginner Users (i.e. how does your ideal user achieve individual success)",
+  intermediate: "Intermediate Users (i.e. how does success scale to team level)",
+  advanced: "Advanced Users (i.e. how is organization-wide impact achieved)"
+};
+
 export function UserEndgame() {
   const { outcomes, updateOutcome, idealUser } = useFormStore();
   const [showGuidance, setShowGuidance] = React.useState(true);
@@ -162,6 +168,9 @@ export function UserEndgame() {
           <h2 className="text-2xl font-bold text-white">User Endgame</h2>
           <p className="text-gray-400">
             Define the transformation and value your users achieve at each level, starting with your ideal user's individual success.
+            <span className="text-[#FFD23F] ml-2">
+              * Beginner and Intermediate outcomes are required
+            </span>
           </p>
         </div>
         <button
@@ -241,17 +250,21 @@ export function UserEndgame() {
         {(['beginner', 'intermediate', 'advanced'] as const).map((level) => {
           const outcome = outcomes.find(o => o.level === level);
           const context = levelContexts[level];
+          const isRequired = level === 'beginner' || level === 'intermediate';
           
           return (
             <div key={level} className="space-y-4">
               <div>
                 <div className="flex items-baseline justify-between">
                   <div>
-                    <h3 className="text-lg font-medium text-white">{context.title}</h3>
+                    <h3 className="text-lg font-medium text-white">{levelLabels[level]}</h3>
                     <p className="text-sm text-gray-400 mt-1">{context.description}</p>
                   </div>
-                  {level !== 'beginner' && (
+                  {!isRequired && (
                     <span className="text-xs text-gray-500 italic">Optional</span>
+                  )}
+                  {isRequired && (
+                    <span className="text-xs text-[#FFD23F]">Required</span>
                   )}
                 </div>
 

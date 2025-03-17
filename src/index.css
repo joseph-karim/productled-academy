@@ -39,14 +39,14 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Custom input styles */
 .pl-input {
-  @apply bg-[#2A2A2A] border border-[#333333] rounded-lg px-4 py-2 text-white
+  @apply bg-[#3A3A3A] border border-[#444444] rounded-lg px-4 py-2 text-white
          focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent
-         placeholder-gray-500;
+         placeholder-gray-300;
 }
 
 /* Custom select styles */
 .pl-select {
-  @apply bg-[#2A2A2A] border border-[#333333] rounded-lg px-4 py-2 text-white
+  @apply bg-[#3A3A3A] border border-[#444444] rounded-lg px-4 py-2 text-white
          focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent;
 }
 
@@ -61,7 +61,7 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Form elements */
 textarea, input[type="text"], input[type="number"], select {
-  @apply bg-[#2A2A2A] border border-[#333333] text-white placeholder-gray-500;
+  @apply bg-[#3A3A3A] border border-[#444444] text-white placeholder-gray-300;
 }
 
 textarea:focus, input[type="text"]:focus, input[type="number"]:focus, select:focus {
@@ -74,7 +74,7 @@ textarea:focus, input[type="text"]:focus, input[type="number"]:focus, select:foc
 }
 
 .btn-secondary {
-  @apply bg-[#2A2A2A] text-white border border-[#333333] hover:border-[#FFD23F];
+  @apply bg-[#3A3A3A] text-white border border-[#444444] hover:border-[#FFD23F];
 }
 
 .btn-outline {
@@ -104,7 +104,7 @@ textarea:focus, input[type="text"]:focus, input[type="number"]:focus, select:foc
 }
 
 .framework-example {
-  @apply mt-4 p-4 bg-[#333333] rounded-lg text-gray-300;
+  @apply mt-4 p-4 bg-[#3A3A3A] rounded-lg text-gray-300;
 }
 
 /* Feedback colors */
@@ -167,11 +167,11 @@ textarea:focus, input[type="text"]:focus, input[type="number"]:focus, select:foc
 }
 
 .chat-message-system {
-  @apply bg-[#333333] text-white;
+  @apply bg-[#3A3A3A] text-white;
 }
 
 .chat-input {
-  @apply bg-[#2A2A2A] border border-[#333333] rounded-lg;
+  @apply bg-[#3A3A3A] border border-[#444444] rounded-lg;
 }
 
 /* Free Model Canvas text wrapping */
@@ -180,13 +180,13 @@ textarea:focus, input[type="text"]:focus, input[type="number"]:focus, select:foc
 }
 
 .canvas-input {
-  @apply w-full bg-[#2A2A2A] text-white p-2 rounded border border-[#333333] 
+  @apply w-full bg-[#3A3A3A] text-white p-2 rounded border border-[#444444] 
          focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent
          break-words whitespace-normal overflow-hidden;
 }
 
 .canvas-description {
-  @apply text-sm text-gray-400 mt-1 break-words whitespace-normal overflow-hidden;
+  @apply text-sm text-gray-300 mt-1 break-words whitespace-normal overflow-hidden;
 }
 
 .canvas-list-item {
@@ -202,9 +202,19 @@ textarea:focus, input[type="text"]:focus, input[type="number"]:focus, select:foc
 }
 
 .canvas-label {
-  @apply block text-sm font-medium text-gray-400 mb-2;
+  @apply block text-sm font-medium text-gray-300 mb-2;
 }
 
 .canvas-text {
   @apply text-gray-300 text-sm mb-3 break-words whitespace-normal;
+}
+
+/* Form labels */
+label {
+  @apply text-gray-300;
+}
+
+/* Placeholder text */
+::placeholder {
+  @apply text-gray-400;
 }

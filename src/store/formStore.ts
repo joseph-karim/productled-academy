@@ -19,6 +19,7 @@ interface FormStore extends FormState {
   setUserJourney: (journey: UserJourney) => void;
   setCallToAction: (text: string) => void;
   setAnalysis: (analysis: Analysis | null) => void;
+  setProcessingState: (state: { [key: string]: boolean }) => void;
 }
 
 export const useFormStore = create<FormStore>((set) => ({
@@ -32,6 +33,7 @@ export const useFormStore = create<FormStore>((set) => ({
   userJourney: undefined,
   callToAction: undefined,
   analysis: null,
+  processingState: {},
 
   setProductDescription: (description) =>
     set({ productDescription: description }),
@@ -114,4 +116,9 @@ export const useFormStore = create<FormStore>((set) => ({
 
   setAnalysis: (analysis) =>
     set({ analysis }),
+
+  setProcessingState: (state) =>
+    set((prev) => ({ 
+      processingState: { ...prev.processingState, ...state }
+    })),
 }));
