@@ -12,6 +12,7 @@ interface FormStore extends FormState {
   addSolution: (solution: Solution) => void;
   updateSolution: (id: string, solution: Partial<Solution>) => void;
   removeSolution: (id: string) => void;
+  addCoreSolution: (solution: Solution) => void;
   setSelectedModel: (model: ModelType | null) => void;
   addFeature: (feature: Feature) => void;
   updateFeature: (id: string, feature: Partial<Feature>) => void;
@@ -69,6 +70,7 @@ export const useFormStore = create<FormStore>((set) => ({
   removeChallenge: (id) =>
     set((state) => ({
       challenges: state.challenges.filter((c) => c.id !== id),
+      solutions: state.solutions.filter((s) => s.challengeId !== id),
     })),
 
   addSolution: (solution) =>
@@ -86,6 +88,11 @@ export const useFormStore = create<FormStore>((set) => ({
   removeSolution: (id) =>
     set((state) => ({
       solutions: state.solutions.filter((s) => s.id !== id),
+    })),
+
+  addCoreSolution: (solution) =>
+    set((state) => ({
+      solutions: [...state.solutions, { ...solution, category: 'core' }],
     })),
 
   setSelectedModel: (model) =>

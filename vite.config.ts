@@ -5,9 +5,13 @@ export default defineConfig({
   plugins: [react()],
   optimizeDeps: {
     exclude: ['lucide-react'],
-    include: ['@daily-co/daily-js', '@vapi-ai/web']
+    include: ['@daily-co/daily-js', '@vapi-ai/web', 'events']
   },
   resolve: {
-    dedupe: ['@daily-co/daily-js', '@vapi-ai/web']
+    dedupe: ['@daily-co/daily-js', '@vapi-ai/web', 'events', 'react', 'react-dom']
+  },
+  server: {
+    host: true,
+    port: 5173
   }
 });
