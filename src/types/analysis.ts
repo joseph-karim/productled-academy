@@ -1,18 +1,7 @@
-export interface JourneyStageAnalysis {
-  score: number;
-  analysis: string;
-  strengths: string[];
-  suggestions: string[];
-}
-
-export interface JourneyAnalysis {
-  overview: string;
-  discovery: JourneyStageAnalysis;
-  signup: JourneyStageAnalysis;
-  activation: JourneyStageAnalysis;
-  engagement: JourneyStageAnalysis;
-  conversion: JourneyStageAnalysis;
-}
+import type { ComponentFeedback } from './componentFeedback';
+import type { JourneyAnalysis } from './journeyAnalysis';
+import type { Challenge, Solution, ModelType } from './index';
+import type { PackageFeature, PricingStrategy } from './package';
 
 export interface Analysis {
   deepScore: {
@@ -24,7 +13,7 @@ export interface Analysis {
   summary: string;
   strengths: string[];
   weaknesses: string[];
-  recommendations?: string[];
+  recommendations: string[];
   componentScores: {
     productDescription: number;
     idealUser: number;
@@ -32,38 +21,27 @@ export interface Analysis {
     challenges: number;
     solutions: number;
     modelSelection: number;
-    userJourney: number;
+    packageDesign: number;
+    pricingStrategy: number;
   };
   componentFeedback: {
-    productDescription: {
+    productDescription: ComponentFeedback;
+    idealUser: ComponentFeedback;
+    userEndgame: ComponentFeedback;
+    challenges: ComponentFeedback;
+    solutions: ComponentFeedback;
+    modelSelection: ComponentFeedback;
+    packageDesign: {
       strengths: string[];
       recommendations: string[];
+      analysis: string;
+      balanceScore: number;
     };
-    idealUser: {
+    pricingStrategy: {
       strengths: string[];
       recommendations: string[];
-    };
-    userEndgame: {
-      strengths: string[];
-      recommendations: string[];
-    };
-    challenges: {
-      strengths: string[];
-      recommendations: string[];
-    };
-    solutions: {
-      strengths: string[];
-      recommendations: string[];
-    };
-    modelSelection: {
-      strengths: string[];
-      recommendations: string[];
-      analysis?: string;
-      considerations?: string[];
-    };
-    userJourney: {
-      strengths: string[];
-      recommendations: string[];
+      analysis: string;
+      conversionPotential: number;
     };
   };
   actionPlan: {
@@ -95,51 +73,8 @@ export interface AnalysisInput {
   challenges: Challenge[];
   solutions: Solution[];
   selectedModel: ModelType;
-  userJourney?: UserJourney;
-}
-
-export interface Challenge {
-  id?: string;
-  title: string;
-  description?: string;
-  level?: string;
-  magnitude?: string | number;
-}
-
-export interface Solution {
-  id?: string;
-  challengeId?: string;
-  text: string;
-  type: string;
-  cost: string;
-}
-
-export type ModelType = 'opt-in-trial' | 'opt-out-trial' | 'usage-trial' | 'freemium' | 'new-product' | 'sandbox';
-
-export interface UserJourney {
-  discovery: {
-    problem: string;
-    trigger: string;
-    initialThought: string;
+  packages?: {
+    features: PackageFeature[];
+    pricingStrategy: PricingStrategy;
   };
-  signup: {
-    friction: string;
-    timeToValue: string;
-    guidance: string[];
-  };
-  activation: {
-    firstWin: string;
-    ahaFeature: string;
-    timeToSuccess: string;
-  };
-  engagement: {
-    coreTasks: string[];
-    collaboration: string[];
-    limitations: string[];
-  };
-  conversion: {
-    triggers: string[];
-    nextFeatures: string[];
-  };
-  [key: string]: any;
 }

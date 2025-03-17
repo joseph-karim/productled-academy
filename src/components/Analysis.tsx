@@ -1,6 +1,20 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useFormStore } from '../store/formStore';
-import { Mic, Loader2, X, Download, Lightbulb, AlertTriangle, CheckCircle, ArrowRight, Target, Users } from 'lucide-react';
+import { usePackageStore } from '../store/packageStore';
+import { 
+  Mic, 
+  Loader2, 
+  X, 
+  Download, 
+  Lightbulb, 
+  AlertTriangle, 
+  CheckCircle, 
+  ArrowRight, 
+  Target, 
+  Users,
+  Package,
+  DollarSign
+} from 'lucide-react';
 import { VoiceChat } from './VoiceChat';
 import { Chart as ChartJS, RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend, CategoryScale, LinearScale, BarElement } from 'chart.js';
 import { Radar, Bar } from 'react-chartjs-2';
@@ -21,16 +35,16 @@ ChartJS.register(
 
 export function Analysis() {
   const store = useFormStore();
+  const packageStore = usePackageStore();
   const [showVoiceChat, setShowVoiceChat] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [hasInitiatedAnalysis, setHasInitiatedAnalysis] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const analyzeData = async () => {
-      if (isAnalyzing || store.analysis || hasInitiatedAnalysis) return;
+      if (isAnalyzing || store.analysis) return;
       
       const beginnerOutcome = store.outcomes.find(o => o.level === 'beginner');
       
@@ -40,7 +54,6 @@ export function Analysis() {
       }
 
       setIsAnalyzing(true);
-      setHasInitiatedAnalysis(true);
       
       try {
         const result = await analyzeFormData({
@@ -50,8 +63,10 @@ export function Analysis() {
           challenges: store.challenges,
           solutions: store.solutions,
           selectedModel: store.selectedModel,
-          freeFeatures: store.freeFeatures,
-          userJourney: store.userJourney
+          packages: {
+            features: packageStore.features,
+            pricingStrategy: packageStore.pricingStrategy!
+          }
         });
         
         store.setAnalysis(result);
@@ -65,7 +80,7 @@ export function Analysis() {
     };
 
     analyzeData();
-  }, [store, isAnalyzing, hasInitiatedAnalysis]);
+  }, [store, packageStore, isAnalyzing]);
 
   if (isAnalyzing) {
     return (
@@ -83,7 +98,7 @@ export function Analysis() {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center space-y-4 max-w-md mx-auto">
-          <X className="w-8 h-8 mx-auto text-red-500" />
+          <AlertTriangle className="w-8 h-8 mx-auto text-red-500" />
           <p className="text-gray-400">
             {error || "Unable to analyze the strategy. Please ensure all previous sections are completed."}
           </p>
@@ -92,14 +107,25 @@ export function Analysis() {
             <li>• Ideal User must be defined</li>
             <li>• User Endgame for beginners must be specified</li>
             <li>• Model Selection must be made</li>
-            <li>• At least one Free Feature should be defined</li>
+            <li>• Package features must be defined</li>
+            <li>• Pricing strategy must be set</li>
           </ul>
         </div>
       </div>
     );
   }
 
-  const { deepScore, componentScores, componentFeedback, actionPlan, testing, summary, strengths, weaknesses, journeyAnalysis } = store.analysis;
+  const { 
+    deepScore, 
+    componentScores, 
+    componentFeedback, 
+    actionPlan, 
+    testing, 
+    summary, 
+    strengths, 
+    weaknesses, 
+    journeyAnalysis 
+  } = store.analysis;
 
   // Ensure arrays exist with fallbacks
   const safeStrengths = strengths || [];
@@ -150,7 +176,8 @@ export function Analysis() {
       'Challenges', 
       'Solutions', 
       'Model Selection',
-      'User Journey'
+      'Package Design',
+      'Pricing Strategy'
     ],
     datasets: [
       {
@@ -162,7 +189,8 @@ export function Analysis() {
           componentScores.challenges,
           componentScores.solutions,
           componentScores.modelSelection,
-          componentScores.userJourney
+          componentScores.packageDesign,
+          componentScores.pricingStrategy
         ],
         backgroundColor: [
           'rgba(255, 210, 63, 0.8)',
@@ -171,6 +199,7 @@ export function Analysis() {
           'rgba(255, 210, 63, 0.65)',
           'rgba(255, 210, 63, 0.6)',
           'rgba(255, 210, 63, 0.55)',
+          'rgba(255, 210, 63, 0.5)',
           'rgba(255, 210, 63, 0.45)'
         ],
         borderColor: 'rgba(50, 50, 50, 0.5)',
@@ -296,13 +325,31 @@ export function Analysis() {
       title: "Model Selection",
       score: componentScores.modelSelection,
       strengths: componentFeedback.modelSelection.strengths || [],
-      recommendations: componentFeedback.modelSelection.recommendations || []
+      recommendations: componentFeedback.modelSelection.recommendations || [],
+      analysis: componentFeedback.modelSelection.analysis,
+      metrics: {
+        "Model Fit": componentScores.modelSelection
+      }
     },
-    userJourney: {
-      title: "User Journey",
-      score: componentScores.userJourney,
-      strengths: componentFeedback.userJourney.strengths || [],
-      recommendations: componentFeedback.userJourney.recommendations || []
+    packageDesign: {
+      title: "Package Design",
+      score: componentScores.packageDesign,
+      strengths: componentFeedback.packageDesign.strengths || [],
+      recommendations: componentFeedback.packageDesign.recommendations || [],
+      analysis: componentFeedback.packageDesign.analysis,
+      metrics: {
+        "Balance Score": componentFeedback.packageDesign.balanceScore
+      }
+    },
+    pricingStrategy: {
+      title: "Pricing Strategy",
+      score: componentScores.pricingStrategy,
+      strengths: componentFeedback.pricingStrategy.strengths || [],
+      recommendations: componentFeedback.pricingStrategy.recommendations || [],
+      analysis: componentFeedback.pricingStrategy.analysis,
+      metrics: {
+        "Conversion Potential": componentFeedback.pricingStrategy.conversionPotential
+      }
     }
   };
 
@@ -329,10 +376,10 @@ export function Analysis() {
           Component Analysis
         </button>
         <button
-          onClick={() => setActiveTab('journey')}
-          className={`px-4 py-2 rounded-md ${activeTab === 'journey' ? 'bg-[#2A2A2A] text-white' : 'text-gray-400 hover:text-white'}`}
+          onClick={() => setActiveTab('packages')}
+          className={`px-4 py-2 rounded-md ${activeTab === 'packages' ? 'bg-[#2A2A2A] text-white' : 'text-gray-400 hover:text-white'}`}
         >
-          Journey Analysis
+          Package Analysis
         </button>
         <button
           onClick={() => setActiveTab('action')}
@@ -472,6 +519,8 @@ export function Analysis() {
                   score={component.score}
                   strengths={component.strengths}
                   recommendations={component.recommendations}
+                  analysis={component.analysis}
+                  metrics={component.metrics}
                 />
               ))}
             </div>
@@ -479,70 +528,95 @@ export function Analysis() {
         </>
       )}
 
-      {activeTab === 'journey' && (
+      {activeTab === 'packages' && (
         <div className="space-y-6">
-          {journeyAnalysis ? (
-            <div className="bg-[#2A2A2A] p-6 rounded-lg shadow-lg">
-              <h3 className="text-lg font-semibold text-white mb-4">Customer Journey Analysis</h3>
-              <p className="text-gray-300 mb-6">{journeyAnalysis.overview}</p>
-              
-              <div className="space-y-6">
-                {['discovery', 'signup', 'activation', 'engagement', 'conversion'].map((stage) => {
-                  const stageData = journeyAnalysis[stage as keyof typeof journeyAnalysis];
-                  if (!stageData || typeof stageData !== 'object') return null;
+          <div className="bg-[#2A2A2A] p-6 rounded-lg shadow-lg">
+            <h3 className="text-lg font-semibold text-white mb-4">Package Analysis</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="bg-[#1C1C1C] p-4 rounded-lg">
+                <div className="flex items-center space-x-2 mb-3">
+                  <Package className="w-5 h-5 text-[#FFD23F]" />
+                  <h4 className="font-medium text-white">Package Design</h4>
+                </div>
+                <p className="text-gray-300 mb-4">{componentFeedback.packageDesign.analysis}</p>
+                <div className="flex items-center justify-between p-3 bg-[#2A2A2A] rounded-lg">
+                  <span className="text-gray-400">Balance Score:</span>
+                  <span className={`text-lg font-semibold ${getScoreColorClass(componentFeedback.packageDesign.balanceScore)}`}>
+                    {componentFeedback.packageDesign.balanceScore}%
+                  </span>
+                </div>
+              </div>
 
-                  return (
-                    <div key={stage} className="bg-[#1C1C1C] p-4 rounded-lg">
-                      <div className="flex items-center space-x-2 mb-3">
-                        <span className="text-[#FFD23F] capitalize">{stage}</span>
-                        <ArrowRight className="w-4 h-4 text-gray-600" />
-                        <span className={`text-sm font-medium px-2 py-0.5 rounded ${getScoreColorClass(stageData.score)} bg-opacity-20`}>
-                          {stageData.score}/100
-                        </span>
-                      </div>
-                      <p className="text-gray-300 text-sm mb-3">{stageData.analysis}</p>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <h5 className="text-xs font-medium text-gray-400 mb-2">Strengths</h5>
-                          <ul className="space-y-1">
-                            {stageData.strengths?.map((item, index) => (
-                              <li key={index} className="flex items-start space-x-2">
-                                <span className="flex-shrink-0 w-1.5 h-1.5 mt-1.5 rounded-full bg-green-400" />
-                                <span className="text-gray-300 text-xs">{item}</span>
-                              </li>
-                            )) || (
-                              <li className="text-gray-500 text-xs">No strengths identified.</li>
-                            )}
-                          </ul>
-                        </div>
-                        <div>
-                          <h5 className="text-xs font-medium text-gray-400 mb-2">Suggestions</h5>
-                          <ul className="space-y-1">
-                            {stageData.suggestions?.map((item, index) => (
-                              <li key={index} className="flex items-start space-x-2">
-                                <span className="flex-shrink-0 w-1.5 h-1.5 mt-1.5 rounded-full bg-[#FFD23F]" />
-                                <span className="text-gray-300 text-xs">{item}</span>
-                              </li>
-                            )) || (
-                              <li className="text-gray-500 text-xs">No suggestions available.</li>
-                            )}
-                          </ul>
-                        </div>
-                      </div>
+              <div className="bg-[#1C1C1C] p-4 rounded-lg">
+                <div className="flex items-center space-x-2 mb-3">
+                  <DollarSign className="w-5 h-5 text-[#FFD23F]" />
+                  <h4 className="font-medium text-white">Pricing Strategy</h4>
+                </div>
+                <p className="text-gray-300 mb-4">{componentFeedback.pricingStrategy.analysis}</p>
+                <div className="flex items-center justify-between p-3 bg-[#2A2A2A] rounded-lg">
+                  <span className="text-gray-400">Conversion Potential:</span>
+                  <span className={`text-lg font-semibold ${getScoreColorClass(componentFeedback.pricingStrategy.conversionPotential)}`}>
+                    {componentFeedback.pricingStrategy.conversionPotential}%
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+              <div>
+                <h4 className="text-[#FFD23F] font-medium mb-3">Package Strengths</h4>
+                <div className="space-y-2">
+                  {componentFeedback.packageDesign.strengths.map((strength, index) => (
+                    <div key={index} className="flex items-start space-x-2">
+                      <span className="flex-shrink-0 w-1.5 h-1.5 mt-2 rounded-full bg-green-400" />
+                      <span className="text-gray-300 text-sm">{strength}</span>
                     </div>
-                  );
-                })}
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <h4 className="text-[#FFD23F] font-medium mb-3">Package Recommendations</h4>
+                <div className="space-y-2">
+                  {componentFeedback.packageDesign.recommendations.map((rec, index) => (
+                    <div key={index} className="flex items-start space-x-2">
+                      <span className="flex-shrink-0 w-1.5 h-1.5 mt-2 rounded-full bg-[#FFD23F]" />
+                      <span className="text-gray-300 text-sm">{rec}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
-          ) : (
-            <div className="flex items-center justify-center min-h-[400px]">
-              <div className="text-center space-y-4">
-                <X className="w-8 h-8 mx-auto text-red-500" />
-                <p className="text-gray-400">Journey analysis data is not available.</p>
-                <p className="text-gray-500 text-sm">Please ensure all previous sections are completed and try again.</p>
+          </div>
+
+          <div className="bg-[#2A2A2A] p-6 rounded-lg">
+            <h3 className="text-lg font-semibold text-white mb-4">Pricing Analysis</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <h4 className="text-[#FFD23F] font-medium mb-3">Strategy Strengths</h4>
+                <div className="space-y-2">
+                  {componentFeedback.pricingStrategy.strengths.map((strength, index) => (
+                    <div key={index} className="flex items-start space-x-2">
+                      <span className="flex-shrink-0 w-1.5 h-1.5 mt-2 rounded-full bg-green-400" />
+                      <span className="text-gray-300 text-sm">{strength}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <h4 className="text-[#FFD23F] font-medium mb-3">Strategy Recommendations</h4>
+                <div className="space-y-2">
+                  {componentFeedback.pricingStrategy.recommendations.map((rec, index) => (
+                    <div key={index} className="flex items-start space-x-2">
+                      <span className="flex-shrink-0 w-1.5 h-1.5 mt-2 rounded-full bg-[#FFD23F]" />
+                      <span className="text-gray-300 text-sm">{rec}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
-          )}
+          </div>
         </div>
       )}
 
@@ -623,6 +697,7 @@ export function Analysis() {
           <div className="bg-[#2A2A2A] p-6 rounded-lg">
             <div className="flex items-center space-x-2 mb-4">
               <Lightbulb className="w-5 h-5 text-[#FFD23F]" />
+              
               <h3 className="text-lg font-semibold text-white">Implementation Recommendations</h3>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

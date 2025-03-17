@@ -6,9 +6,20 @@ interface ComponentCardProps {
   score: number;
   strengths: string[];
   recommendations: string[];
+  analysis?: string;
+  metrics?: {
+    [key: string]: number;
+  };
 }
 
-export function ComponentCard({ title, score, strengths, recommendations }: ComponentCardProps) {
+export function ComponentCard({ 
+  title, 
+  score, 
+  strengths, 
+  recommendations,
+  analysis,
+  metrics 
+}: ComponentCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
   const getScoreColor = (score: number) => {
@@ -37,6 +48,31 @@ export function ComponentCard({ title, score, strengths, recommendations }: Comp
 
       {isExpanded && (
         <div className="border-t border-[#333333] p-4 space-y-4">
+          {/* Analysis */}
+          {analysis && (
+            <div>
+              <h4 className="text-sm font-medium text-[#FFD23F] mb-2">Analysis</h4>
+              <p className="text-gray-300">{analysis}</p>
+            </div>
+          )}
+
+          {/* Metrics */}
+          {metrics && Object.keys(metrics).length > 0 && (
+            <div>
+              <h4 className="text-sm font-medium text-[#FFD23F] mb-2">Key Metrics</h4>
+              <div className="grid grid-cols-2 gap-4">
+                {Object.entries(metrics).map(([key, value]) => (
+                  <div key={key} className="bg-[#2A2A2A] p-3 rounded-lg">
+                    <div className="text-sm text-gray-400">{key}</div>
+                    <div className={`text-lg font-semibold ${getScoreColor(value)}`}>
+                      {value}%
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Strengths */}
           <div>
             <h4 className="text-sm font-medium text-green-400 mb-2">Strengths</h4>
