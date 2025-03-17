@@ -135,7 +135,7 @@ Challenge:
 Title: ${challengeTitle}
 ${challengeDescription ? `Description: ${challengeDescription}` : ''}
 
-Generate 3-5 concise solutions across product features, resources/tools, and content/guides that will help users overcome this challenge.`
+Generate 3-5 concise solutions that will help users overcome this challenge.`
         }
       ],
       functions: [
@@ -175,7 +175,7 @@ Generate 3-5 concise solutions across product features, resources/tools, and con
       function_call: { name: "suggest_solutions" }
     }).then(completion => {
       const result = completion.choices[0].message.function_call?.arguments;
-      if (!result) throw new Error("No solutions received");
+      if (!result) throw new Error("No suggestions received");
       return JSON.parse(result);
     }),
     'suggesting solutions'
@@ -195,7 +195,7 @@ export async function suggestModel(
 }> {
   return handleOpenAIRequest(
     openai.chat.completions.create({
-      model: "o3-mini",
+      model: "gpt-4o",
       messages: [
         {
           role: "system",
@@ -263,7 +263,7 @@ Challenges:
 ${challenges.map(c => `- ${c.title} (Level: ${c.level}, Magnitude: ${c.magnitude})`).join('\n')}
 
 Solutions:
-${solutions.map(s => `- ${s.text} (Type: ${s.type}, Cost: ${s.cost})`).join('\n')}
+${solutions.map(s => `- ${s.text} (Type: ${s.type}, Cost: ${s.cost}, Impact: ${s.impact})`).join('\n')}
 
 Suggest the most appropriate free model with detailed reasoning.`
         }
@@ -305,111 +305,86 @@ Suggest the most appropriate free model with detailed reasoning.`
   );
 }
 
-export async function suggestFeatures(
-  productDescription: string,
-  userEndgame: string,
-  selectedModel: ModelType,
-  challenges: Challenge[],
-  solutions: Solution[]
+export async function suggestCoreSolutions(
+  productDescription: string
 ): Promise<Array<{
-  feature: string;
-  category: 'core' | 'value-demo' | 'connection' | 'educational';
-  reasoning: string;
-  deepScore: {
-    desirability: number;
-    effectiveness: number;
-    efficiency: number;
-    polish: number;
-  };
+  text: string;
+  type: SolutionType;
+  cost: SolutionCost;
+  impact: SolutionImpact;
 }>> {
-  const beginnerChallenges = challenges.filter(c => c.level === 'beginner');
-  const beginnerSolutions = solutions.filter(s => 
-    beginnerChallenges.some(c => c.id === s.challengeId)
-  );
-
   return handleOpenAIRequest(
     openai.chat.completions.create({
-      model: "o3-mini",
+      model: "gpt-4o",
       messages: [
         {
           role: "system",
-          content: `You are an expert product strategist. Based on the beginner user journey (outcome > challenges > solutions), suggest free features that will help users achieve their initial success. Keep all responses concise (2-3 sentences max).
-          
-Consider:
-- Features that directly address beginner challenges
-- Quick wins that deliver value in under 7 minutes
-- Natural progression toward paid features
-- Balance between different solution types
+          content: `You are an expert product strategist. Based on the product description, suggest core features that are essential to the product's functionality. Keep all responses concise (2-3 sentences max).
 
-Categories:
-- Core: Essential features needed for basic success
-- Value-Demo: Features that showcase unique value
-- Connection: Basic sharing and collaboration
-- Educational: Onboarding and learning resources`
+Consider:
+- Essential product capabilities
+- Key differentiators
+- Must-have features
+- Technical foundations
+
+For each feature:
+1. Provide a clear description (2-3 sentences)
+2. Categorize as product/resource/content
+3. Evaluate implementation cost (low/medium/high)
+4. Assess business impact (low/medium/high)
+
+Focus on features that are fundamental to the product's value proposition.`
         },
         {
           role: "user",
           content: `
 Product Description: ${productDescription}
 
-Beginner User Outcome: ${userEndgame}
-
-Selected Model: ${selectedModel}
-
-Beginner Challenges:
-${beginnerChallenges.map(c => `- ${c.title} (Magnitude: ${c.magnitude})`).join('\n')}
-
-Solutions for Beginner Challenges:
-${beginnerSolutions.map(s => `- ${s.text} (Type: ${s.type}, Cost: ${s.cost})`).join('\n')}
-
-Based on this beginner user journey, suggest 3-5 features for the free tier that will help users overcome their initial challenges and achieve early success.`
+Generate 3-5 core features that are essential to this product's functionality.`
         }
       ],
       functions: [
         {
-          name: "suggest_features",
-          description: "Suggest features for the free tier",
+          name: "suggest_core_features",
+          description: "Suggest core product features",
           parameters: {
             type: "object",
             properties: {
-              suggestions: {
+              features: {
                 type: "array",
                 items: {
                   type: "object",
                   properties: {
-                    feature: { type: "string" },
-                    category: {
+                    text: { type: "string" },
+                    type: { 
                       type: "string",
-                      enum: ["core", "value-demo", "connection", "educational"]
+                      enum: ["product", "resource", "content"]
                     },
-                    reasoning: { type: "string" },
-                    deepScore: {
-                      type: "object",
-                      properties: {
-                        desirability: { type: "number", minimum: 0, maximum: 10 },
-                        effectiveness: { type: "number", minimum: 0, maximum: 10 },
-                        efficiency: { type: "number", minimum: 0, maximum: 10 },
-                        polish: { type: "number", minimum: 0, maximum: 10 }
-                      },
-                      required: ["desirability", "effectiveness", "efficiency", "polish"]
+                    cost: {
+                      type: "string",
+                      enum: ["low", "medium", "high"]
+                    },
+                    impact: {
+                      type: "string",
+                      enum: ["low", "medium", "high"]
                     }
                   },
-                  required: ["feature", "category", "reasoning", "deepScore"]
+                  required: ["text", "type", "cost", "impact"]
                 }
               }
             },
-            required: ["suggestions"]
+            required: ["features"]
           }
         }
       ],
-      function_call: { name: "suggest_features" }
+      function_call: { name: "suggest_core_features" }
     }).then(completion => {
       const result = completion.choices[0].message.function_call?.arguments;
-      if (!result)  throw new Error("No suggestions received");
-      const { suggestions } = JSON.parse(result);
-      return suggestions;
+      if (!result) throw new Error("No core features received");
+      const { features } = JSON.parse(result);
+      return features;
     }),
-    'suggesting features'
+    'suggesting core features'
   );
 }
 

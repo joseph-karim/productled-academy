@@ -1,8 +1,7 @@
-import type { UserLevel } from './userLevel';
-
 export type SolutionType = 'product' | 'resource' | 'content';
 export type SolutionCost = 'low' | 'medium' | 'high';
 export type SolutionImpact = 'low' | 'medium' | 'high';
+export type SolutionCategory = 'core' | 'challenge';
 
 export interface Solution {
   id: string;
@@ -10,5 +9,6 @@ export interface Solution {
   type: SolutionType;
   cost: SolutionCost;
   impact: SolutionImpact;
-  challengeId: string;
+  category: SolutionCategory;
+  challengeId?: string; // Optional for core features
 }
