@@ -1,7 +1,7 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useFormStore } from '../store/formStore';
 import { Mic, MicOff, Volume2, VolumeX, AlertCircle, X, Loader2 } from 'lucide-react';
-import { Vapi } from '@vapi-ai/web';
+import Vapi from '@vapi-ai/web';
 
 interface VoiceChatProps {
   onClose: () => void;
@@ -16,11 +16,19 @@ export function VoiceChat({ onClose }: VoiceChatProps) {
   const [messages, setMessages] = useState<Array<{ role: string; content: string }>>([]);
   const [isInitializing, setIsInitializing] = useState(true);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [initStatus, setInitStatus] = useState<{
+    apiKeyPresent: boolean;
+    micPermission: boolean;
+    vapiInstance: boolean;
+  }>({
+    apiKeyPresent: false,
+    micPermission: false,
+    vapiInstance: false
+  });
   
   const vapiRef = useRef<Vapi | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll messages
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
@@ -50,7 +58,7 @@ Component Analysis:
 - Challenges: ${componentScores.challenges}/100
 - Solutions: ${componentScores.solutions}/100
 - Model Selection: ${componentScores.modelSelection}/100
-- Free Features: ${componentScores.freeFeatures}/100
+- User Journey: ${componentScores.userJourney}/100
 
 Key Strengths:
 ${strengths.map((s, i) => `${i + 1}. ${s}`).join('\n')}
@@ -59,29 +67,40 @@ Areas for Improvement:
 ${weaknesses.map((w, i) => `${i + 1}. ${w}`).join('\n')}
 
 Top Recommendations:
-${recommendations.map((r, i) => `${i + 1}. ${r}`).join('\n')}`;
+${recommendations?.map((r, i) => `${i + 1}. ${r}`).join('\n')}`;
   };
 
   useEffect(() => {
     const initVapi = async () => {
       try {
+        // Check API key
         const apiKey = import.meta.env.VITE_VAPI_API_KEY;
+        const hasApiKey = !!apiKey;
+        setInitStatus(prev => ({ ...prev, apiKeyPresent: hasApiKey }));
+        
         if (!apiKey) {
           throw new Error("Vapi API key is missing");
         }
 
+        // Request microphone permission first
+        try {
+          await navigator.mediaDevices.getUserMedia({ 
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true
+            }
+          });
+          setInitStatus(prev => ({ ...prev, micPermission: true }));
+        } catch (micError) {
+          throw new Error("Please allow microphone access to use voice chat");
+        }
+
         // Initialize Vapi client
         vapiRef.current = new Vapi(apiKey);
-
-        // Request microphone permission early
-        await navigator.mediaDevices.getUserMedia({ 
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true
-          }
-        });
-
+        console.log("Vapi SDK initialized successfully");
+        setInitStatus(prev => ({ ...prev, vapiInstance: true }));
+        
         setIsInitializing(false);
         
         // Add welcome message
@@ -107,12 +126,73 @@ ${recommendations.map((r, i) => `${i + 1}. ${r}`).join('\n')}`;
       if (vapiRef.current) {
         try {
           vapiRef.current.stop();
+          vapiRef.current.removeAllListeners();
         } catch (e) {
           console.error("Error stopping Vapi:", e);
         }
       }
     };
   }, []);
+
+  const setupEventListeners = () => {
+    if (!vapiRef.current) return;
+
+    // Clear any existing listeners first
+    vapiRef.current.removeAllListeners(); 
+
+    // Speech events
+    vapiRef.current.on('speech-start', () => {
+      console.log("Assistant speech started");
+    });
+
+    vapiRef.current.on('speech-end', () => {
+      console.log("Assistant speech ended");
+    });
+
+    // Call lifecycle events
+    vapiRef.current.on('call-start', () => {
+      console.log("Call has started");
+      setIsListening(true);
+      setIsConnecting(false);
+    });
+
+    vapiRef.current.on('call-end', () => {
+      console.log("Call has ended");
+      setIsListening(false);
+    });
+
+    // Message event - handles both transcripts and assistant responses
+    vapiRef.current.on('message', (message) => {
+      console.log("Message received:", message);
+      
+      // Handle transcript updates
+      if (message.type === 'transcript') {
+        if (message.transcript) {
+          setTranscript(message.transcript);
+          if (message.isFinal) {
+            setMessages(prev => [...prev, { role: 'user', content: message.transcript }]);
+            setTranscript('');
+          }
+        }
+      } 
+      // Handle assistant messages
+      else if (message.content) {
+        setMessages(prev => [...prev, { role: 'assistant', content: message.content }]);
+      }
+      // Log other message types for debugging
+      else {
+        console.log("Other message type:", JSON.stringify(message, null, 2));
+      }
+    });
+
+    // Error handling
+    vapiRef.current.on('error', (error) => {
+      console.error("Conversation error:", error);
+      setError(`Error: ${error.message || 'Unknown error'}`);
+      setIsListening(false);
+      setIsConnecting(false);
+    });
+  };
 
   const startConversation = async () => {
     if (!vapiRef.current) {
@@ -124,39 +204,11 @@ ${recommendations.map((r, i) => `${i + 1}. ${r}`).join('\n')}`;
       setIsConnecting(true);
       setError(null);
 
-      // Set up event listeners
-      vapiRef.current.removeAllListeners(); // Clear any existing listeners
+      // Setup event listeners before starting
+      setupEventListeners();
 
-      vapiRef.current.on('speech-start', () => {
-        console.log("Assistant speech started");
-      });
-
-      vapiRef.current.on('speech-end', () => {
-        console.log("Assistant speech ended");
-      });
-
-      vapiRef.current.on('transcript', (message: any) => {
-        if (message.transcript) {
-          setTranscript(message.transcript);
-          if (message.isFinal) {
-            setMessages(prev => [...prev, { role: 'user', content: message.transcript }]);
-            setTranscript('');
-          }
-        }
-      });
-
-      vapiRef.current.on('message', (message: any) => {
-        if (message.content) {
-          setMessages(prev => [...prev, { role: 'assistant', content: message.content }]);
-        }
-      });
-
-      vapiRef.current.on('error', (error: any) => {
-        console.error("Conversation error:", error);
-        setError(`Error: ${error.message || 'Unknown error'}`);
-        setIsListening(false);
-      });
-
+      console.log("Starting conversation...");
+      
       // Start the conversation
       await vapiRef.current.start({
         model: {
@@ -195,16 +247,10 @@ Remember to:
           provider: "playht",
           voiceId: "jennifer",
           speed: 1.0
-        },
-        audio: {
-          disconnect: {
-            silenceTimeout: 2000
-          }
         }
       });
 
-      setIsListening(true);
-      setIsConnecting(false);
+      console.log("Conversation started successfully");
 
     } catch (error) {
       console.error("Failed to start conversation:", error);
@@ -218,8 +264,10 @@ Remember to:
     if (!vapiRef.current) return;
 
     try {
+      console.log("Stopping conversation...");
       await vapiRef.current.stop();
       setIsListening(false);
+      console.log("Conversation stopped successfully");
     } catch (error) {
       console.error("Failed to stop conversation:", error);
       setError(`Failed to stop: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -233,10 +281,18 @@ Remember to:
       const newMutedState = !isMuted;
       vapiRef.current.setMuted(newMutedState);
       setIsMuted(newMutedState);
+      console.log("Toggled mute:", newMutedState);
     } catch (error) {
       console.error("Failed to toggle mute:", error);
       setError(`Failed to toggle mute: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
+  };
+
+  const handleClose = async () => {
+    if (isListening) {
+      await stopConversation();
+    }
+    onClose();
   };
 
   return (
@@ -245,7 +301,7 @@ Remember to:
         <div className="flex justify-between items-center p-4 border-b border-[#333333]">
           <h2 className="text-xl font-semibold text-white">PLG Strategy Assistant</h2>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="text-gray-400 hover:text-white"
           >
             <X className="w-6 h-6" />
@@ -253,6 +309,29 @@ Remember to:
         </div>
 
         <div className="p-6 space-y-4">
+          {isInitializing && (
+            <div className="bg-[#1C1C1C] p-3 rounded-lg space-y-2 text-sm mb-4">
+              <div className="flex items-center justify-between">
+                <span className="text-gray-400">API Key:</span>
+                <span className={initStatus.apiKeyPresent ? "text-green-400" : "text-red-400"}>
+                  {initStatus.apiKeyPresent ? "Present" : "Missing"}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-gray-400">Microphone:</span>
+                <span className={initStatus.micPermission ? "text-green-400" : "text-red-400"}>
+                  {initStatus.micPermission ? "Granted" : "Not granted"}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-gray-400">Vapi Instance:</span>
+                <span className={initStatus.vapiInstance ? "text-green-400" : "text-red-400"}>
+                  {initStatus.vapiInstance ? "Ready" : "Not ready"}
+                </span>
+              </div>
+            </div>
+          )}
+
           {error && (
             <div className="bg-red-900/20 border border-red-500 text-red-400 p-4 rounded flex items-start">
               <AlertCircle className="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" />
