@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useFormStore } from '../store/formStore';
+import { usePackageStore } from '../store/packageStore';
 import { Mic, MicOff, Volume2, VolumeX, AlertCircle, X, Loader2 } from 'lucide-react';
 import Vapi from '@vapi-ai/web';
 
@@ -9,6 +10,7 @@ interface VoiceChatProps {
 
 export function VoiceChat({ onClose }: VoiceChatProps) {
   const store = useFormStore();
+  const packageStore = usePackageStore();
   const [isListening, setIsListening] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -40,6 +42,19 @@ export function VoiceChat({ onClose }: VoiceChatProps) {
 
     const { deepScore, componentScores, strengths, weaknesses, recommendations } = store.analysis;
 
+    // Format package features
+    const freeFeatures = packageStore.features
+      .filter(f => f.tier === 'free')
+      .map(f => `- ${f.name}: ${f.description} (${f.category})`)
+      .join('\n');
+
+    const paidFeatures = packageStore.features
+      .filter(f => f.tier === 'paid')
+      .map(f => `- ${f.name}: ${f.description} (${f.category})`)
+      .join('\n');
+
+    const strategy = packageStore.pricingStrategy;
+
     return `
 Product Description:
 ${store.productDescription}
@@ -58,7 +73,23 @@ Component Analysis:
 - Challenges: ${componentScores.challenges}/100
 - Solutions: ${componentScores.solutions}/100
 - Model Selection: ${componentScores.modelSelection}/100
-- User Journey: ${componentScores.userJourney}/100
+- Package Design: ${componentScores.packageDesign}/100
+- Pricing Strategy: ${componentScores.pricingStrategy}/100
+
+Package Design:
+Free Features:
+${freeFeatures}
+
+Paid Features:
+${paidFeatures}
+
+Pricing Strategy:
+- Model: ${strategy?.model}
+- Basis: ${strategy?.basis}
+- Free Package Limitations: ${strategy?.freePackage.limitations.join(', ')}
+- Conversion Goals: ${strategy?.freePackage.conversionGoals.join(', ')}
+- Value Metrics: ${strategy?.paidPackage.valueMetrics.join(', ')}
+- Target Conversion: ${strategy?.paidPackage.targetConversion}%
 
 Key Strengths:
 ${strengths.map((s, i) => `${i + 1}. ${s}`).join('\n')}
@@ -106,7 +137,7 @@ ${recommendations?.map((r, i) => `${i + 1}. ${r}`).join('\n')}`;
         // Add welcome message
         setMessages([{
           role: 'assistant',
-          content: "Hi! I've reviewed your Free Model Analysis. What aspect would you like to discuss - the overall scores, specific components, or implementation recommendations?"
+          content: "Hi! I've reviewed your Free Model Analysis. What aspect would you like to discuss - the overall scores, package design, pricing strategy, or implementation recommendations?"
         }]);
 
       } catch (error) {
@@ -118,20 +149,20 @@ ${recommendations?.map((r, i) => `${i + 1}. ${r}`).join('\n')}`;
         }
         setIsInitializing(false);
       }
+
+      return () => {
+        if (vapiRef.current) {
+          try {
+            vapiRef.current.stop();
+            vapiRef.current.removeAllListeners();
+          } catch (e) {
+            console.error("Error stopping Vapi:", e);
+          }
+        }
+      };
     };
 
     initVapi();
-
-    return () => {
-      if (vapiRef.current) {
-        try {
-          vapiRef.current.stop();
-          vapiRef.current.removeAllListeners();
-        } catch (e) {
-          console.error("Error stopping Vapi:", e);
-        }
-      }
-    };
   }, []);
 
   const setupEventListeners = () => {
@@ -221,15 +252,17 @@ Analysis Context:
 ${formatAnalysisData()}
 
 Key Focus Areas:
-1. DEEP Score Analysis
-   - Component strengths and weaknesses
-   - Improvement opportunities
-   - Score correlations
-
-2. Free Model Strategy
-   - Feature selection and limitations
-   - Upgrade triggers
+1. Package Design
+   - Feature balance and distribution
    - Value demonstration
+   - Upgrade triggers
+   - User journey alignment
+
+2. Pricing Strategy
+   - Model fit and effectiveness
+   - Conversion potential
+   - Value metrics
+   - Target conversion rates
 
 3. Implementation Priorities
    - Quick wins vs strategic changes
@@ -339,12 +372,7 @@ Remember to:
             </div>
           )}
 
-          {isInitializing ? (
-            <div className="flex flex-col items-center justify-center p-8 space-y-4">
-              <Loader2 className="w-8 h-8 text-[#FFD23F] animate-spin" />
-              <p className="text-gray-400">Initializing voice chat...</p>
-            </div>
-          ) : (
+          {!isInitializing ? (
             <>
               <div className="h-96 overflow-y-auto bg-[#1C1C1C] rounded-lg p-4 space-y-4">
                 {messages.map((message, index) => (
@@ -356,7 +384,7 @@ Remember to:
                       className={`max-w-[80%] p-3 rounded-lg ${
                         message.role === 'user'
                           ? 'bg-[#FFD23F] text-[#1C1C1C]'
-                          : 'bg-[#333333] text-white'
+                          : 'bg-[#2A2A2A] text-white'
                       }`}
                     >
                       {message.content}
@@ -421,6 +449,11 @@ Remember to:
                 )}
               </p>
             </>
+          ) : (
+            <div className="flex flex-col items-center justify-center p-8 space-y-4">
+              <Loader2 className="w-8 h-8 text-[#FFD23F] animate-spin" />
+              <p className="text-gray-400">Initializing voice chat...</p>
+            </div>
           )}
         </div>
       </div>

@@ -1,74 +1,56 @@
 import { openai, handleOpenAIRequest } from './client';
-import type { Challenge, Solution, ModelType, Feature, Analysis } from '../types';
+import type { Analysis, AnalysisInput } from '../../types/analysis';
+import type { PackageFeature, PricingStrategy } from '../../types/package';
 
-// Define an interface for the input data
-export interface AnalysisInput {
-  productDescription: string;
-  idealUser: {
-    title: string;
-    description: string;
-    motivation: 'Low' | 'Medium' | 'High';
-    ability: 'Low' | 'Medium' | 'High';
-    traits: string[];
-    impact: string;
-  };
-  userEndgame: string;
-  challenges: Challenge[];
-  solutions: Solution[];
-  selectedModel: ModelType;
-  freeFeatures: Feature[];
-  userJourney?: any;
-}
-
-// Updated function that accepts an object parameter
 export async function analyzeFormData(inputData: AnalysisInput): Promise<Analysis> {
-  const { 
-    productDescription, 
-    idealUser, 
-    userEndgame, 
-    challenges, 
-    solutions, 
-    selectedModel, 
-    freeFeatures, 
-    userJourney 
-  } = inputData;
-
   // Validate required fields
-  if (!productDescription || !userEndgame || !selectedModel) {
-    console.error("Missing required fields:", { 
-      hasProductDescription: !!productDescription, 
-      hasUserEndgame: !!userEndgame, 
-      hasSelectedModel: !!selectedModel,
-      hasIdealUser: !!idealUser
-    });
+  if (!inputData.productDescription || !inputData.userEndgame || !inputData.selectedModel) {
     throw new Error('Missing required fields for analysis');
   }
 
   // Format the ideal user traits
-  const idealUserTraits = Array.isArray(idealUser?.traits) 
-    ? idealUser.traits.join(', ') 
+  const idealUserTraits = Array.isArray(inputData.idealUser?.traits) 
+    ? inputData.idealUser.traits.join(', ') 
     : '';
 
   // Format challenges with levels
-  const formattedChallenges = challenges.map(c => {
+  const formattedChallenges = inputData.challenges.map(c => {
     const level = c.level || 'unspecified';
     const magnitude = c.magnitude || 'unspecified';
     return `- ${c.title} (Level: ${level}, Magnitude: ${magnitude})`;
   }).join('\n');
 
-  // Format solutions
-  const formattedSolutions = solutions.map(s => {
-    return `- ${s.text} (Type: ${s.type}, Cost: ${s.cost})`;
+  // Format solutions with type, cost and impact
+  const formattedSolutions = inputData.solutions.map(s => {
+    return `- ${s.text} (Type: ${s.type}, Cost: ${s.cost}, Impact: ${s.impact})`;
   }).join('\n');
 
-  // Format free features
-  const formattedFeatures = freeFeatures.map(f => {
-    return `- ${f.name}: ${f.description}`;
-  }).join('\n');
+  // Format package features
+  const formattedPackages = inputData.packages ? `
+Free Package Features:
+${inputData.packages.features
+  .filter(f => f.tier === 'free')
+  .map(f => `- ${f.name}: ${f.description} (${f.category})`)
+  .join('\n')}
+
+Paid Package Features:
+${inputData.packages.features
+  .filter(f => f.tier === 'paid')
+  .map(f => `- ${f.name}: ${f.description} (${f.category})`)
+  .join('\n')}
+
+Pricing Strategy:
+- Model: ${inputData.packages.pricingStrategy.model}
+- Basis: ${inputData.packages.pricingStrategy.basis}
+- Free Package Limitations: ${inputData.packages.pricingStrategy.freePackage.limitations.join(', ')}
+- Conversion Goals: ${inputData.packages.pricingStrategy.freePackage.conversionGoals.join(', ')}
+- Value Metrics: ${inputData.packages.pricingStrategy.paidPackage.valueMetrics.join(', ')}
+- Target Conversion: ${inputData.packages.pricingStrategy.paidPackage.targetConversion}%
+` : 'No package data provided';
 
   return handleOpenAIRequest(
     openai.chat.completions.create({
-      model: "o3-mini",
+      model: "gpt-4o",
       messages: [
         {
           role: "system",
@@ -80,34 +62,39 @@ Consider:
 - Efficiency: Resource utilization and implementation
 - Polish: User experience and cohesiveness
 
+Focus on:
+1. Package balance and feature distribution
+2. Pricing strategy effectiveness
+3. Conversion potential
+4. Value demonstration
+5. Upgrade path clarity
+
 Your analysis must follow this exact structure:
 1. DEEP scores (0-10 for each dimension)
-2. A concise summary (3-5 sentences) of the overall strategy
+2. A concise summary (3-5 sentences)
 3. 3-5 key overall strengths 
 4. 3-5 key overall weaknesses
 5. 3-5 actionable overall recommendations
-6. Component-specific scores (0-100) for all eight components
+6. Component-specific scores (0-100) for all components
 7. For each component, provide 2-3 specific strengths and recommendations
 8. Implementation timeline (immediate, medium, and long-term actions)
 9. Testing framework with A/B tests and metrics
-10. Journey analysis covering discovery, signup, activation, engagement and conversion stages
-
-Be specific, actionable, and focused on product-led growth strategies.`
+10. Journey analysis covering discovery through conversion`
         },
         {
           role: "user",
           content: `
-Product Description: ${productDescription}
+Product Description: ${inputData.productDescription}
 
 Ideal User:
-- Title: ${idealUser?.title || 'Not specified'}
-- Description: ${idealUser?.description || 'Not specified'}
-- Motivation: ${idealUser?.motivation || 'Not specified'}
-- Technical Ability: ${idealUser?.ability || 'Not specified'}
+- Title: ${inputData.idealUser?.title || 'Not specified'}
+- Description: ${inputData.idealUser?.description || 'Not specified'}
+- Motivation: ${inputData.idealUser?.motivation || 'Not specified'}
+- Technical Ability: ${inputData.idealUser?.ability || 'Not specified'}
 - Traits: ${idealUserTraits}
-- Impact: ${idealUser?.impact || 'Not specified'}
+- Impact: ${inputData.idealUser?.impact || 'Not specified'}
 
-User Endgame: ${userEndgame}
+User Endgame: ${inputData.userEndgame}
 
 Challenges:
 ${formattedChallenges}
@@ -115,14 +102,12 @@ ${formattedChallenges}
 Solutions:
 ${formattedSolutions}
 
-Selected Model: ${selectedModel}
+Selected Model: ${inputData.selectedModel}
 
-Free Features:
-${formattedFeatures}
+Package & Pricing Details:
+${formattedPackages}
 
-User Journey Canvas: ${userJourney ? JSON.stringify(userJourney) : 'Not provided'}
-
-Please analyze this information using the DEEP framework. Follow the structure outlined in your instructions to provide a comprehensive, consistent analysis of this free model strategy.`
+Please analyze this information using the DEEP framework. Focus on the effectiveness of the package design and pricing strategy in achieving the desired user outcomes and business goals.`
         }
       ],
       functions: [
@@ -167,10 +152,10 @@ Please analyze this information using the DEEP framework. Follow the structure o
                   challenges: { type: "number", minimum: 0, maximum: 100 },
                   solutions: { type: "number", minimum: 0, maximum: 100 },
                   modelSelection: { type: "number", minimum: 0, maximum: 100 },
-                  freeFeatures: { type: "number", minimum: 0, maximum: 100 },
-                  userJourney: { type: "number", minimum: 0, maximum: 100 }
+                  packageDesign: { type: "number", minimum: 0, maximum: 100 },
+                  pricingStrategy: { type: "number", minimum: 0, maximum: 100 }
                 },
-                required: ["productDescription", "idealUser", "userEndgame", "challenges", "solutions", "modelSelection", "freeFeatures", "userJourney"]
+                required: ["productDescription", "idealUser", "userEndgame", "challenges", "solutions", "modelSelection", "packageDesign", "pricingStrategy"]
               },
               componentFeedback: {
                 type: "object",
@@ -223,26 +208,30 @@ Please analyze this information using the DEEP framework. Follow the structure o
                       analysis: { type: "string" },
                       considerations: { type: "array", items: { type: "string" }}
                     },
-                    required: ["strengths", "recommendations"]
+                    required: ["strengths", "recommendations", "analysis", "considerations"]
                   },
-                  freeFeatures: {
+                  packageDesign: {
                     type: "object",
                     properties: {
                       strengths: { type: "array", items: { type: "string" }},
-                      recommendations: { type: "array", items: { type: "string" }}
+                      recommendations: { type: "array", items: { type: "string" }},
+                      analysis: { type: "string" },
+                      balanceScore: { type: "number", minimum: 0, maximum: 100 }
                     },
-                    required: ["strengths", "recommendations"]
+                    required: ["strengths", "recommendations", "analysis", "balanceScore"]
                   },
-                  userJourney: {
+                  pricingStrategy: {
                     type: "object",
                     properties: {
                       strengths: { type: "array", items: { type: "string" }},
-                      recommendations: { type: "array", items: { type: "string" }}
+                      recommendations: { type: "array", items: { type: "string" }},
+                      analysis: { type: "string" },
+                      conversionPotential: { type: "number", minimum: 0, maximum: 100 }
                     },
-                    required: ["strengths", "recommendations"]
+                    required: ["strengths", "recommendations", "analysis", "conversionPotential"]
                   }
                 },
-                required: ["productDescription", "idealUser", "userEndgame", "challenges", "solutions", "modelSelection", "freeFeatures", "userJourney"]
+                required: ["productDescription", "idealUser", "userEndgame", "challenges", "solutions", "modelSelection", "packageDesign", "pricingStrategy"]
               },
               actionPlan: {
                 type: "object",
@@ -278,7 +267,7 @@ Please analyze this information using the DEEP framework. Follow the structure o
                     description: "Technology-related actions"
                   }
                 },
-                required: ["immediate", "medium", "long"]
+                required: ["immediate", "medium", "long", "people", "process", "technology"]
               },
               testing: {
                 type: "object",
@@ -352,7 +341,7 @@ Please analyze this information using the DEEP framework. Follow the structure o
                 required: ["overview", "discovery", "signup", "activation", "engagement", "conversion"]
               }
             },
-            required: ["deepScore", "summary", "strengths", "weaknesses", "componentScores", "componentFeedback", "actionPlan", "testing"]
+            required: ["deepScore", "summary", "strengths", "weaknesses", "recommendations", "componentScores", "componentFeedback", "actionPlan", "testing", "journeyAnalysis"]
           }
         }
       ],
@@ -360,73 +349,8 @@ Please analyze this information using the DEEP framework. Follow the structure o
     }).then(completion => {
       const result = completion.choices[0].message.function_call?.arguments;
       if (!result) throw new Error("No analysis received");
-      
-      try {
-        const parsedResult = JSON.parse(result);
-        
-        // Add empty arrays for optional properties if they're missing
-        if (!parsedResult.actionPlan.people) parsedResult.actionPlan.people = [];
-        if (!parsedResult.actionPlan.process) parsedResult.actionPlan.process = [];
-        if (!parsedResult.actionPlan.technology) parsedResult.actionPlan.technology = [];
-        
-        // Create default journey analysis if it doesn't exist
-        if (!parsedResult.journeyAnalysis) {
-          parsedResult.journeyAnalysis = {
-            overview: "Journey analysis not available.",
-            discovery: createDefaultJourneyStage(),
-            signup: createDefaultJourneyStage(),
-            activation: createDefaultJourneyStage(),
-            engagement: createDefaultJourneyStage(),
-            conversion: createDefaultJourneyStage()
-          };
-        }
-        
-        return parsedResult;
-      } catch (error) {
-        console.error("Failed to parse analysis result:", error);
-        throw new Error("Failed to parse analysis result");
-      }
+      return JSON.parse(result);
     }),
     'analyzing form data'
   );
-}
-
-// Helper function to create default journey stage data
-function createDefaultJourneyStage() {
-  return {
-    score: 0,
-    analysis: "No analysis available.",
-    strengths: [],
-    suggestions: []
-  };
-}
-
-// Legacy function to maintain backward compatibility
-export function analyzeFormDataLegacy(
-  productDescription: string,
-  idealUser: {
-    title: string;
-    description: string;
-    motivation: 'Low' | 'Medium' | 'High';
-    ability: 'Low' | 'Medium' | 'High';
-    traits: string[];
-    impact: string;
-  },
-  userEndgame: string,
-  challenges: Challenge[],
-  solutions: Solution[],
-  selectedModel: ModelType,
-  freeFeatures: Feature[],
-  userJourney?: any
-): Promise<Analysis> {
-  return analyzeFormData({
-    productDescription,
-    idealUser,
-    userEndgame,
-    challenges,
-    solutions,
-    selectedModel,
-    freeFeatures,
-    userJourney
-  });
 }

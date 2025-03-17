@@ -1,6 +1,6 @@
 import React from 'react';
 import { useFormStore } from '../../store/formStore';
-import type { Solution, SolutionType } from '../../types';
+import type { Solution, SolutionType, SolutionCost, SolutionImpact } from '../../types';
 import { MessageSquarePlus, HelpCircle, Loader2, PlusCircle, Sparkles } from 'lucide-react';
 import { FloatingFeedback, type Feedback } from '../shared/FloatingFeedback';
 import { analyzeText } from '../../services/ai/feedback';
@@ -37,6 +37,7 @@ export function SolutionInput() {
       text: '',
       type: 'product',
       cost: 'medium',
+      impact: 'medium',
       challengeId,
     };
     addSolution(newSolution);
@@ -64,6 +65,7 @@ export function SolutionInput() {
           text: suggestion.text,
           type: suggestion.type,
           cost: suggestion.cost,
+          impact: suggestion.impact,
           challengeId,
         };
         addSolution(newSolution);
@@ -100,6 +102,7 @@ export function SolutionInput() {
             text: suggestion.text,
             type: suggestion.type,
             cost: suggestion.cost,
+            impact: suggestion.impact,
             challengeId: challenge.id,
           };
           addSolution(newSolution);
@@ -183,7 +186,7 @@ export function SolutionInput() {
         <div>
           <h2 className="text-2xl font-bold text-white">Solutions</h2>
           <p className="text-gray-400">
-            For each challenge, propose solutions and specify their type and implementation cost.
+            For each challenge, propose solutions and specify their type, implementation cost, and business impact.
           </p>
         </div>
         <div className="flex space-x-2">
@@ -378,12 +381,12 @@ export function SolutionInput() {
                         ))}
                       </select>
                     </div>
-                    <div>
+                    <div className="grid grid-cols-2 gap-2">
                       <select
                         value={solution.cost}
                         onChange={(e) =>
                           updateSolution(solution.id, {
-                            cost: e.target.value as 'low' | 'medium' | 'high',
+                            cost: e.target.value as SolutionCost,
                           })
                         }
                         className="w-full p-2 bg-[#1C1C1C] text-white border border-[#333333] rounded-lg focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent"
@@ -391,6 +394,19 @@ export function SolutionInput() {
                         <option value="low">Low Cost</option>
                         <option value="medium">Medium Cost</option>
                         <option value="high">High Cost</option>
+                      </select>
+                      <select
+                        value={solution.impact}
+                        onChange={(e) =>
+                          updateSolution(solution.id, {
+                            impact: e.target.value as SolutionImpact,
+                          })
+                        }
+                        className="w-full p-2 bg-[#1C1C1C] text-white border border-[#333333] rounded-lg focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent"
+                      >
+                        <option value="low">Low Impact</option>
+                        <option value="medium">Medium Impact</option>
+                        <option value="high">High Impact</option>
                       </select>
                     </div>
                   </div>

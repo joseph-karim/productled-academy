@@ -9,6 +9,7 @@ import { ModelSelector } from './steps/ModelSelector';
 import { FreeModelCanvas } from './steps/FreeModelCanvas';
 import { Analysis } from './Analysis';
 import { useFormStore } from '../store/formStore';
+import { usePackageStore } from '../store/packageStore';
 
 const steps = [
   { 
@@ -74,26 +75,54 @@ const steps = [
   { 
     title: 'Free Model Canvas', 
     component: FreeModelCanvas,
-    isUnlocked: (state: ReturnType<typeof useFormStore.getState>) => 
+    isUnlocked: (state: ReturnType<typeof useFormStore.getState>, packageState: ReturnType<typeof usePackageStore.getState>) => 
       state.selectedModel !== null,
-    isComplete: (state: ReturnType<typeof useFormStore.getState>) => true
+    isComplete: (state: ReturnType<typeof useFormStore.getState>, packageState: ReturnType<typeof usePackageStore.getState>) => {
+      const hasFreeTier = packageState.features.some(f => f.tier === 'free');
+      const hasPaidTier = packageState.features.some(f => f.tier === 'paid');
+      const strategy = packageState.pricingStrategy;
+      
+      return (
+        hasFreeTier && 
+        hasPaidTier && 
+        strategy?.freePackage.limitations.length > 0 &&
+        strategy?.freePackage.conversionGoals.length > 0 &&
+        strategy?.paidPackage.valueMetrics.length > 0 &&
+        strategy?.paidPackage.targetConversion > 0 &&
+        !packageState.processingState.freeModelCanvas
+      );
+    }
   },
   { 
     title: 'Analysis', 
     component: Analysis,
-    isUnlocked: (state: ReturnType<typeof useFormStore.getState>) => 
-      state.selectedModel !== null,
-    isComplete: (state: ReturnType<typeof useFormStore.getState>) => true
+    isUnlocked: (state: ReturnType<typeof useFormStore.getState>, packageState: ReturnType<typeof usePackageStore.getState>) => {
+      const hasFreeTier = packageState.features.some(f => f.tier === 'free');
+      const hasPaidTier = packageState.features.some(f => f.tier === 'paid');
+      const strategy = packageState.pricingStrategy;
+      
+      return (
+        hasFreeTier && 
+        hasPaidTier && 
+        strategy?.freePackage.limitations.length > 0 &&
+        strategy?.freePackage.conversionGoals.length > 0 &&
+        strategy?.paidPackage.valueMetrics.length > 0 &&
+        strategy?.paidPackage.targetConversion > 0
+      );
+    },
+    isComplete: () => true
   },
 ];
 
 export function MultiStepForm() {
   const [currentStep, setCurrentStep] = useState(0);
-  const store = useFormStore();
+  const formStore = useFormStore();
+  const packageStore = usePackageStore();
   const CurrentStepComponent = steps[currentStep].component;
 
   const goNext = () => {
-    if (currentStep < steps.length - 1 && steps[currentStep].isComplete(store)) {
+    if (currentStep < steps.length - 1 && 
+        steps[currentStep].isComplete(formStore, packageStore)) {
       setCurrentStep(currentStep + 1);
     }
   };
@@ -105,7 +134,7 @@ export function MultiStepForm() {
   };
 
   const goToStep = (index: number) => {
-    if (steps[index].isUnlocked(store)) {
+    if (steps[index].isUnlocked(formStore, packageStore)) {
       setCurrentStep(index);
     }
   };
@@ -116,8 +145,8 @@ export function MultiStepForm() {
       <div className="mb-8">
         <div className="flex justify-between mb-2">
           {steps.map((step, index) => {
-            const isUnlocked = step.isUnlocked(store);
-            const isComplete = step.isComplete(store);
+            const isUnlocked = step.isUnlocked(formStore, packageStore);
+            const isComplete = step.isComplete(formStore, packageStore);
             const isCurrent = index === currentStep;
 
             return (
@@ -171,9 +200,9 @@ export function MultiStepForm() {
         </button>
         <button
           onClick={goNext}
-          disabled={currentStep === steps.length - 1 || !steps[currentStep].isComplete(store)}
+          disabled={currentStep === steps.length - 1 || !steps[currentStep].isComplete(formStore, packageStore)}
           className={`flex items-center px-4 py-2 rounded ${
-            currentStep === steps.length - 1 || !steps[currentStep].isComplete(store)
+            currentStep === steps.length - 1 || !steps[currentStep].isComplete(formStore, packageStore)
               ? 'bg-[#2A2A2A] text-gray-600 cursor-not-allowed'
               : 'bg-[#FFD23F] text-[#1C1C1C] hover:bg-opacity-90'
           }`}
