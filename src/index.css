@@ -173,3 +173,38 @@ textarea:focus, input[type="text"]:focus, input[type="number"]:focus, select:foc
 .chat-input {
   @apply bg-[#2A2A2A] border border-[#333333] rounded-lg;
 }
+
+/* Free Model Canvas text wrapping */
+.canvas-text-wrap {
+  @apply break-words whitespace-normal overflow-hidden text-ellipsis;
+}
+
+.canvas-input {
+  @apply w-full bg-[#2A2A2A] text-white p-2 rounded border border-[#333333] 
+         focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent
+         break-words whitespace-normal overflow-hidden;
+}
+
+.canvas-description {
+  @apply text-sm text-gray-400 mt-1 break-words whitespace-normal overflow-hidden;
+}
+
+.canvas-list-item {
+  @apply flex items-start space-x-2 text-sm break-words whitespace-normal overflow-hidden;
+}
+
+.canvas-section {
+  @apply bg-[#1C1C1C] p-4 rounded-lg overflow-hidden;
+}
+
+.canvas-heading {
+  @apply font-medium text-white flex items-center space-x-2 mb-3 break-words;
+}
+
+.canvas-label {
+  @apply block text-sm font-medium text-gray-400 mb-2;
+}
+
+.canvas-text {
+  @apply text-gray-300 text-sm mb-3 break-words whitespace-normal;
+}

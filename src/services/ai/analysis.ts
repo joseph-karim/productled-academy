@@ -1,8 +1,9 @@
 import { openai, handleOpenAIRequest } from './client';
 import type { Challenge, Solution, ModelType, Feature, Analysis } from '../types';
 
-export async function analyzeFormData(
-  productDescription: string,
+// Define an interface for the input data
+export interface AnalysisInput {
+  productDescription: string;
   idealUser: {
     title: string;
     description: string;
@@ -10,16 +11,36 @@ export async function analyzeFormData(
     ability: 'Low' | 'Medium' | 'High';
     traits: string[];
     impact: string;
-  },
-  userEndgame: string,
-  challenges: Challenge[],
-  solutions: Solution[],
-  selectedModel: ModelType,
-  freeFeatures: Feature[],
-  userJourney?: any
-): Promise<Analysis> {
+  };
+  userEndgame: string;
+  challenges: Challenge[];
+  solutions: Solution[];
+  selectedModel: ModelType;
+  freeFeatures: Feature[];
+  userJourney?: any;
+}
+
+// Updated function that accepts an object parameter
+export async function analyzeFormData(inputData: AnalysisInput): Promise<Analysis> {
+  const { 
+    productDescription, 
+    idealUser, 
+    userEndgame, 
+    challenges, 
+    solutions, 
+    selectedModel, 
+    freeFeatures, 
+    userJourney 
+  } = inputData;
+
   // Validate required fields
   if (!productDescription || !userEndgame || !selectedModel) {
+    console.error("Missing required fields:", { 
+      hasProductDescription: !!productDescription, 
+      hasUserEndgame: !!userEndgame, 
+      hasSelectedModel: !!selectedModel,
+      hasIdealUser: !!idealUser
+    });
     throw new Error('Missing required fields for analysis');
   }
 
@@ -69,6 +90,7 @@ Your analysis must follow this exact structure:
 7. For each component, provide 2-3 specific strengths and recommendations
 8. Implementation timeline (immediate, medium, and long-term actions)
 9. Testing framework with A/B tests and metrics
+10. Journey analysis covering discovery, signup, activation, engagement and conversion stages
 
 Be specific, actionable, and focused on product-led growth strategies.`
         },
@@ -197,7 +219,9 @@ Please analyze this information using the DEEP framework. Follow the structure o
                     type: "object",
                     properties: {
                       strengths: { type: "array", items: { type: "string" }},
-                      recommendations: { type: "array", items: { type: "string" }}
+                      recommendations: { type: "array", items: { type: "string" }},
+                      analysis: { type: "string" },
+                      considerations: { type: "array", items: { type: "string" }}
                     },
                     required: ["strengths", "recommendations"]
                   },
@@ -237,6 +261,21 @@ Please analyze this information using the DEEP framework. Follow the structure o
                     type: "array",
                     items: { type: "string" },
                     description: "Actions for 90+ days"
+                  },
+                  people: {
+                    type: "array",
+                    items: { type: "string" },
+                    description: "People-related actions"
+                  },
+                  process: {
+                    type: "array",
+                    items: { type: "string" },
+                    description: "Process-related actions"
+                  },
+                  technology: {
+                    type: "array",
+                    items: { type: "string" },
+                    description: "Technology-related actions"
                   }
                 },
                 required: ["immediate", "medium", "long"]
@@ -254,9 +293,66 @@ Please analyze this information using the DEEP framework. Follow the structure o
                   }
                 },
                 required: ["abTests", "metrics"]
+              },
+              journeyAnalysis: {
+                type: "object",
+                properties: {
+                  overview: { type: "string" },
+                  discovery: {
+                    type: "object",
+                    properties: {
+                      score: { type: "number", minimum: 0, maximum: 100 },
+                      analysis: { type: "string" },
+                      strengths: { type: "array", items: { type: "string" }},
+                      suggestions: { type: "array", items: { type: "string" }}
+                    },
+                    required: ["score", "analysis", "strengths", "suggestions"]
+                  },
+                  signup: {
+                    type: "object",
+                    properties: {
+                      score: { type: "number", minimum: 0, maximum: 100 },
+                      analysis: { type: "string" },
+                      strengths: { type: "array", items: { type: "string" }},
+                      suggestions: { type: "array", items: { type: "string" }}
+                    },
+                    required: ["score", "analysis", "strengths", "suggestions"]
+                  },
+                  activation: {
+                    type: "object",
+                    properties: {
+                      score: { type: "number", minimum: 0, maximum: 100 },
+                      analysis: { type: "string" },
+                      strengths: { type: "array", items: { type: "string" }},
+                      suggestions: { type: "array", items: { type: "string" }}
+                    },
+                    required: ["score", "analysis", "strengths", "suggestions"]
+                  },
+                  engagement: {
+                    type: "object",
+                    properties: {
+                      score: { type: "number", minimum: 0, maximum: 100 },
+                      analysis: { type: "string" },
+                      strengths: { type: "array", items: { type: "string" }},
+                      suggestions: { type: "array", items: { type: "string" }}
+                    },
+                    required: ["score", "analysis", "strengths", "suggestions"]
+                  },
+                  conversion: {
+                    type: "object",
+                    properties: {
+                      score: { type: "number", minimum: 0, maximum: 100 },
+                      analysis: { type: "string" },
+                      strengths: { type: "array", items: { type: "string" }},
+                      suggestions: { type: "array", items: { type: "string" }}
+                    },
+                    required: ["score", "analysis", "strengths", "suggestions"]
+                  }
+                },
+                required: ["overview", "discovery", "signup", "activation", "engagement", "conversion"]
               }
             },
-            required: ["deepScore", "summary", "strengths", "weaknesses", "recommendations", "componentScores", "componentFeedback", "actionPlan", "testing"]
+            required: ["deepScore", "summary", "strengths", "weaknesses", "componentScores", "componentFeedback", "actionPlan", "testing"]
           }
         }
       ],
@@ -264,8 +360,73 @@ Please analyze this information using the DEEP framework. Follow the structure o
     }).then(completion => {
       const result = completion.choices[0].message.function_call?.arguments;
       if (!result) throw new Error("No analysis received");
-      return JSON.parse(result);
+      
+      try {
+        const parsedResult = JSON.parse(result);
+        
+        // Add empty arrays for optional properties if they're missing
+        if (!parsedResult.actionPlan.people) parsedResult.actionPlan.people = [];
+        if (!parsedResult.actionPlan.process) parsedResult.actionPlan.process = [];
+        if (!parsedResult.actionPlan.technology) parsedResult.actionPlan.technology = [];
+        
+        // Create default journey analysis if it doesn't exist
+        if (!parsedResult.journeyAnalysis) {
+          parsedResult.journeyAnalysis = {
+            overview: "Journey analysis not available.",
+            discovery: createDefaultJourneyStage(),
+            signup: createDefaultJourneyStage(),
+            activation: createDefaultJourneyStage(),
+            engagement: createDefaultJourneyStage(),
+            conversion: createDefaultJourneyStage()
+          };
+        }
+        
+        return parsedResult;
+      } catch (error) {
+        console.error("Failed to parse analysis result:", error);
+        throw new Error("Failed to parse analysis result");
+      }
     }),
     'analyzing form data'
   );
+}
+
+// Helper function to create default journey stage data
+function createDefaultJourneyStage() {
+  return {
+    score: 0,
+    analysis: "No analysis available.",
+    strengths: [],
+    suggestions: []
+  };
+}
+
+// Legacy function to maintain backward compatibility
+export function analyzeFormDataLegacy(
+  productDescription: string,
+  idealUser: {
+    title: string;
+    description: string;
+    motivation: 'Low' | 'Medium' | 'High';
+    ability: 'Low' | 'Medium' | 'High';
+    traits: string[];
+    impact: string;
+  },
+  userEndgame: string,
+  challenges: Challenge[],
+  solutions: Solution[],
+  selectedModel: ModelType,
+  freeFeatures: Feature[],
+  userJourney?: any
+): Promise<Analysis> {
+  return analyzeFormData({
+    productDescription,
+    idealUser,
+    userEndgame,
+    challenges,
+    solutions,
+    selectedModel,
+    freeFeatures,
+    userJourney
+  });
 }

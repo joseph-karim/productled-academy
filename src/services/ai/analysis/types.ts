@@ -1,5 +1,117 @@
-import type { Analysis } from '../../../types';
+export type ModelType = 'opt-in-trial' | 'opt-out-trial' | 'usage-trial' | 'freemium' | 'new-product' | 'sandbox';
 
+export interface Challenge {
+  id?: string;
+  title: string;
+  description?: string;
+  level?: string;
+  magnitude?: string | number;
+}
+
+export interface Solution {
+  id?: string;
+  challengeId?: string;
+  text: string;
+  type: string;
+  cost: string;
+}
+
+export interface ComponentFeedback {
+  strengths: string[];
+  recommendations: string[];
+  analysis?: string;
+  considerations?: string[];
+}
+
+export interface JourneyStage {
+  score: number;
+  analysis: string;
+  strengths: string[];
+  suggestions: string[];
+}
+
+export interface JourneyAnalysis {
+  overview: string;
+  discovery: JourneyStage;
+  signup: JourneyStage;
+  activation: JourneyStage;
+  engagement: JourneyStage;
+  conversion: JourneyStage;
+}
+
+export interface UserJourney {
+  discovery: {
+    problem: string;
+    trigger: string;
+    initialThought: string;
+  };
+  signup: {
+    friction: string;
+    timeToValue: string;
+    guidance: string[];
+  };
+  activation: {
+    firstWin: string;
+    ahaFeature: string;
+    timeToSuccess: string;
+  };
+  engagement: {
+    coreTasks: string[];
+    collaboration: string[];
+    limitations: string[];
+  };
+  conversion: {
+    triggers: string[];
+    nextFeatures: string[];
+  };
+  [key: string]: any;
+}
+
+export interface Analysis {
+  deepScore: {
+    desirability: number;
+    effectiveness: number;
+    efficiency: number;
+    polish: number;
+  };
+  summary: string;
+  strengths: string[];
+  weaknesses: string[];
+  recommendations?: string[];
+  componentScores: {
+    productDescription: number;
+    idealUser: number;
+    userEndgame: number;
+    challenges: number;
+    solutions: number;
+    modelSelection: number;
+    userJourney: number;
+  };
+  componentFeedback: {
+    productDescription: ComponentFeedback;
+    idealUser: ComponentFeedback;
+    userEndgame: ComponentFeedback;
+    challenges: ComponentFeedback;
+    solutions: ComponentFeedback;
+    modelSelection: ComponentFeedback;
+    userJourney: ComponentFeedback;
+  };
+  actionPlan: {
+    immediate: string[];
+    medium: string[];
+    long: string[];
+    people: string[];
+    process: string[];
+    technology: string[];
+  };
+  testing: {
+    abTests: string[];
+    metrics: string[];
+  };
+  journeyAnalysis: JourneyAnalysis;
+}
+
+// Input type for the analyzeFormData function
 export interface AnalysisInput {
   productDescription: string;
   idealUser: {
@@ -11,91 +123,8 @@ export interface AnalysisInput {
     impact: string;
   };
   userEndgame: string;
-  challenges: Array<{
-    title: string;
-    description?: string;
-    magnitude: number;
-    level: string;
-  }>;
-  solutions: Array<{
-    text: string;
-    type?: string;
-    cost?: string;
-  }>;
-  selectedModel: string;
-  freeFeatures: Array<{
-    name: string;
-    description: string;
-  }>;
-  userJourney?: any;
-}
-
-export interface AnalysisPrompt {
-  role: 'system' | 'user';
-  content: string;
-}
-
-export interface AnalysisParameters {
-  type: 'object';
-  properties: {
-    deepScore: {
-      type: 'object';
-      properties: {
-        desirability: { type: 'number'; minimum: 0; maximum: 10 };
-        effectiveness: { type: 'number'; minimum: 0; maximum: 10 };
-        efficiency: { type: 'number'; minimum: 0; maximum: 10 };
-        polish: { type: 'number'; minimum: 0; maximum: 10 };
-      };
-      required: string[];
-    };
-    componentScores: {
-      type: 'object';
-      properties: {
-        [key: string]: { type: 'number'; minimum: 0; maximum: 100 };
-      };
-      required: string[];
-    };
-    componentFeedback: {
-      type: 'object';
-      properties: {
-        [key: string]: {
-          type: 'object';
-          properties: {
-            strengths: { type: 'array'; items: { type: 'string' } };
-            recommendations: { type: 'array'; items: { type: 'string' } };
-          };
-          required: string[];
-        };
-      };
-      required: string[];
-    };
-    strengths: { type: 'array'; items: { type: 'string' } };
-    weaknesses: { type: 'array'; items: { type: 'string' } };
-    recommendations: { type: 'array'; items: { type: 'string' } };
-    actionPlan: {
-      type: 'object';
-      properties: {
-        immediate: { type: 'array'; items: { type: 'string' } };
-        medium: { type: 'array'; items: { type: 'string' } };
-        long: { type: 'array'; items: { type: 'string' } };
-      };
-      required: string[];
-    };
-    testing: {
-      type: 'object';
-      properties: {
-        abTests: { type: 'array'; items: { type: 'string' } };
-        metrics: { type: 'array'; items: { type: 'string' } };
-      };
-      required: string[];
-    };
-    summary: { type: 'string' };
-  };
-  required: string[];
-}
-
-export interface AnalysisFunction {
-  name: string;
-  description: string;
-  parameters: AnalysisParameters;
+  challenges: Challenge[];
+  solutions: Solution[];
+  selectedModel: ModelType;
+  userJourney?: UserJourney;
 }
