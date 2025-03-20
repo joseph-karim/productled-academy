@@ -15,14 +15,12 @@ export function AuthCallback() {
         const hashParams = new URLSearchParams(window.location.hash.substring(1));
         const accessToken = hashParams.get('access_token');
         const refreshToken = hashParams.get('refresh_token');
-        const expiresIn = hashParams.get('expires_in');
-        const tokenType = hashParams.get('token_type');
+        const type = hashParams.get('type');
         
         console.log('Hash parameters:', {
           hasAccessToken: !!accessToken,
           hasRefreshToken: !!refreshToken,
-          expiresIn,
-          tokenType
+          type
         });
 
         if (accessToken) {
@@ -54,8 +52,17 @@ export function AuthCallback() {
           console.log('Session retrieved successfully');
         }
 
-        // Navigate back to home
-        navigate('/', { replace: true });
+        // Handle different auth types
+        if (type === 'recovery') {
+          // Redirect to password reset page
+          navigate('/reset-password', { replace: true });
+        } else if (type === 'magiclink') {
+          // Handle magic link sign in
+          navigate('/', { replace: true });
+        } else {
+          // Default redirect
+          navigate('/', { replace: true });
+        }
       } catch (error) {
         console.error('Auth callback error:', error);
         navigate('/', { 

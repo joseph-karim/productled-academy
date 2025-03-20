@@ -13,6 +13,9 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing required Supabase environment variables');
 }
 
+// Get the current site URL for redirects
+const siteUrl = window.location.origin;
+
 // Initialize Supabase client with additional options
 export const supabase = createClient<Database>(
   supabaseUrl,
@@ -23,7 +26,13 @@ export const supabase = createClient<Database>(
       persistSession: true,
       detectSessionInUrl: true,
       storage: localStorage,
-      flowType: 'implicit'
+      flowType: 'pkce',
+      // Set site URL for auth redirects
+      redirectTo: `${siteUrl}/auth/callback`,
+      // Global redirect options
+      defaultOptions: {
+        emailRedirectTo: `${siteUrl}/auth/callback`
+      }
     }
   }
 );
@@ -33,7 +42,7 @@ export async function sendPasswordResetEmail(email: string) {
   try {
     console.log('Sending password reset email to:', email);
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/callback?type=recovery`
+      redirectTo: `${siteUrl}/auth/callback?type=recovery`
     });
 
     if (error) {
@@ -43,7 +52,7 @@ export async function sendPasswordResetEmail(email: string) {
 
     console.log('Password reset email sent successfully');
   } catch (error) {
-    console.error('Error sending password reset:', error);
+    console.error('Error sending password reset email:', error);
     throw error;
   }
 }
@@ -55,7 +64,7 @@ export async function sendMagicLink(email: string) {
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback?type=magiclink`
+        emailRedirectTo: `${siteUrl}/auth/callback?type=magiclink`
       }
     });
 
@@ -104,10 +113,6 @@ export async function signInWithGoogle() {
   try {
     console.log('Starting Google sign in...');
     
-    // Get the current origin
-    const origin = window.location.origin;
-    console.log('Current origin:', origin);
-    
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
@@ -115,7 +120,7 @@ export async function signInWithGoogle() {
           access_type: 'offline',
           prompt: 'consent'
         },
-        redirectTo: `${origin}/auth/callback`
+        redirectTo: `${siteUrl}/auth/callback`
       }
     });
 
@@ -139,7 +144,7 @@ export async function signUp(email: string, password: string) {
       email,
       password,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`
+        emailRedirectTo: `${siteUrl}/auth/callback`
       }
     });
 
