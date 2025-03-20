@@ -70,7 +70,8 @@ export function Analysis() {
           solutions: store.solutions,
           selectedModel: store.selectedModel,
           features: packageStore.features,
-          userJourney: store.userJourney
+          userJourney: store.userJourney,
+          analysisResults: null // Initialize as null
         });
 
         // Then analyze the data
@@ -95,7 +96,7 @@ export function Analysis() {
         // Set the analysis in the store with the database ID
         store.setAnalysis({
           ...result,
-          id: savedAnalysis.id // Add the database ID to the analysis
+          id: savedAnalysis.id
         });
         
         setError(null);
@@ -344,6 +345,176 @@ export function Analysis() {
                     <p className="text-gray-300">{weakness}</p>
                   </div>
                 ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'components' && (
+        <div className="space-y-6">
+          <ComponentCard
+            title="Product Description"
+            score={componentScores.productDescription}
+            strengths={componentFeedback.productDescription.strengths}
+            recommendations={componentFeedback.productDescription.recommendations}
+          />
+          <ComponentCard
+            title="Ideal User"
+            score={componentScores.idealUser}
+            strengths={componentFeedback.idealUser.strengths}
+            recommendations={componentFeedback.idealUser.recommendations}
+          />
+          <ComponentCard
+            title="User Endgame"
+            score={componentScores.userEndgame}
+            strengths={componentFeedback.userEndgame.strengths}
+            recommendations={componentFeedback.userEndgame.recommendations}
+          />
+          <ComponentCard
+            title="Challenges"
+            score={componentScores.challenges}
+            strengths={componentFeedback.challenges.strengths}
+            recommendations={componentFeedback.challenges.recommendations}
+          />
+          <ComponentCard
+            title="Solutions"
+            score={componentScores.solutions}
+            strengths={componentFeedback.solutions.strengths}
+            recommendations={componentFeedback.solutions.recommendations}
+          />
+        </div>
+      )}
+
+      {activeTab === 'packages' && (
+        <div className="space-y-6">
+          <ComponentCard
+            title="Package Design"
+            score={componentScores.packageDesign}
+            strengths={componentFeedback.packageDesign.strengths}
+            recommendations={componentFeedback.packageDesign.recommendations}
+            analysis={componentFeedback.packageDesign.analysis}
+            metrics={{ 
+              'Feature Balance': componentFeedback.packageDesign.balanceScore
+            }}
+          />
+          <ComponentCard
+            title="Pricing Strategy"
+            score={componentScores.pricingStrategy}
+            strengths={componentFeedback.pricingStrategy.strengths}
+            recommendations={componentFeedback.pricingStrategy.recommendations}
+            analysis={componentFeedback.pricingStrategy.analysis}
+            metrics={{
+              'Conversion Potential': componentFeedback.pricingStrategy.conversionPotential
+            }}
+          />
+        </div>
+      )}
+
+      {activeTab === 'action' && (
+        <div className="space-y-8">
+          <div className="bg-[#2A2A2A] p-6 rounded-lg space-y-6">
+            <h3 className="text-lg font-semibold text-white">Implementation Timeline</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-[#1C1C1C] p-4 rounded-lg">
+                <h4 className="text-[#FFD23F] font-medium mb-3">Immediate (1-30 days)</h4>
+                <ul className="space-y-2">
+                  {actionPlan.immediate.map((action, index) => (
+                    <li key={index} className="text-gray-300 flex items-start space-x-2">
+                      <span className="w-1.5 h-1.5 mt-2 rounded-full bg-[#FFD23F]" />
+                      <span>{action}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="bg-[#1C1C1C] p-4 rounded-lg">
+                <h4 className="text-[#FFD23F] font-medium mb-3">Medium Term (30-90 days)</h4>
+                <ul className="space-y-2">
+                  {actionPlan.medium.map((action, index) => (
+                    <li key={index} className="text-gray-300 flex items-start space-x-2">
+                      <span className="w-1.5 h-1.5 mt-2 rounded-full bg-[#FFD23F]" />
+                      <span>{action}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="bg-[#1C1C1C] p-4 rounded-lg">
+                <h4 className="text-[#FFD23F] font-medium mb-3">Long Term (90+ days)</h4>
+                <ul className="space-y-2">
+                  {actionPlan.long.map((action, index) => (
+                    <li key={index} className="text-gray-300 flex items-start space-x-2">
+                      <span className="w-1.5 h-1.5 mt-2 rounded-full bg-[#FFD23F]" />
+                      <span>{action}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-[#2A2A2A] p-6 rounded-lg space-y-6">
+            <h3 className="text-lg font-semibold text-white">Implementation Focus Areas</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-[#1C1C1C] p-4 rounded-lg">
+                <h4 className="text-[#FFD23F] font-medium mb-3">People</h4>
+                <ul className="space-y-2">
+                  {actionPlan.people.map((action, index) => (
+                    <li key={index} className="text-gray-300 flex items-start space-x-2">
+                      <span className="w-1.5 h-1.5 mt-2 rounded-full bg-[#FFD23F]" />
+                      <span>{action}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="bg-[#1C1C1C] p-4 rounded-lg">
+                <h4 className="text-[#FFD23F] font-medium mb-3">Process</h4>
+                <ul className="space-y-2">
+                  {actionPlan.process.map((action, index) => (
+                    <li key={index} className="text-gray-300 flex items-start space-x-2">
+                      <span className="w-1.5 h-1.5 mt-2 rounded-full bg-[#FFD23F]" />
+                      <span>{action}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="bg-[#1C1C1C] p-4 rounded-lg">
+                <h4 className="text-[#FFD23F] font-medium mb-3">Technology</h4>
+                <ul className="space-y-2">
+                  {actionPlan.technology.map((action, index) => (
+                    <li key={index} className="text-gray-300 flex items-start space-x-2">
+                      <span className="w-1.5 h-1.5 mt-2 rounded-full bg-[#FFD23F]" />
+                      <span>{action}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-[#2A2A2A] p-6 rounded-lg space-y-6">
+            <h3 className="text-lg font-semibold text-white">Testing Framework</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="bg-[#1C1C1C] p-4 rounded-lg">
+                <h4 className="text-[#FFD23F] font-medium mb-3">A/B Tests</h4>
+                <ul className="space-y-2">
+                  {testing.abTests.map((test, index) => (
+                    <li key={index} className="text-gray-300 flex items-start space-x-2">
+                      <span className="w-1.5 h-1.5 mt-2 rounded-full bg-[#FFD23F]" />
+                      <span>{test}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="bg-[#1C1C1C] p-4 rounded-lg">
+                <h4 className="text-[#FFD23F] font-medium mb-3">Success Metrics</h4>
+                <ul className="space-y-2">
+                  {testing.metrics.map((metric, index) => (
+                    <li key={index} className="text-gray-300 flex items-start space-x-2">
+                      <span className="w-1.5 h-1.5 mt-2 rounded-full bg-[#FFD23F]" />
+                      <span>{metric}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
             </div>
           </div>
