@@ -6,8 +6,12 @@ import { AuthButton } from './components/auth/AuthButton';
 import { AuthProvider } from './components/auth/AuthProvider';
 import { AuthCallback } from './components/auth/AuthCallback';
 import { SharedAnalysis } from './components/SharedAnalysis';
+import { FloatingChat } from './components/FloatingChat';
+import { useFormStore } from './store/formStore';
 
 function App() {
+  const { analysis } = useFormStore();
+
   return (
     <AuthProvider>
       <Router>
@@ -34,6 +38,8 @@ function App() {
               </Routes>
             </ErrorBoundary>
           </main>
+
+          {analysis && <FloatingChat analysis={analysis} />}
         </div>
       </Router>
     </AuthProvider>
