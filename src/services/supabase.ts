@@ -1,51 +1,195 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '../types/supabase';
 
-if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
-  throw new Error('Missing Supabase environment variables');
+// Validate environment variables
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error('Missing Supabase environment variables:', {
+    url: !!supabaseUrl,
+    key: !!supabaseAnonKey
+  });
+  throw new Error('Missing required Supabase environment variables');
 }
 
+// Initialize Supabase client with additional options
 export const supabase = createClient<Database>(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_ANON_KEY,
+  supabaseUrl,
+  supabaseAnonKey,
   {
     auth: {
       autoRefreshToken: true,
       persistSession: true,
       detectSessionInUrl: true,
-      storage: localStorage
+      storage: localStorage,
+      flowType: 'implicit'
     }
   }
 );
 
-export async function signInWithGoogle() {
+// Function to send password reset email
+export async function sendPasswordResetEmail(email: string) {
   try {
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
+    console.log('Sending password reset email to:', email);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/auth/callback?type=recovery`
+    });
+
+    if (error) {
+      console.error('Password reset error:', error);
+      throw error;
+    }
+
+    console.log('Password reset email sent successfully');
+  } catch (error) {
+    console.error('Error sending password reset:', error);
+    throw error;
+  }
+}
+
+// Function to send magic link
+export async function sendMagicLink(email: string) {
+  try {
+    console.log('Sending magic link to:', email);
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
       options: {
-        redirectTo: window.location.origin,
-        queryParams: {
-          access_type: 'offline',
-          prompt: 'consent'
-        }
+        emailRedirectTo: `${window.location.origin}/auth/callback?type=magiclink`
       }
     });
 
     if (error) {
-      console.error('Google Auth Error:', error);
+      console.error('Magic link error:', error);
       throw error;
     }
 
+    console.log('Magic link sent successfully');
+  } catch (error) {
+    console.error('Error sending magic link:', error);
+    throw error;
+  }
+}
+
+// Function to check Supabase connection
+export async function checkConnection(): Promise<boolean> {
+  try {
+    console.log('Checking Supabase connection...');
+    
+    // Try a simple query first
+    const { data, error } = await supabase
+      .from('analyses')
+      .select('id')
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      if (error.code === 'PGRST301') {
+        console.log('Database empty but connection successful');
+        return true;
+      }
+      console.error('Database connection error:', error);
+      return false;
+    }
+
+    console.log('Supabase connection successful');
+    return true;
+  } catch (error) {
+    console.error('Supabase connection check failed:', error);
+    return false;
+  }
+}
+
+export async function signInWithGoogle() {
+  try {
+    console.log('Starting Google sign in...');
+    
+    // Get the current origin
+    const origin = window.location.origin;
+    console.log('Current origin:', origin);
+    
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent'
+        },
+        redirectTo: `${origin}/auth/callback`
+      }
+    });
+
+    if (error) {
+      console.error('Google sign in error:', error);
+      throw error;
+    }
+
+    console.log('Google sign in initiated:', data);
     return data;
   } catch (error) {
-    console.error('Unexpected error during Google sign-in:', error);
+    console.error('Unexpected error during Google sign in:', error);
+    throw error;
+  }
+}
+
+export async function signUp(email: string, password: string) {
+  try {
+    console.log('Starting sign up...');
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback`
+      }
+    });
+
+    if (error) {
+      console.error('Sign up error:', error);
+      throw error;
+    }
+
+    console.log('Sign up successful:', data);
+    return data;
+  } catch (error) {
+    console.error('Unexpected error during sign up:', error);
+    throw error;
+  }
+}
+
+export async function signIn(email: string, password: string) {
+  try {
+    console.log('Starting sign in...');
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    });
+
+    if (error) {
+      console.error('Sign in error:', error);
+      throw error;
+    }
+
+    console.log('Sign in successful:', data);
+    return data;
+  } catch (error) {
+    console.error('Unexpected error during sign in:', error);
     throw error;
   }
 }
 
 export async function signOut() {
-  const { error } = await supabase.auth.signOut();
-  if (error) throw error;
+  try {
+    console.log('Signing out...');
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      console.error('Sign out error:', error);
+      throw error;
+    }
+    console.log('Successfully signed out');
+  } catch (error) {
+    console.error('Error during sign out:', error);
+    throw error;
+  }
 }
 
 export async function saveAnalysis(analysis: {
@@ -58,7 +202,6 @@ export async function saveAnalysis(analysis: {
   features?: any;
   userJourney?: any;
   analysisResults?: any;
-  analysis_results?: any;
 }) {
   // Get current user if authenticated
   const { data: { user } } = await supabase.auth.getUser();
@@ -67,22 +210,18 @@ export async function saveAnalysis(analysis: {
   const userId = user?.id || '00000000-0000-0000-0000-000000000000';
 
   // Convert properties to match database column names
-  const dbAnalysis: any = {
+  const dbAnalysis = {
     user_id: userId,
-    product_description: analysis.productDescription
+    product_description: analysis.productDescription,
+    ideal_user: analysis.idealUser,
+    outcomes: analysis.outcomes,
+    challenges: analysis.challenges,
+    solutions: analysis.solutions,
+    selected_model: analysis.selectedModel,
+    features: analysis.features,
+    user_journey: analysis.userJourney,
+    analysis_results: analysis.analysisResults
   };
-
-  if (analysis.idealUser) dbAnalysis.ideal_user = analysis.idealUser;
-  if (analysis.outcomes) dbAnalysis.outcomes = analysis.outcomes;
-  if (analysis.challenges) dbAnalysis.challenges = analysis.challenges;
-  if (analysis.solutions) dbAnalysis.solutions = analysis.solutions;
-  if (analysis.selectedModel) dbAnalysis.selected_model = analysis.selectedModel;
-  if (analysis.features) dbAnalysis.features = analysis.features;
-  if (analysis.userJourney) dbAnalysis.user_journey = analysis.userJourney;
-
-  // Handle either naming convention for analysis results
-  if (analysis.analysisResults) dbAnalysis.analysis_results = analysis.analysisResults;
-  else if (analysis.analysis_results) dbAnalysis.analysis_results = analysis.analysis_results;
 
   const { data, error } = await supabase
     .from('analyses')
@@ -90,7 +229,10 @@ export async function saveAnalysis(analysis: {
     .select()
     .single();
 
-  if (error) throw error;
+  if (error) {
+    console.error('Error saving analysis:', error);
+    throw error;
+  }
   return data;
 }
 
@@ -141,7 +283,6 @@ export async function updateAnalysis(id: string, analysis: {
   features?: any;
   userJourney?: any;
   analysisResults?: any;
-  analysis_results?: any;
 }) {
   // Convert properties to match database column names
   const dbAnalysis: any = {};
@@ -154,10 +295,7 @@ export async function updateAnalysis(id: string, analysis: {
   if (analysis.selectedModel) dbAnalysis.selected_model = analysis.selectedModel;
   if (analysis.features) dbAnalysis.features = analysis.features;
   if (analysis.userJourney) dbAnalysis.user_journey = analysis.userJourney;
-
-  // Handle either naming convention for analysis results
   if (analysis.analysisResults) dbAnalysis.analysis_results = analysis.analysisResults;
-  else if (analysis.analysis_results) dbAnalysis.analysis_results = analysis.analysis_results;
 
   const { data, error } = await supabase
     .from('analyses')
