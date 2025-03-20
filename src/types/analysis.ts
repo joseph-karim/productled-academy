@@ -1,9 +1,5 @@
-import type { ComponentFeedback } from './componentFeedback';
-import type { JourneyAnalysis } from './journeyAnalysis';
-import type { Challenge, Solution, ModelType } from './index';
-import type { PackageFeature, PricingStrategy } from './package';
-
 export interface Analysis {
+  id?: string; // Add optional ID field
   deepScore: {
     desirability: number;
     effectiveness: number;
@@ -57,24 +53,4 @@ export interface Analysis {
     metrics: string[];
   };
   journeyAnalysis: JourneyAnalysis;
-}
-
-export interface AnalysisInput {
-  productDescription: string;
-  idealUser: {
-    title: string;
-    description: string;
-    motivation: 'Low' | 'Medium' | 'High';
-    ability: 'Low' | 'Medium' | 'High';
-    traits: string[];
-    impact: string;
-  };
-  userEndgame: string;
-  challenges: Challenge[];
-  solutions: Solution[];
-  selectedModel: ModelType;
-  packages?: {
-    features: PackageFeature[];
-    pricingStrategy: PricingStrategy;
-  };
 }
