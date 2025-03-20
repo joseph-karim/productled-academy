@@ -1,14 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Mic, MicOff, Volume2, VolumeX, X, Loader2, Bot, AlertCircle } from 'lucide-react';
+import { Mic, MicOff, Volume2, VolumeX, X, Loader2, Bot, AlertCircle, MessageSquare } from 'lucide-react';
 import Vapi from '@vapi-ai/web';
 import { useFormStore } from '../store/formStore';
 
 interface VoiceChatProps {
   onClose: () => void;
   floating?: boolean;
+  onSwitchToText?: () => void;
 }
 
-export function VoiceChat({ onClose, floating = false }: VoiceChatProps) {
+export function VoiceChat({ onClose, floating = false, onSwitchToText }: VoiceChatProps) {
   const store = useFormStore();
   const [isListening, setIsListening] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
@@ -220,14 +221,36 @@ Remember to:
 
   return (
     <div className={`relative ${floating ? 'p-4' : 'p-6 space-y-4'}`}>
+      {/* Header with close and switch buttons */}
+      <div className="absolute top-0 left-0 right-0 bg-[#1C1C1C] p-4 border-b border-[#333333] flex justify-between items-center">
+        <h3 className="text-white font-medium">Voice Chat</h3>
+        <div className="flex items-center space-x-2">
+          {onSwitchToText && (
+            <button
+              onClick={onSwitchToText}
+              className="px-4 py-2 bg-[#2A2A2A] text-[#FFD23F] rounded-lg hover:bg-[#333333] flex items-center space-x-2"
+            >
+              <MessageSquare className="w-4 h-4" />
+              <span>Switch to Text</span>
+            </button>
+          )}
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-white"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+      </div>
+
       {error && (
-        <div className="bg-red-900/20 border border-red-500 text-red-400 p-4 rounded flex items-start mb-4">
+        <div className="bg-red-900/20 border border-red-500 text-red-400 p-4 rounded flex items-start mb-4 mt-16">
           <AlertCircle className="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" />
           <p>{error}</p>
         </div>
       )}
 
-      <div className={`space-y-4 ${floating ? 'h-40' : 'h-96'} overflow-y-auto mb-16`}>
+      <div className={`space-y-4 ${floating ? 'h-40' : 'h-96'} overflow-y-auto mb-16 mt-16`}>
         {messages.map((message, index) => (
           <div
             key={index}
