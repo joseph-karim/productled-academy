@@ -1,17 +1,22 @@
 import OpenAI from 'openai';
 
 // Initialize OpenAI with the API key from environment variables
-export const openai = new OpenAI({
-  apiKey: import.meta.env.VITE_OPENAI_API_KEY,
-  dangerouslyAllowBrowser: true
-});
+const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
 
-// Check if API key is available
-if (!import.meta.env.VITE_OPENAI_API_KEY) {
+if (!apiKey) {
   console.warn('OpenAI API key is missing. Please add VITE_OPENAI_API_KEY to your environment variables.');
 }
 
+export const openai = new OpenAI({
+  apiKey: apiKey || 'dummy-key', // Prevent client initialization error
+  dangerouslyAllowBrowser: true
+});
+
 export async function handleOpenAIRequest<T>(request: Promise<T>, errorContext: string): Promise<T> {
+  if (!apiKey) {
+    throw new Error('OpenAI API key is missing. Please add VITE_OPENAI_API_KEY to your environment variables.');
+  }
+
   try {
     return await request;
   } catch (error) {

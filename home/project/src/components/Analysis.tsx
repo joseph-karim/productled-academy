@@ -70,7 +70,8 @@ export function Analysis() {
           solutions: store.solutions,
           selectedModel: store.selectedModel,
           features: packageStore.features,
-          userJourney: store.userJourney
+          userJourney: store.userJourney,
+          analysisResults: null // Initialize as null
         });
 
         // Then analyze the data
@@ -95,7 +96,7 @@ export function Analysis() {
         // Set the analysis in the store with the database ID
         store.setAnalysis({
           ...result,
-          id: savedAnalysis.id // Add the database ID to the analysis
+          id: savedAnalysis.id
         });
         
         setError(null);
