@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useFormStore } from '../store/formStore';
 import { usePackageStore } from '../store/packageStore';
 import { useAuthStore } from '../store/authStore';
@@ -116,6 +116,8 @@ export function Analysis({ isShared = false }: AnalysisProps) {
   };
 
   const handleShare = async () => {
+    if (handleAuthRequired('share')) return;
+
     if (!store.analysis?.id) {
       setError("Analysis must be saved before sharing");
       return;
@@ -469,7 +471,7 @@ export function Analysis({ isShared = false }: AnalysisProps) {
       <div className="flex justify-between items-center">
         <div className="flex space-x-2">
           <button
-            onClick={() => window.print()}
+            onClick={handleExport}
             className="flex items-center px-4 py-2 rounded-lg bg-[#1C1C1C] text-white hover:bg-[#333333]"
           >
             <Download className="w-4 h-4 mr-2" />
