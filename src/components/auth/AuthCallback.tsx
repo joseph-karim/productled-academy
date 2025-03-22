@@ -40,7 +40,7 @@ export function AuthCallback() {
           case 'recovery':
             // Password reset flow
             if (session) {
-              navigate('/reset-password', { replace: true });
+              navigate('/auth/reset-password', { replace: true });
             } else {
               throw new Error('No session found for password reset');
             }

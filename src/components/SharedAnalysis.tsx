@@ -31,8 +31,14 @@ export function SharedAnalysis() {
 
         // Update store with shared analysis data
         store.setProductDescription(analysis.product_description);
-        store.setIdealUser(analysis.ideal_user);
-        store.setSelectedModel(analysis.selected_model);
+        
+        if (analysis.ideal_user) {
+          store.setIdealUser(analysis.ideal_user);
+        }
+        
+        if (analysis.selected_model) {
+          store.setSelectedModel(analysis.selected_model);
+        }
         
         if (analysis.outcomes) {
           analysis.outcomes.forEach((outcome: any) => {
@@ -62,7 +68,9 @@ export function SharedAnalysis() {
           store.setUserJourney(analysis.user_journey);
         }
 
-        store.setAnalysis(analysis.analysis_results);
+        if (analysis.analysis_results) {
+          store.setAnalysis(analysis.analysis_results);
+        }
         
       } catch (error) {
         console.error('Error loading shared analysis:', error);
