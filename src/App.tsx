@@ -7,6 +7,7 @@ import { AuthProvider } from './components/auth/AuthProvider';
 import { AuthCallback } from './components/auth/AuthCallback';
 import { ResetPassword } from './components/auth/ResetPassword';
 import { SharedAnalysis } from './components/SharedAnalysis';
+import { FloatingChat } from './components/FloatingChat';
 import { useFormStore } from './store/formStore';
 
 function App() {
@@ -60,6 +61,8 @@ function App() {
               </Routes>
             </ErrorBoundary>
           </main>
+
+          {analysis && <FloatingChat analysis={analysis} />}
         </div>
       </Router>
     </AuthProvider>
