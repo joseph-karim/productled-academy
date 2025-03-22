@@ -5,6 +5,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { AuthButton } from './components/auth/AuthButton';
 import { AuthProvider } from './components/auth/AuthProvider';
 import { AuthCallback } from './components/auth/AuthCallback';
+import { ResetPassword } from './components/auth/ResetPassword';
 import { SharedAnalysis } from './components/SharedAnalysis';
 import { FloatingChat } from './components/FloatingChat';
 import { useFormStore } from './store/formStore';
@@ -33,6 +34,7 @@ function App() {
             <ErrorBoundary>
               <Routes>
                 <Route path="/auth/callback" element={<AuthCallback />} />
+                <Route path="/auth/reset-password" element={<ResetPassword />} />
                 <Route path="/share/:shareId" element={<SharedAnalysis />} />
                 <Route path="/" element={<MultiStepForm />} />
               </Routes>
