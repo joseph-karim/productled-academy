@@ -1,21 +1,24 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useFormStore } from '../store/formStore';
 import { usePackageStore } from '../store/packageStore';
 import { useAuthStore } from '../store/authStore';
 import { 
-  Mic, 
   Loader2, 
   X, 
   Download, 
+  Lightbulb, 
+  AlertTriangle, 
+  CheckCircle, 
+  ArrowRight, 
+  Target, 
+  Users,
+  Package,
+  DollarSign,
   Share2,
-  Link,
-  LogIn,
-  CheckCircle,
-  AlertTriangle
+  Link
 } from 'lucide-react';
-import { VoiceChat } from './VoiceChat';
-import { Chart as ChartJS, RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend } from 'chart.js';
-import { Radar } from 'react-chartjs-2';
+import { Chart as ChartJS, RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend, CategoryScale, LinearScale, BarElement } from 'chart.js';
+import { Radar, Bar } from 'react-chartjs-2';
 import { analyzeFormData } from '../services/ai/analysis';
 import { ComponentCard } from './analysis/ComponentCard';
 import { shareAnalysis, saveAnalysis, updateAnalysis } from '../services/supabase';
@@ -27,7 +30,10 @@ ChartJS.register(
   LineElement,
   Filler,
   Tooltip,
-  Legend
+  Legend,
+  CategoryScale,
+  LinearScale,
+  BarElement
 );
 
 interface AnalysisProps {
@@ -38,18 +44,19 @@ export function Analysis({ isShared = false }: AnalysisProps) {
   const store = useFormStore();
   const packageStore = usePackageStore();
   const { user } = useAuthStore();
-  const [showVoiceChat, setShowVoiceChat] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('overview');
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const [isSharing, setIsSharing] = useState(false);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [showCopiedMessage, setShowCopiedMessage] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [pendingAction, setPendingAction] = useState<'share' | 'export' | null>(null);
 
   useEffect(() => {
     const analyzeData = async () => {
-      if (isAnalyzing || store.analysis) return;
+      if (isAnalyzing || store.analysis || isShared) return;
       
       const beginnerOutcome = store.outcomes.find(o => o.level === 'beginner');
       
@@ -104,7 +111,7 @@ export function Analysis({ isShared = false }: AnalysisProps) {
     };
 
     analyzeData();
-  }, [store, packageStore, isAnalyzing]);
+  }, [store, packageStore, isAnalyzing, isShared]);
 
   const handleAuthRequired = (action: 'share' | 'export') => {
     if (!user) {
@@ -125,21 +132,37 @@ export function Analysis({ isShared = false }: AnalysisProps) {
     
     try {
       setIsSharing(true);
+      setError(null);
       const shareId = await shareAnalysis(store.analysis.id);
       const shareUrl = `${window.location.origin}/share/${shareId}`;
       setShareUrl(shareUrl);
       
-      // Copy to clipboard
-      await navigator.clipboard.writeText(shareUrl);
-      
-      // Show success message
-      setError("Share link copied to clipboard!");
-      setTimeout(() => setError(null), 3000);
+      try {
+        await navigator.clipboard.writeText(shareUrl);
+        setShowCopiedMessage(true);
+        setTimeout(() => setShowCopiedMessage(false), 3000);
+      } catch (clipboardError) {
+        console.warn('Could not copy to clipboard:', clipboardError);
+        setError("Share link generated. Click 'Copy Share Link' to copy to clipboard.");
+      }
     } catch (error) {
       console.error('Error sharing analysis:', error);
       setError(error instanceof Error ? error.message : 'Failed to share analysis');
     } finally {
       setIsSharing(false);
+    }
+  };
+
+  const handleCopyToClipboard = async () => {
+    if (!shareUrl) return;
+    
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setShowCopiedMessage(true);
+      setTimeout(() => setShowCopiedMessage(false), 3000);
+    } catch (error) {
+      setError('Failed to copy to clipboard');
+      setTimeout(() => setError(null), 3000);
     }
   };
 
@@ -301,7 +324,6 @@ export function Analysis({ isShared = false }: AnalysisProps) {
         </button>
       </div>
 
-      {/* Overview Tab */}
       {activeTab === 'overview' && (
         <div className="bg-[#2A2A2A] p-6 rounded-lg shadow-lg space-y-6">
           <div className="flex justify-between items-start mb-6">
@@ -376,7 +398,6 @@ export function Analysis({ isShared = false }: AnalysisProps) {
         </div>
       )}
 
-      {/* Component Analysis Tab */}
       {activeTab === 'components' && (
         <div className="space-y-6">
           <ComponentCard
@@ -420,7 +441,6 @@ export function Analysis({ isShared = false }: AnalysisProps) {
         </div>
       )}
 
-      {/* Package Analysis Tab */}
       {activeTab === 'packages' && (
         <div className="space-y-6">
           <ComponentCard
@@ -446,7 +466,6 @@ export function Analysis({ isShared = false }: AnalysisProps) {
         </div>
       )}
 
-      {/* Action Plan Tab */}
       {activeTab === 'action' && (
         <div className="space-y-6">
           <ComponentCard
@@ -468,19 +487,19 @@ export function Analysis({ isShared = false }: AnalysisProps) {
         </div>
       )}
 
-      <div className="flex justify-between items-center">
-        <div className="flex space-x-2">
-          <button
-            onClick={handleExport}
-            className="flex items-center px-4 py-2 rounded-lg bg-[#1C1C1C] text-white hover:bg-[#333333]"
-          >
-            <Download className="w-4 h-4 mr-2" />
-            Export Analysis
-          </button>
-          {!isShared && (
-            shareUrl ? (
+      {!isShared && (
+        <div className="flex justify-between items-center">
+          <div className="flex space-x-2">
+            <button
+              onClick={handleExport}
+              className="flex items-center px-4 py-2 rounded-lg bg-[#1C1C1C] text-white hover:bg-[#333333]"
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Export Analysis
+            </button>
+            {shareUrl ? (
               <button
-                onClick={() => navigator.clipboard.writeText(shareUrl)}
+                onClick={handleCopyToClipboard}
                 className="flex items-center px-4 py-2 rounded-lg bg-[#1C1C1C] text-[#FFD23F] hover:bg-[#333333]"
               >
                 <Link className="w-4 h-4 mr-2" />
@@ -495,22 +514,25 @@ export function Analysis({ isShared = false }: AnalysisProps) {
                 <Share2 className="w-4 h-4 mr-2" />
                 {isSharing ? 'Sharing...' : 'Share Analysis'}
               </button>
-            )
-          )}
+            )}
+          </div>
         </div>
-        {!isShared && (
-          <button
-            onClick={() => setShowVoiceChat(true)}
-            className="flex items-center px-4 py-2 rounded-lg bg-[#FFD23F] text-[#1C1C1C] hover:bg-[#FFD23F]/90"
-          >
-            <Mic className="w-4 h-4 mr-2" />
-            Voice Chat
-          </button>
-        )}
-      </div>
+      )}
 
-      {showVoiceChat && (
-        <VoiceChat onClose={() => setShowVoiceChat(false)} />
+      {showCopiedMessage && (
+        <div className="fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg">
+          Copied to clipboard!
+        </div>
+      )}
+
+      {error && !showCopiedMessage && (
+        <div className={`fixed bottom-4 right-4 px-4 py-2 rounded-lg shadow-lg ${
+          error.toLowerCase().includes('copied') || error.toLowerCase().includes('success')
+            ? 'bg-green-500 text-white'
+            : 'bg-red-500 text-white'
+        }`}>
+          {error}
+        </div>
       )}
 
       {showAuthModal && (
