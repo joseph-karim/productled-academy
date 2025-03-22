@@ -37,49 +37,6 @@ export const supabase = createClient<Database>(
   }
 );
 
-// Function to send password reset email
-export async function sendPasswordResetEmail(email: string) {
-  try {
-    console.log('Sending password reset email to:', email);
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${siteUrl}/auth/callback?type=recovery`
-    });
-
-    if (error) {
-      console.error('Password reset error:', error);
-      throw error;
-    }
-
-    console.log('Password reset email sent successfully');
-  } catch (error) {
-    console.error('Error sending password reset email:', error);
-    throw error;
-  }
-}
-
-// Function to send magic link
-export async function sendMagicLink(email: string) {
-  try {
-    console.log('Sending magic link to:', email);
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        emailRedirectTo: `${siteUrl}/auth/callback?type=magiclink`
-      }
-    });
-
-    if (error) {
-      console.error('Magic link error:', error);
-      throw error;
-    }
-
-    console.log('Magic link sent successfully');
-  } catch (error) {
-    console.error('Error sending magic link:', error);
-    throw error;
-  }
-}
-
 // Function to check Supabase connection
 export async function checkConnection(): Promise<boolean> {
   try {
@@ -109,6 +66,7 @@ export async function checkConnection(): Promise<boolean> {
   }
 }
 
+// Authentication functions
 export async function signInWithGoogle() {
   try {
     console.log('Starting Google sign in...');
@@ -197,6 +155,49 @@ export async function signOut() {
   }
 }
 
+// Password reset and magic link functions
+export async function sendPasswordResetEmail(email: string) {
+  try {
+    console.log('Sending password reset email to:', email);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${siteUrl}/auth/callback?type=recovery`
+    });
+
+    if (error) {
+      console.error('Password reset error:', error);
+      throw error;
+    }
+
+    console.log('Password reset email sent successfully');
+  } catch (error) {
+    console.error('Error sending password reset email:', error);
+    throw error;
+  }
+}
+
+export async function sendMagicLink(email: string) {
+  try {
+    console.log('Sending magic link to:', email);
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        emailRedirectTo: `${siteUrl}/auth/callback?type=magiclink`
+      }
+    });
+
+    if (error) {
+      console.error('Magic link error:', error);
+      throw error;
+    }
+
+    console.log('Magic link sent successfully');
+  } catch (error) {
+    console.error('Error sending magic link:', error);
+    throw error;
+  }
+}
+
+// Analysis functions
 export async function saveAnalysis(analysis: {
   productDescription: string;
   idealUser?: any;
