@@ -30,7 +30,11 @@ ChartJS.register(
   Legend
 );
 
-export function Analysis() {
+interface AnalysisProps {
+  isShared?: boolean;
+}
+
+export function Analysis({ isShared = false }: AnalysisProps) {
   const store = useFormStore();
   const packageStore = usePackageStore();
   const { user } = useAuthStore();
@@ -112,7 +116,6 @@ export function Analysis() {
   };
 
   const handleShare = async () => {
-    if (handleAuthRequired('share')) return;
     if (!store.analysis?.id) {
       setError("Analysis must be saved before sharing");
       return;
@@ -123,7 +126,13 @@ export function Analysis() {
       const shareId = await shareAnalysis(store.analysis.id);
       const shareUrl = `${window.location.origin}/share/${shareId}`;
       setShareUrl(shareUrl);
+      
+      // Copy to clipboard
       await navigator.clipboard.writeText(shareUrl);
+      
+      // Show success message
+      setError("Share link copied to clipboard!");
+      setTimeout(() => setError(null), 3000);
     } catch (error) {
       console.error('Error sharing analysis:', error);
       setError(error instanceof Error ? error.message : 'Failed to share analysis');
@@ -460,66 +469,34 @@ export function Analysis() {
       <div className="flex justify-between items-center">
         <div className="flex space-x-2">
           <button
-            onClick={handleExport}
+            onClick={() => window.print()}
             className="flex items-center px-4 py-2 rounded-lg bg-[#1C1C1C] text-white hover:bg-[#333333]"
           >
-            {user ? (
-              <>
-                <Download className="w-4 h-4 mr-2" />
-                Export Analysis
-              </>
-            ) : (
-              <>
-                <LogIn className="w-4 h-4 mr-2" />
-                Sign in to Export
-              </>
-            )}
+            <Download className="w-4 h-4 mr-2" />
+            Export Analysis
           </button>
-          {shareUrl ? (
-            <button
-              onClick={() => navigator.clipboard.writeText(shareUrl)}
-              className="flex items-center px-4 py-2 rounded-lg bg-[#1C1C1C] text-[#FFD23F] hover:bg-[#333333]"
-            >
-              <Link className="w-4 h-4 mr-2" />
-              Copy Share Link
-            </button>
-          ) : (
-            <button
-              onClick={handleShare}
-              disabled={isSharing}
-              className="flex items-center px-4 py-2 rounded-lg bg-[#1C1C1C] text-white hover:bg-[#333333]"
-            >
-              {user ? (
-                <>
-                  <Share2 className="w-4 h-4 mr-2" />
-                  {isSharing ? 'Sharing...' : 'Share Analysis'}
-                </>
-              ) : (
-                <>
-                  <LogIn className="w-4 h-4 mr-2" />
-                  Sign in to Share
-                </>
-              )}
-            </button>
+          {!isShared && (
+            shareUrl ? (
+              <button
+                onClick={() => navigator.clipboard.writeText(shareUrl)}
+                className="flex items-center px-4 py-2 rounded-lg bg-[#1C1C1C] text-[#FFD23F] hover:bg-[#333333]"
+              >
+                <Link className="w-4 h-4 mr-2" />
+                Copy Share Link
+              </button>
+            ) : (
+              <button
+                onClick={handleShare}
+                disabled={isSharing}
+                className="flex items-center px-4 py-2 rounded-lg bg-[#1C1C1C] text-white hover:bg-[#333333]"
+              >
+                <Share2 className="w-4 h-4 mr-2" />
+                {isSharing ? 'Sharing...' : 'Share Analysis'}
+              </button>
+            )
           )}
         </div>
-        
-        {!user && (
-          <div className="flex items-center space-x-4">
-            <p className="text-gray-400">
-              Want to save your analysis?
-            </p>
-            <button
-              onClick={() => setShowAuthModal(true)}
-              className="flex items-center px-4 py-2 rounded-lg bg-[#FFD23F] text-[#1C1C1C] hover:bg-[#FFD23F]/90"
-            >
-              <LogIn className="w-4 h-4 mr-2" />
-              Create Account
-            </button>
-          </div>
-        )}
-        
-        {user && (
+        {!isShared && (
           <button
             onClick={() => setShowVoiceChat(true)}
             className="flex items-center px-4 py-2 rounded-lg bg-[#FFD23F] text-[#1C1C1C] hover:bg-[#FFD23F]/90"
