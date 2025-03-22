@@ -61,13 +61,24 @@ export const useAuthStore = create<AuthState>((set) => ({
   signOut: async () => {
     try {
       set({ loading: true, error: null });
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      
+      // Get current session first
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) throw sessionError;
+      
+      // Only attempt sign out if there's an active session
+      if (session) {
+        const { error } = await supabase.auth.signOut();
+        if (error) throw error;
+      }
+      
+      // Always clear local state
       set({ user: null, loading: false });
     } catch (error) {
       set({ 
         error: error instanceof Error ? error.message : 'Failed to sign out', 
-        loading: false 
+        loading: false,
+        user: null // Clear user state even on error
       });
       throw error;
     }

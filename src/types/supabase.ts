@@ -12,7 +12,7 @@ export interface Database {
       analyses: {
         Row: {
           id: string
-          user_id: string
+          user_id: string | null
           product_description: string
           ideal_user: Json | null
           outcomes: Json | null
@@ -24,10 +24,12 @@ export interface Database {
           analysis_results: Json | null
           created_at: string | null
           updated_at: string | null
+          share_id: string | null
+          is_public: boolean | null
         }
         Insert: {
           id?: string
-          user_id: string
+          user_id?: string | null
           product_description: string
           ideal_user?: Json | null
           outcomes?: Json | null
@@ -39,10 +41,12 @@ export interface Database {
           analysis_results?: Json | null
           created_at?: string | null
           updated_at?: string | null
+          share_id?: string | null
+          is_public?: boolean | null
         }
         Update: {
           id?: string
-          user_id?: string
+          user_id?: string | null
           product_description?: string
           ideal_user?: Json | null
           outcomes?: Json | null
@@ -54,6 +58,8 @@ export interface Database {
           analysis_results?: Json | null
           created_at?: string | null
           updated_at?: string | null
+          share_id?: string | null
+          is_public?: boolean | null
         }
       }
     }
