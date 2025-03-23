@@ -1,7 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '../types/supabase';
 
-// Validate environment variables
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
@@ -130,11 +129,7 @@ export async function getSharedAnalysis(shareId: string) {
     .eq('is_public', true)
     .single();
 
-  if (error) {
-    console.error('Error getting shared analysis:', error);
-    throw error;
-  }
-
+  if (error) throw error;
   return data;
 }
 
@@ -163,7 +158,7 @@ export async function getAnalysis(id: string) {
   return data;
 }
 
-export async function createAnalysis() {
+export async function createAnalysis(title?: string) {
   const { data: { user } } = await supabase.auth.getUser();
   const userId = user?.id || '00000000-0000-0000-0000-000000000000';
 
@@ -172,6 +167,7 @@ export async function createAnalysis() {
     .insert({
       user_id: userId,
       share_id: crypto.randomUUID(),
+      title: title || 'Untitled Analysis',
       product_description: '',
       ideal_user: null,
       outcomes: [],
@@ -193,6 +189,7 @@ export async function createAnalysis() {
 }
 
 export async function saveAnalysis(analysis: {
+  title?: string;
   productDescription: string;
   idealUser?: any;
   outcomes?: any;
@@ -210,6 +207,7 @@ export async function saveAnalysis(analysis: {
     .from('analyses')
     .insert({
       user_id: userId,
+      title: analysis.title || 'Untitled Analysis',
       product_description: analysis.productDescription,
       ideal_user: analysis.idealUser,
       outcomes: analysis.outcomes,
@@ -232,6 +230,7 @@ export async function saveAnalysis(analysis: {
 }
 
 export async function updateAnalysis(id: string, analysis: {
+  title?: string;
   productDescription?: string;
   idealUser?: any;
   outcomes?: any;
@@ -245,6 +244,7 @@ export async function updateAnalysis(id: string, analysis: {
   const { data, error } = await supabase
     .from('analyses')
     .update({
+      title: analysis.title,
       product_description: analysis.productDescription,
       ideal_user: analysis.idealUser,
       outcomes: analysis.outcomes,

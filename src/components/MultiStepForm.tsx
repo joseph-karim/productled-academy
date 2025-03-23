@@ -17,7 +17,6 @@ interface MultiStepFormProps {
   readOnly?: boolean;
 }
 
-// Define steps array before using it
 const steps = [
   { 
     title: 'Product Description', 
@@ -125,6 +124,7 @@ export function MultiStepForm({ readOnly = false }: MultiStepFormProps) {
   const [currentStep, setCurrentStep] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showTitlePrompt, setShowTitlePrompt] = useState(false);
   const formStore = useFormStore();
   const packageStore = usePackageStore();
   const { id } = useParams();
@@ -134,6 +134,10 @@ export function MultiStepForm({ readOnly = false }: MultiStepFormProps) {
   useEffect(() => {
     if (id) {
       loadAnalysis(id);
+    } else {
+      // Reset state for new analysis
+      formStore.resetState();
+      packageStore.reset();
     }
   }, [id]);
 
@@ -142,6 +146,7 @@ export function MultiStepForm({ readOnly = false }: MultiStepFormProps) {
       const analysis = await getAnalysis(analysisId);
       
       // Update form store with loaded data
+      formStore.setTitle(analysis.title || 'Untitled Analysis');
       formStore.setProductDescription(analysis.product_description || '');
       if (analysis.ideal_user) formStore.setIdealUser(analysis.ideal_user);
       if (analysis.outcomes) {
@@ -161,6 +166,7 @@ export function MultiStepForm({ readOnly = false }: MultiStepFormProps) {
       }
       if (analysis.selected_model) formStore.setSelectedModel(analysis.selected_model);
       if (analysis.features) {
+        packageStore.reset(); // Clear existing features
         analysis.features.forEach((feature: any) => {
           packageStore.addFeature(feature);
         });
@@ -182,6 +188,7 @@ export function MultiStepForm({ readOnly = false }: MultiStepFormProps) {
       setError(null);
 
       const analysisData = {
+        title: formStore.title,
         productDescription: formStore.productDescription,
         idealUser: formStore.idealUser,
         outcomes: formStore.outcomes,
@@ -196,8 +203,7 @@ export function MultiStepForm({ readOnly = false }: MultiStepFormProps) {
       if (id) {
         await updateAnalysis(id, analysisData);
       } else {
-        const savedAnalysis = await saveAnalysis(analysisData);
-        navigate(`/analysis/${savedAnalysis.id}`);
+        setShowTitlePrompt(true);
       }
 
       // Show success message
@@ -236,6 +242,43 @@ export function MultiStepForm({ readOnly = false }: MultiStepFormProps) {
 
   return (
     <div className="max-w-4xl mx-auto p-6">
+      {/* Title input for new analysis */}
+      {showTitlePrompt && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-[#2A2A2A] p-6 rounded-lg shadow-lg w-full max-w-md">
+            <h3 className="text-lg font-medium text-white mb-4">Name your analysis</h3>
+            <input
+              type="text"
+              value={formStore.title}
+              onChange={(e) => formStore.setTitle(e.target.value)}
+              placeholder="Enter a title..."
+              className="w-full p-2 bg-[#1C1C1C] text-white border border-[#333333] rounded-lg mb-4"
+            />
+            <div className="flex justify-end space-x-4">
+              <button
+                onClick={() => setShowTitlePrompt(false)}
+                className="px-4 py-2 text-gray-400 hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  const savedAnalysis = await saveAnalysis({
+                    title: formStore.title || 'Untitled Analysis',
+                    ...analysisData
+                  });
+                  setShowTitlePrompt(false);
+                  navigate(`/analysis/${savedAnalysis.id}`);
+                }}
+                className="px-4 py-2 bg-[#FFD23F] text-[#1C1C1C] rounded-lg hover:bg-[#FFD23F]/90"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Progress Bar */}
       <div className="mb-8">
         <div className="flex justify-between mb-2">

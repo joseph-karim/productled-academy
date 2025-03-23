@@ -2,10 +2,14 @@ import React, { useState } from 'react';
 import { usePackageStore } from '../../store/packageStore';
 import { useFormStore } from '../../store/formStore';
 import { PlusCircle, Trash2, HelpCircle, Loader2, Sparkles } from 'lucide-react';
-import type { PackageFeature, PackageTier } from '../../types/package';
+import type { PackageFeature } from '../../types/package';
 import { suggestPackageFeatures } from '../../services/ai/suggestions';
 
-export function PackageBuilder() {
+interface PackageBuilderProps {
+  readOnly?: boolean;
+}
+
+export function PackageBuilder({ readOnly = false }: PackageBuilderProps) {
   const { 
     features, 
     addFeature, 
@@ -23,7 +27,9 @@ export function PackageBuilder() {
   const [showGuidance, setShowGuidance] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
 
-  const handleAddFeature = (tier: PackageTier) => {
+  const handleAddFeature = (tier: 'free' | 'paid') => {
+    if (readOnly) return;
+    
     const newFeature: PackageFeature = {
       id: crypto.randomUUID(),
       name: '',
@@ -35,7 +41,7 @@ export function PackageBuilder() {
   };
 
   const handleGeneratePackages = async () => {
-    if (!productDescription || !selectedModel) return;
+    if (!productDescription || !selectedModel || readOnly) return;
     
     setIsGenerating(true);
     setProcessingState({ freeModelCanvas: true });
@@ -83,27 +89,29 @@ export function PackageBuilder() {
           </p>
         </div>
         <div className="flex space-x-2">
-          <button
-            onClick={handleGeneratePackages}
-            disabled={isGenerating || !productDescription || !selectedModel}
-            className={`flex items-center px-4 py-2 rounded-lg ${
-              isGenerating || !productDescription || !selectedModel
-                ? 'bg-[#333333] text-gray-500 cursor-not-allowed'
-                : 'bg-[#FFD23F] text-[#1C1C1C] hover:bg-[#FFD23F]/90'
-            }`}
-          >
-            {isGenerating ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Generating...
-              </>
-            ) : (
-              <>
-                <Sparkles className="w-4 h-4 mr-2" />
-                Generate Packages
-              </>
-            )}
-          </button>
+          {!readOnly && (
+            <button
+              onClick={handleGeneratePackages}
+              disabled={isGenerating || !productDescription || !selectedModel}
+              className={`flex items-center px-4 py-2 rounded-lg ${
+                isGenerating || !productDescription || !selectedModel
+                  ? 'bg-[#333333] text-gray-500 cursor-not-allowed'
+                  : 'bg-[#FFD23F] text-[#1C1C1C] hover:bg-[#FFD23F]/90'
+              }`}
+            >
+              {isGenerating ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Generate Packages
+                </>
+              )}
+            </button>
+          )}
           <button
             onClick={() => setShowGuidance(!showGuidance)}
             className="text-[#FFD23F] hover:text-[#FFD23F]/80"
@@ -170,6 +178,7 @@ export function PackageBuilder() {
                     onChange={(e) => updateFeature(feature.id, { name: e.target.value })}
                     className="w-full bg-[#1C1C1C] text-white p-2 rounded border border-[#333333] focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent"
                     placeholder="Feature name..."
+                    disabled={readOnly}
                   />
                   <textarea
                     value={feature.description}
@@ -177,6 +186,7 @@ export function PackageBuilder() {
                     className="w-full bg-[#1C1C1C] text-white p-2 rounded border border-[#333333] focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent"
                     placeholder="Feature description..."
                     rows={2}
+                    disabled={readOnly}
                   />
                   <div className="flex space-x-4">
                     <select
@@ -185,27 +195,32 @@ export function PackageBuilder() {
                         category: e.target.value as PackageFeature['category']
                       })}
                       className="flex-1 bg-[#1C1C1C] text-white p-2 rounded border border-[#333333] focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent"
+                      disabled={readOnly}
                     >
                       {featureCategories.map(cat => (
                         <option key={cat.value} value={cat.value}>{cat.label}</option>
                       ))}
                     </select>
-                    <button
-                      onClick={() => removeFeature(feature.id)}
-                      className="text-red-400 hover:text-red-300 p-2"
-                    >
-                      <Trash2 className="w-5 h-5" />
-                    </button>
+                    {!readOnly && (
+                      <button
+                        onClick={() => removeFeature(feature.id)}
+                        className="text-red-400 hover:text-red-300 p-2"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
-            <button
-              onClick={() => handleAddFeature('free')}
-              className="w-full flex items-center justify-center px-4 py-3 rounded-lg border-2 border-dashed border-[#FFD23F] text-[#FFD23F] hover:bg-[#FFD23F]/10"
-            >
-              <PlusCircle className="w-5 h-5 mr-2" />
-              Add Free Feature
-            </button>
+            {!readOnly && (
+              <button
+                onClick={() => handleAddFeature('free')}
+                className="w-full flex items-center justify-center px-4 py-3 rounded-lg border-2 border-dashed border-[#FFD23F] text-[#FFD23F] hover:bg-[#FFD23F]/10"
+              >
+                <PlusCircle className="w-5 h-5 mr-2" />
+                Add Free Feature
+              </button>
+            )}
           </div>
         </div>
 
@@ -223,6 +238,7 @@ export function PackageBuilder() {
                     onChange={(e) => updateFeature(feature.id, { name: e.target.value })}
                     className="w-full bg-[#1C1C1C] text-white p-2 rounded border border-[#333333] focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent"
                     placeholder="Feature name..."
+                    disabled={readOnly}
                   />
                   <textarea
                     value={feature.description}
@@ -230,6 +246,7 @@ export function PackageBuilder() {
                     className="w-full bg-[#1C1C1C] text-white p-2 rounded border border-[#333333] focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent"
                     placeholder="Feature description..."
                     rows={2}
+                    disabled={readOnly}
                   />
                   <div className="flex space-x-4">
                     <select
@@ -238,27 +255,32 @@ export function PackageBuilder() {
                         category: e.target.value as PackageFeature['category']
                       })}
                       className="flex-1 bg-[#1C1C1C] text-white p-2 rounded border border-[#333333] focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent"
+                      disabled={readOnly}
                     >
                       {featureCategories.map(cat => (
                         <option key={cat.value} value={cat.value}>{cat.label}</option>
                       ))}
                     </select>
-                    <button
-                      onClick={() => removeFeature(feature.id)}
-                      className="text-red-400 hover:text-red-300 p-2"
-                    >
-                      <Trash2 className="w-5 h-5" />
-                    </button>
+                    {!readOnly && (
+                      <button
+                        onClick={() => removeFeature(feature.id)}
+                        className="text-red-400 hover:text-red-300 p-2"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
-            <button
-              onClick={() => handleAddFeature('paid')}
-              className="w-full flex items-center justify-center px-4 py-3 rounded-lg border-2 border-dashed border-[#FFD23F] text-[#FFD23F] hover:bg-[#FFD23F]/10"
-            >
-              <PlusCircle className="w-5 h-5 mr-2" />
-              Add Paid Feature
-            </button>
+            {!readOnly && (
+              <button
+                onClick={() => handleAddFeature('paid')}
+                className="w-full flex items-center justify-center px-4 py-3 rounded-lg border-2 border-dashed border-[#FFD23F] text-[#FFD23F] hover:bg-[#FFD23F]/10"
+              >
+                <PlusCircle className="w-5 h-5 mr-2" />
+                Add Paid Feature
+              </button>
+            )}
           </div>
         </div>
       </div>

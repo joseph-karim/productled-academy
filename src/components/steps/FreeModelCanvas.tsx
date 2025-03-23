@@ -5,7 +5,11 @@ import { PackageBuilder } from './PackageBuilder';
 import { PricingStrategy } from './PricingStrategy';
 import { HelpCircle, Download } from 'lucide-react';
 
-export function FreeModelCanvas() {
+interface FreeModelCanvasProps {
+  readOnly?: boolean;
+}
+
+export function FreeModelCanvas({ readOnly = false }: FreeModelCanvasProps) {
   const store = useFormStore();
   const packageStore = usePackageStore();
   const [showGuidance, setShowGuidance] = useState(true);
@@ -136,10 +140,10 @@ export function FreeModelCanvas() {
       </div>
 
       {/* Package Builder Section */}
-      <PackageBuilder />
+      <PackageBuilder readOnly={readOnly} />
 
       {/* Pricing Strategy Section */}
-      <PricingStrategy />
+      <PricingStrategy readOnly={readOnly} />
     </div>
   );
 }

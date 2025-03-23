@@ -6,7 +6,11 @@ import { FloatingFeedback, type Feedback } from '../shared/FloatingFeedback';
 import { analyzeText } from '../../services/ai/feedback';
 import { suggestChallenges } from '../../services/ai/suggestions';
 
-export function ChallengeCollector() {
+interface ChallengeCollectorProps {
+  readOnly?: boolean;
+}
+
+export function ChallengeCollector({ readOnly = false }: ChallengeCollectorProps) {
   const { 
     productDescription,
     outcomes,
@@ -43,6 +47,8 @@ export function ChallengeCollector() {
   };
 
   const handleAddChallenge = (level: UserLevel) => {
+    if (readOnly) return;
+    
     const outcome = outcomes.find(o => o.level === level);
     if (!outcome) {
       alert(`Please define the ${level} user outcome first`);
@@ -60,6 +66,8 @@ export function ChallengeCollector() {
   };
 
   const handleGetSuggestions = async (level: UserLevel) => {
+    if (readOnly) return;
+    
     const outcome = outcomes.find(o => o.level === level);
     if (!outcome || !productDescription) return;
     
@@ -84,12 +92,13 @@ export function ChallengeCollector() {
       });
     } catch (error) {
       console.error('Error generating challenges:', error);
+    } finally {
+      setIsGenerating(prev => ({ ...prev, [level]: false }));
     }
-    
-    setIsGenerating(prev => ({ ...prev, [level]: false }));
   };
 
   const handleGetFeedback = async (challengeId: string, title: string, description?: string) => {
+    if (readOnly) return;
     if (title.length < 3) return;
     
     setIsAnalyzing(prev => ({ ...prev, [challengeId]: true }));
@@ -102,6 +111,7 @@ export function ChallengeCollector() {
   };
 
   const handleAcceptFeedback = (challengeId: string, feedbackId: string) => {
+    if (readOnly) return;
     setFeedbacks(prev => ({
       ...prev,
       [challengeId]: prev[challengeId]?.filter(f => f.id !== feedbackId) || []
@@ -109,6 +119,7 @@ export function ChallengeCollector() {
   };
 
   const handleDismissFeedback = (challengeId: string, feedbackId: string) => {
+    if (readOnly) return;
     setFeedbacks(prev => ({
       ...prev,
       [challengeId]: prev[challengeId]?.filter(f => f.id !== feedbackId) || []
@@ -232,41 +243,43 @@ export function ChallengeCollector() {
                   </p>
                 )}
               </div>
-              <div className="flex space-x-2">
-                <button
-                  onClick={() => handleAddChallenge(level)}
-                  disabled={!outcome}
-                  className={`flex items-center px-4 py-2 text-sm font-medium rounded-lg ${
-                    !outcome
-                      ? 'bg-[#333333] text-gray-500 cursor-not-allowed'
-                      : 'bg-[#FFD23F] text-[#1C1C1C] hover:bg-[#FFD23F]/90'
-                  }`}
-                >
-                  <PlusCircle className="w-4 h-4 mr-2" />
-                  Add Challenge
-                </button>
-                <button
-                  onClick={() => handleGetSuggestions(level)}
-                  disabled={isGenerating[level] || !outcome || !productDescription}
-                  className={`flex items-center px-4 py-2 text-sm font-medium rounded-lg ${
-                    isGenerating[level] || !outcome || !productDescription
-                      ? 'bg-[#333333] text-gray-500 cursor-not-allowed'
-                      : 'bg-[#FFD23F] text-[#1C1C1C] hover:bg-[#FFD23F]/90'
-                  }`}
-                >
-                  {isGenerating[level] ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Generating...
-                    </>
-                  ) : (
-                    <>
-                      <MessageSquarePlus className="w-4 h-4 mr-2" />
-                      Get AI Suggestions
-                    </>
-                  )}
-                </button>
-              </div>
+              {!readOnly && (
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => handleAddChallenge(level)}
+                    disabled={!outcome}
+                    className={`flex items-center px-4 py-2 text-sm font-medium rounded-lg ${
+                      !outcome
+                        ? 'bg-[#333333] text-gray-500 cursor-not-allowed'
+                        : 'bg-[#FFD23F] text-[#1C1C1C] hover:bg-[#FFD23F]/90'
+                    }`}
+                  >
+                    <PlusCircle className="w-4 h-4 mr-2" />
+                    Add Challenge
+                  </button>
+                  <button
+                    onClick={() => handleGetSuggestions(level)}
+                    disabled={isGenerating[level] || !outcome || !productDescription}
+                    className={`flex items-center px-4 py-2 text-sm font-medium rounded-lg ${
+                      isGenerating[level] || !outcome || !productDescription
+                        ? 'bg-[#333333] text-gray-500 cursor-not-allowed'
+                        : 'bg-[#FFD23F] text-[#1C1C1C] hover:bg-[#FFD23F]/90'
+                    }`}
+                  >
+                    {isGenerating[level] ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Generating...
+                      </>
+                    ) : (
+                      <>
+                        <MessageSquarePlus className="w-4 h-4 mr-2" />
+                        Get AI Suggestions
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
             </div>
             
             <div className="space-y-4">
@@ -280,6 +293,7 @@ export function ChallengeCollector() {
                         onChange={(e) => updateChallenge(challenge.id, { title: e.target.value })}
                         className="w-full p-2 text-lg font-medium bg-[#1C1C1C] text-white border-none focus:ring-2 focus:ring-[#FFD23F] rounded-lg"
                         placeholder="Challenge title..."
+                        disabled={readOnly}
                       />
                       <textarea
                         value={challenge.description}
@@ -287,6 +301,7 @@ export function ChallengeCollector() {
                         className="w-full mt-2 p-2 text-gray-300 bg-[#1C1C1C] border-none focus:ring-2 focus:ring-[#FFD23F] rounded-lg resize-none"
                         placeholder="Optional: Provide more details about this challenge..."
                         rows={2}
+                        disabled={readOnly}
                       />
                     </div>
 
@@ -303,6 +318,7 @@ export function ChallengeCollector() {
                             })
                           }
                           className="w-full p-2 bg-[#1C1C1C] text-white border border-[#333333] rounded-lg focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent"
+                          disabled={readOnly}
                         >
                           {[1, 2, 3, 4, 5].map((n) => (
                             <option key={n} value={n}>
@@ -314,38 +330,40 @@ export function ChallengeCollector() {
                     </div>
                   </div>
 
-                  <div className="flex justify-between items-center">
-                    <button
-                      onClick={() => removeChallenge(challenge.id)}
-                      className="text-red-400 hover:text-red-300"
-                    >
-                      Remove
-                    </button>
+                  {!readOnly && (
+                    <div className="flex justify-between items-center">
+                      <button
+                        onClick={() => removeChallenge(challenge.id)}
+                        className="text-red-400 hover:text-red-300"
+                      >
+                        Remove
+                      </button>
 
-                    <button
-                      onClick={() => handleGetFeedback(challenge.id, challenge.title, challenge.description)}
-                      onMouseEnter={() => setShowTooltip(prev => ({ ...prev, [challenge.id]: true }))}
-                      onMouseLeave={() => setShowTooltip(prev => ({ ...prev, [challenge.id]: false }))}
-                      disabled={isAnalyzing[challenge.id] || challenge.title.length < 3}
-                      className={`flex items-center px-4 py-2 rounded-lg ${
-                        isAnalyzing[challenge.id] || challenge.title.length < 3
-                          ? 'bg-[#333333] text-gray-500 cursor-not-allowed'
-                          : 'bg-[#FFD23F] text-[#1C1C1C] hover:bg-[#FFD23F]/90'
-                      }`}
-                    >
-                      {isAnalyzing[challenge.id] ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Analyzing...
-                        </>
-                      ) : (
-                        <>
-                          <MessageSquarePlus className="w-4 h-4 mr-2" />
-                          Get Feedback
-                        </>
-                      )}
-                    </button>
-                  </div>
+                      <button
+                        onClick={() => handleGetFeedback(challenge.id, challenge.title, challenge.description)}
+                        onMouseEnter={() => setShowTooltip(prev => ({ ...prev, [challenge.id]: true }))}
+                        onMouseLeave={() => setShowTooltip(prev => ({ ...prev, [challenge.id]: false }))}
+                        disabled={isAnalyzing[challenge.id] || challenge.title.length < 3}
+                        className={`flex items-center px-4 py-2 rounded-lg ${
+                          isAnalyzing[challenge.id] || challenge.title.length < 3
+                            ? 'bg-[#333333] text-gray-500 cursor-not-allowed'
+                            : 'bg-[#FFD23F] text-[#1C1C1C] hover:bg-[#FFD23F]/90'
+                        }`}
+                      >
+                        {isAnalyzing[challenge.id] ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Analyzing...
+                          </>
+                        ) : (
+                          <>
+                            <MessageSquarePlus className="w-4 h-4 mr-2" />
+                            Get Feedback
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
 
                   {!isAnalyzing[challenge.id] && feedbacks[challenge.id]?.length > 0 && (
                     <div className="prose prose-sm max-w-none p-4 bg-[#1C1C1C] rounded-lg">
@@ -355,7 +373,7 @@ export function ChallengeCollector() {
                 </div>
               ))}
 
-              {levelChallenges.length > 0 && (
+              {!readOnly && levelChallenges.length > 0 && (
                 <button
                   onClick={() => handleAddChallenge(level)}
                   disabled={!outcome}

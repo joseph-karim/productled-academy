@@ -1,26 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { usePackageStore } from '../../store/packageStore';
 import { useFormStore } from '../../store/formStore';
-import { HelpCircle, Loader2, AlertCircle, PlusCircle, Trash2 } from 'lucide-react';
+import { HelpCircle, PlusCircle, Trash2 } from 'lucide-react';
 import type { PricingStrategy as PricingStrategyType } from '../../types/package';
 
-// Default strategy state
-const defaultStrategy: PricingStrategyType = {
-  model: 'freemium',
-  basis: 'per-user',
-  freePackage: {
-    features: [],
-    limitations: [],
-    conversionGoals: []
-  },
-  paidPackage: {
-    features: [],
-    valueMetrics: [],
-    targetConversion: 0
-  }
-};
+interface PricingStrategyProps {
+  readOnly?: boolean;
+}
 
-export function PricingStrategy() {
+export function PricingStrategy({ readOnly = false }: PricingStrategyProps) {
   const { pricingStrategy, setPricingStrategy, setProcessingState } = usePackageStore();
   const { selectedModel, outcomes, challenges, solutions } = useFormStore();
   const [showGuidance, setShowGuidance] = useState(true);
@@ -28,13 +16,21 @@ export function PricingStrategy() {
 
   // Initialize strategy if not set
   useEffect(() => {
-    if (!pricingStrategy) {
+    if (!pricingStrategy && !readOnly) {
       setPricingStrategy({
-        ...defaultStrategy,
-        model: selectedModel || 'freemium'
+        model: selectedModel || 'freemium',
+        basis: 'per-user',
+        freePackage: {
+          limitations: [],
+          conversionGoals: []
+        },
+        paidPackage: {
+          valueMetrics: [],
+          targetConversion: 0
+        }
       });
     }
-  }, [pricingStrategy, selectedModel, setPricingStrategy]);
+  }, [pricingStrategy, selectedModel, setPricingStrategy, readOnly]);
 
   // Check if advanced data is available
   const hasAdvancedData = Boolean(
@@ -52,7 +48,7 @@ export function PricingStrategy() {
     });
 
   const handleStrategyChange = (updates: Partial<PricingStrategyType>) => {
-    if (!pricingStrategy) return;
+    if (!pricingStrategy || readOnly) return;
 
     try {
       setProcessingState({ pricingStrategy: true });
@@ -89,7 +85,7 @@ export function PricingStrategy() {
 
   // Array field handlers
   const addArrayItem = (field: 'limitations' | 'conversionGoals' | 'valueMetrics') => {
-    if (!pricingStrategy) return;
+    if (!pricingStrategy || readOnly) return;
 
     const package_ = field === 'valueMetrics' ? 'paidPackage' : 'freePackage';
     const currentArray = pricingStrategy[package_][field];
@@ -107,7 +103,7 @@ export function PricingStrategy() {
     index: number,
     value: string
   ) => {
-    if (!pricingStrategy) return;
+    if (!pricingStrategy || readOnly) return;
 
     const package_ = field === 'valueMetrics' ? 'paidPackage' : 'freePackage';
     const currentArray = [...pricingStrategy[package_][field]];
@@ -125,7 +121,7 @@ export function PricingStrategy() {
     field: 'limitations' | 'conversionGoals' | 'valueMetrics',
     index: number
   ) => {
-    if (!pricingStrategy) return;
+    if (!pricingStrategy || readOnly) return;
 
     const package_ = field === 'valueMetrics' ? 'paidPackage' : 'freePackage';
     const currentArray = [...pricingStrategy[package_][field]];
@@ -141,8 +137,8 @@ export function PricingStrategy() {
 
   if (!pricingStrategy) {
     return (
-      <div className="flex items-center justify-center min-h-[200px]">
-        <Loader2 className="w-8 h-8 animate-spin text-[#FFD23F]" />
+      <div className="text-center py-8 text-gray-400">
+        No pricing strategy defined yet.
       </div>
     );
   }
@@ -166,7 +162,6 @@ export function PricingStrategy() {
 
       {error && (
         <div className="bg-red-900/20 border border-red-500 text-red-400 p-4 rounded flex items-start">
-          <AlertCircle className="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" />
           <p>{error}</p>
         </div>
       )}
@@ -210,70 +205,6 @@ export function PricingStrategy() {
               </ul>
             </div>
           </div>
-
-          {hasAdvancedData && (
-            <div className="mt-6 border-t border-[#333333] pt-4">
-              <h4 className="text-[#FFD23F] font-medium mb-3">Advanced Package Considerations</h4>
-              <div className="bg-[#1C1C1C] p-4 rounded-lg space-y-4">
-                <div>
-                  <h5 className="text-white font-medium mb-2">Advanced User Outcome</h5>
-                  <p className="text-gray-300 text-sm">
-                    {outcomes.find(o => o.level === 'advanced')?.text}
-                  </p>
-                </div>
-
-                <div>
-                  <h5 className="text-white font-medium mb-2">High-Impact Solutions</h5>
-                  <div className="space-y-2">
-                    {advancedSolutions.slice(0, 3).map((solution, index) => (
-                      <div key={index} className="flex items-start space-x-2 text-sm">
-                        <span className={`flex-shrink-0 px-2 py-1 rounded text-xs ${
-                          solution.impact === 'high' 
-                            ? 'bg-green-900/20 text-green-400'
-                            : solution.impact === 'medium'
-                            ? 'bg-yellow-900/20 text-yellow-400'
-                            : 'bg-red-900/20 text-red-400'
-                        }`}>
-                          {solution.impact}
-                        </span>
-                        <span className="text-gray-300">{solution.text}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <h5 className="text-white font-medium mb-2">Package Recommendations</h5>
-                  <ul className="space-y-2">
-                    <li className="flex items-start space-x-2">
-                      <span className="w-1.5 h-1.5 mt-2 rounded-full bg-[#FFD23F]" />
-                      <span className="text-gray-300 text-sm">
-                        Consider a separate enterprise tier for advanced features
-                      </span>
-                    </li>
-                    <li className="flex items-start space-x-2">
-                      <span className="w-1.5 h-1.5 mt-2 rounded-full bg-[#FFD23F]" />
-                      <span className="text-gray-300 text-sm">
-                        Include customization and advanced controls
-                      </span>
-                    </li>
-                    <li className="flex items-start space-x-2">
-                      <span className="w-1.5 h-1.5 mt-2 rounded-full bg-[#FFD23F]" />
-                      <span className="text-gray-300 text-sm">
-                        Focus on scalability and organization-wide features
-                      </span>
-                    </li>
-                    <li className="flex items-start space-x-2">
-                      <span className="w-1.5 h-1.5 mt-2 rounded-full bg-[#FFD23F]" />
-                      <span className="text-gray-300 text-sm">
-                        Add enterprise-grade security and compliance features
-                      </span>
-                    </li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       )}
 
@@ -287,6 +218,7 @@ export function PricingStrategy() {
               basis: e.target.value as PricingStrategyType['basis']
             })}
             className="w-full bg-[#1C1C1C] text-white p-2 rounded border border-[#333333] focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent"
+            disabled={readOnly}
           >
             <option value="per-user">Per User</option>
             <option value="per-usage">Per Usage</option>
@@ -304,13 +236,15 @@ export function PricingStrategy() {
               <label className="block text-sm font-medium text-gray-400">
                 Limitations
               </label>
-              <button
-                onClick={() => addArrayItem('limitations')}
-                className="text-[#FFD23F] hover:text-[#FFD23F]/80 text-sm flex items-center"
-              >
-                <PlusCircle className="w-4 h-4 mr-1" />
-                Add Limitation
-              </button>
+              {!readOnly && (
+                <button
+                  onClick={() => addArrayItem('limitations')}
+                  className="text-[#FFD23F] hover:text-[#FFD23F]/80 text-sm flex items-center"
+                >
+                  <PlusCircle className="w-4 h-4 mr-1" />
+                  Add Limitation
+                </button>
+              )}
             </div>
             <div className="space-y-2">
               {pricingStrategy.freePackage.limitations.map((limitation, index) => (
@@ -321,13 +255,16 @@ export function PricingStrategy() {
                     onChange={(e) => updateArrayItem('limitations', index, e.target.value)}
                     className="flex-1 bg-[#1C1C1C] text-white p-2 rounded border border-[#333333] focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent"
                     placeholder="Enter limitation..."
+                    disabled={readOnly}
                   />
-                  <button
-                    onClick={() => removeArrayItem('limitations', index)}
-                    className="text-red-400 hover:text-red-300 p-1"
-                  >
-                    <Trash2 className="w-5 h-5" />
-                  </button>
+                  {!readOnly && (
+                    <button
+                      onClick={() => removeArrayItem('limitations', index)}
+                      className="text-red-400 hover:text-red-300 p-1"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
@@ -339,13 +276,15 @@ export function PricingStrategy() {
               <label className="block text-sm font-medium text-gray-400">
                 Conversion Goals
               </label>
-              <button
-                onClick={() => addArrayItem('conversionGoals')}
-                className="text-[#FFD23F] hover:text-[#FFD23F]/80 text-sm flex items-center"
-              >
-                <PlusCircle className="w-4 h-4 mr-1" />
-                Add Goal
-              </button>
+              {!readOnly && (
+                <button
+                  onClick={() => addArrayItem('conversionGoals')}
+                  className="text-[#FFD23F] hover:text-[#FFD23F]/80 text-sm flex items-center"
+                >
+                  <PlusCircle className="w-4 h-4 mr-1" />
+                  Add Goal
+                </button>
+              )}
             </div>
             <div className="space-y-2">
               {pricingStrategy.freePackage.conversionGoals.map((goal, index) => (
@@ -356,13 +295,16 @@ export function PricingStrategy() {
                     onChange={(e) => updateArrayItem('conversionGoals', index, e.target.value)}
                     className="flex-1 bg-[#1C1C1C] text-white p-2 rounded border border-[#333333] focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent"
                     placeholder="Enter conversion goal..."
+                    disabled={readOnly}
                   />
-                  <button
-                    onClick={() => removeArrayItem('conversionGoals', index)}
-                    className="text-red-400 hover:text-red-300 p-1"
-                  >
-                    <Trash2 className="w-5 h-5" />
-                  </button>
+                  {!readOnly && (
+                    <button
+                      onClick={() => removeArrayItem('conversionGoals', index)}
+                      className="text-red-400 hover:text-red-300 p-1"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
@@ -379,13 +321,15 @@ export function PricingStrategy() {
               <label className="block text-sm font-medium text-gray-400">
                 Value Metrics
               </label>
-              <button
-                onClick={() => addArrayItem('valueMetrics')}
-                className="text-[#FFD23F] hover:text-[#FFD23F]/80 text-sm flex items-center"
-              >
-                <PlusCircle className="w-4 h-4 mr-1" />
-                Add Metric
-              </button>
+              {!readOnly && (
+                <button
+                  onClick={() => addArrayItem('valueMetrics')}
+                  className="text-[#FFD23F] hover:text-[#FFD23F]/80 text-sm flex items-center"
+                >
+                  <PlusCircle className="w-4 h-4 mr-1" />
+                  Add Metric
+                </button>
+              )}
             </div>
             <div className="space-y-2">
               {pricingStrategy.paidPackage.valueMetrics.map((metric, index) => (
@@ -396,13 +340,16 @@ export function PricingStrategy() {
                     onChange={(e) => updateArrayItem('valueMetrics', index, e.target.value)}
                     className="flex-1 bg-[#1C1C1C] text-white p-2 rounded border border-[#333333] focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent"
                     placeholder="Enter value metric..."
+                    disabled={readOnly}
                   />
-                  <button
-                    onClick={() => removeArrayItem('valueMetrics', index)}
-                    className="text-red-400 hover:text-red-300 p-1"
-                  >
-                    <Trash2 className="w-5 h-5" />
-                  </button>
+                  {!readOnly && (
+                    <button
+                      onClick={() => removeArrayItem('valueMetrics', index)}
+                      className="text-red-400 hover:text-red-300 p-1"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
@@ -425,6 +372,7 @@ export function PricingStrategy() {
                 }
               })}
               className="w-full bg-[#1C1C1C] text-white p-2 rounded border border-[#333333] focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent"
+              disabled={readOnly}
             />
           </div>
         </div>

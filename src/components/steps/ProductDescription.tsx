@@ -5,7 +5,11 @@ import { analyzeText } from '../../services/ai';
 import { ErrorMessage } from '../shared/ErrorMessage';
 import { ProductDescriptionLauncher } from '../wizard/ProductDescriptionLauncher';
 
-export function ProductDescription() {
+interface ProductDescriptionProps {
+  readOnly?: boolean;
+}
+
+export function ProductDescription({ readOnly = false }: ProductDescriptionProps) {
   const { productDescription, setProductDescription } = useFormStore();
   const [showGuidance, setShowGuidance] = React.useState(true);
   const [isAnalyzing, setIsAnalyzing] = React.useState(false);
@@ -145,32 +149,35 @@ export function ProductDescription() {
           onChange={handleTextChange}
           className="pl-input w-full h-40"
           placeholder="Enter your product description..."
+          disabled={readOnly}
         />
         
-        <div className="flex justify-end space-x-2">
-          <ProductDescriptionLauncher />
-          <button
-            onClick={handleGetFeedback}
-            disabled={isAnalyzing || productDescription.length < 10}
-            className={`flex items-center px-4 py-2 rounded-lg ${
-              isAnalyzing || productDescription.length < 10
-                ? 'bg-[#333333] text-gray-500 cursor-not-allowed'
-                : 'bg-[#FFD23F] text-[#1C1C1C] hover:bg-[#FFD23F]/90'
-            }`}
-          >
-            {isAnalyzing ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Analyzing...
-              </>
-            ) : (
-              <>
-                <MessageSquarePlus className="w-4 h-4 mr-2" />
-                Get Feedback
-              </>
-            )}
-          </button>
-        </div>
+        {!readOnly && (
+          <div className="flex justify-end space-x-2">
+            <ProductDescriptionLauncher />
+            <button
+              onClick={handleGetFeedback}
+              disabled={isAnalyzing || productDescription.length < 10}
+              className={`flex items-center px-4 py-2 rounded-lg ${
+                isAnalyzing || productDescription.length < 10
+                  ? 'bg-[#333333] text-gray-500 cursor-not-allowed'
+                  : 'bg-[#FFD23F] text-[#1C1C1C] hover:bg-[#FFD23F]/90'
+              }`}
+            >
+              {isAnalyzing ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Analyzing...
+                </>
+              ) : (
+                <>
+                  <MessageSquarePlus className="w-4 h-4 mr-2" />
+                  Get Feedback
+                </>
+              )}
+            </button>
+          </div>
+        )}
 
         {error && (
           <ErrorMessage
