@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useFormStore } from '../../store/formStore';
 import { HelpCircle, Loader2, MessageSquarePlus } from 'lucide-react';
 import { analyzeText } from '../../services/ai/feedback';
@@ -7,13 +7,11 @@ import type { UserLevel } from '../../types';
 import { ErrorMessage } from '../shared/ErrorMessage';
 import { ChatAssistantButton } from '../shared/ChatAssistantButton';
 
-const levelLabels = {
-  beginner: "Beginner Users (i.e. how does your ideal user achieve individual success)",
-  intermediate: "Intermediate Users (i.e. how does success scale to team level)",
-  advanced: "Advanced Users (i.e. how is organization-wide impact achieved)"
-};
+interface UserEndgameProps {
+  readOnly?: boolean;
+}
 
-export function UserEndgame() {
+export function UserEndgame({ readOnly = false }: UserEndgameProps) {
   const { outcomes, updateOutcome, idealUser } = useFormStore();
   const [showGuidance, setShowGuidance] = React.useState(true);
   const [isAnalyzing, setIsAnalyzing] = React.useState<Record<string, boolean>>({});
@@ -257,7 +255,7 @@ export function UserEndgame() {
               <div>
                 <div className="flex items-baseline justify-between">
                   <div>
-                    <h3 className="text-lg font-medium text-white">{levelLabels[level]}</h3>
+                    <h3 className="text-lg font-medium text-white">{context.title}</h3>
                     <p className="text-sm text-gray-400 mt-1">{context.description}</p>
                   </div>
                   {!isRequired && (
@@ -268,57 +266,60 @@ export function UserEndgame() {
                   )}
                 </div>
 
-                <div className="flex justify-end space-x-2 mb-2 mt-4">
-                  <button
-                    onClick={() => handleGetSuggestion(level)}
-                    disabled={!idealUser || isAnalyzing[level]}
-                    className={`flex items-center px-4 py-2 rounded-lg ${
-                      !idealUser || isAnalyzing[level]
-                        ? 'bg-[#333333] text-gray-500 cursor-not-allowed'
-                        : 'bg-[#2A2A2A] text-[#FFD23F] border border-[#FFD23F] hover:bg-[#FFD23F] hover:text-[#1C1C1C]'
-                    }`}
-                  >
-                    {isAnalyzing[level] ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Generating...
-                      </>
-                    ) : (
-                      <>
-                        <MessageSquarePlus className="w-4 h-4 mr-2" />
-                        Get AI Suggestion
-                      </>
-                    )}
-                  </button>
-                  <ChatAssistantButton label="Use Chat Assistant" />
-                  <button
-                    onClick={() => handleGetFeedback(level)}
-                    disabled={isAnalyzing[level] || !outcome?.text || outcome.text.length < 10}
-                    className={`flex items-center px-4 py-2 rounded-lg ${
-                      isAnalyzing[level] || !outcome?.text || outcome.text.length < 10
-                        ? 'bg-[#333333] text-gray-500 cursor-not-allowed'
-                        : 'bg-[#FFD23F] text-[#1C1C1C] hover:bg-[#FFD23F]/90'
-                    }`}
-                  >
-                    {isAnalyzing[level] ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Analyzing...
-                      </>
-                    ) : (
-                      <>
-                        <MessageSquarePlus className="w-4 h-4 mr-2" />
-                        Get Feedback
-                      </>
-                    )}
-                  </button>
-                </div>
+                {!readOnly && (
+                  <div className="flex justify-end space-x-2 mb-2 mt-4">
+                    <button
+                      onClick={() => handleGetSuggestion(level)}
+                      disabled={!idealUser || isAnalyzing[level]}
+                      className={`flex items-center px-4 py-2 rounded-lg ${
+                        !idealUser || isAnalyzing[level]
+                          ? 'bg-[#333333] text-gray-500 cursor-not-allowed'
+                          : 'bg-[#2A2A2A] text-[#FFD23F] border border-[#FFD23F] hover:bg-[#FFD23F] hover:text-[#1C1C1C]'
+                      }`}
+                    >
+                      {isAnalyzing[level] ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Generating...
+                        </>
+                      ) : (
+                        <>
+                          <MessageSquarePlus className="w-4 h-4 mr-2" />
+                          Get AI Suggestion
+                        </>
+                      )}
+                    </button>
+                    <ChatAssistantButton label="Use Chat Assistant" />
+                    <button
+                      onClick={() => handleGetFeedback(level)}
+                      disabled={isAnalyzing[level] || !outcome?.text || outcome.text.length < 10}
+                      className={`flex items-center px-4 py-2 rounded-lg ${
+                        isAnalyzing[level] || !outcome?.text || outcome.text.length < 10
+                          ? 'bg-[#333333] text-gray-500 cursor-not-allowed'
+                          : 'bg-[#FFD23F] text-[#1C1C1C] hover:bg-[#FFD23F]/90'
+                      }`}
+                    >
+                      {isAnalyzing[level] ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Analyzing...
+                        </>
+                      ) : (
+                        <>
+                          <MessageSquarePlus className="w-4 h-4 mr-2" />
+                          Get Feedback
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
 
                 <textarea
                   value={outcome?.text || ''}
                   onChange={(e) => handleOutcomeChange(level, e.target.value)}
                   className="pl-input w-full h-32"
                   placeholder={context.prompt}
+                  disabled={readOnly}
                 />
               </div>
 

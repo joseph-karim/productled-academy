@@ -17,7 +17,6 @@ export function SharedAnalysis() {
   const packageStore = usePackageStore();
   const navigate = useNavigate();
 
-  // Load shared analysis data only once when component mounts
   useEffect(() => {
     let mounted = true;
 
@@ -35,9 +34,13 @@ export function SharedAnalysis() {
           throw new Error('Analysis not found');
         }
 
-        // Only update state if component is still mounted
         if (mounted) {
+          // Reset stores before loading new data
+          store.resetState();
+          packageStore.reset();
+
           // Update store with shared analysis data
+          store.setTitle(analysis.title || 'Untitled Analysis');
           store.setProductDescription(analysis.product_description);
           
           if (analysis.ideal_user) {
@@ -77,7 +80,10 @@ export function SharedAnalysis() {
           }
 
           if (analysis.analysis_results) {
-            store.setAnalysis(analysis.analysis_results);
+            store.setAnalysis({
+              ...analysis.analysis_results,
+              id: analysis.id
+            });
           }
         }
       } catch (error) {
@@ -94,11 +100,10 @@ export function SharedAnalysis() {
 
     loadSharedAnalysis();
 
-    // Cleanup function to prevent state updates after unmount
     return () => {
       mounted = false;
     };
-  }, [shareId, navigate]); // Only depend on shareId and navigate
+  }, [shareId, navigate]);
 
   if (loading) {
     return (
@@ -131,7 +136,6 @@ export function SharedAnalysis() {
   return (
     <ErrorBoundary>
       <div className="relative">
-        {/* View-only banner */}
         <div className="bg-[#2A2A2A] border-b border-[#333333] p-4 mb-6">
           <div className="max-w-7xl mx-auto flex justify-between items-center">
             <p className="text-gray-400">

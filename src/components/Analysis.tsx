@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useFormStore } from '../store/formStore';
 import { usePackageStore } from '../store/packageStore';
-import { useAuthStore } from '../store/authStore';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
   Loader2, 
@@ -16,9 +15,10 @@ import {
   Package,
   DollarSign,
   Share2,
-  Link as LinkIcon,
+  LinkIcon,
   Save,
-  Home
+  Home,
+  Edit
 } from 'lucide-react';
 import { Chart as ChartJS, RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend, CategoryScale, LinearScale, BarElement } from 'chart.js';
 import { Radar, Bar } from 'react-chartjs-2';
@@ -46,7 +46,6 @@ interface AnalysisProps {
 export function Analysis({ isShared = false }: AnalysisProps) {
   const store = useFormStore();
   const packageStore = usePackageStore();
-  const { user } = useAuthStore();
   const navigate = useNavigate();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -58,6 +57,7 @@ export function Analysis({ isShared = false }: AnalysisProps) {
   const [showCopiedMessage, setShowCopiedMessage] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [pendingAction, setPendingAction] = useState<'share' | 'export' | 'save' | null>(null);
+  const [showTitlePrompt, setShowTitlePrompt] = useState(false);
 
   useEffect(() => {
     const analyzeData = async () => {
@@ -73,7 +73,8 @@ export function Analysis({ isShared = false }: AnalysisProps) {
       setIsAnalyzing(true);
       
       try {
-        const savedAnalysis = await saveAnalysis({
+        const analysisData = {
+          title: store.title || 'Untitled Analysis',
           productDescription: store.productDescription,
           idealUser: store.idealUser,
           outcomes: store.outcomes,
@@ -82,7 +83,9 @@ export function Analysis({ isShared = false }: AnalysisProps) {
           selectedModel: store.selectedModel,
           features: packageStore.features,
           userJourney: store.userJourney
-        });
+        };
+
+        const savedAnalysis = await saveAnalysis(analysisData);
 
         const result = await analyzeFormData({
           productDescription: store.productDescription,
@@ -119,13 +122,17 @@ export function Analysis({ isShared = false }: AnalysisProps) {
   }, [store, packageStore, isAnalyzing, isShared]);
 
   const handleSave = async () => {
-    if (handleAuthRequired('save')) return;
-    
+    if (!store.title) {
+      setShowTitlePrompt(true);
+      return;
+    }
+
     try {
       setIsSaving(true);
       setError(null);
 
       const analysisData = {
+        title: store.title,
         productDescription: store.productDescription,
         idealUser: store.idealUser,
         outcomes: store.outcomes,
@@ -144,7 +151,6 @@ export function Analysis({ isShared = false }: AnalysisProps) {
         store.setAnalysis({ ...store.analysis!, id: savedAnalysis.id });
       }
 
-      // Show success message
       const successMessage = document.createElement('div');
       successMessage.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg';
       successMessage.textContent = 'Analysis saved successfully';
@@ -159,17 +165,7 @@ export function Analysis({ isShared = false }: AnalysisProps) {
     }
   };
 
-  const handleAuthRequired = (action: 'share' | 'export' | 'save') => {
-    if (!user) {
-      setPendingAction(action);
-      setShowAuthModal(true);
-      return true;
-    }
-    return false;
-  };
-
   const handleShare = async () => {
-    if (handleAuthRequired('share')) return;
     if (!store.analysis?.id) {
       await handleSave();
     }
@@ -189,7 +185,7 @@ export function Analysis({ isShared = false }: AnalysisProps) {
         console.warn('Could not copy to clipboard:', clipboardError);
       }
     } catch (error) {
-      console.error('Error sharing analysis:', error);
+      console.error('Share analysis error:', error);
       setError(error instanceof Error ? error.message : 'Failed to share analysis');
     } finally {
       setIsSharing(false);
@@ -250,7 +246,8 @@ export function Analysis({ isShared = false }: AnalysisProps) {
     testing, 
     summary, 
     strengths, 
-    weaknesses 
+    weaknesses, 
+    journeyAnalysis 
   } = store.analysis;
 
   const radarData = {
@@ -325,6 +322,39 @@ export function Analysis({ isShared = false }: AnalysisProps) {
 
   return (
     <div className="space-y-8">
+      {/* Title prompt modal */}
+      {showTitlePrompt && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-[#2A2A2A] p-6 rounded-lg shadow-lg w-full max-w-md">
+            <h3 className="text-lg font-medium text-white mb-4">Name your analysis</h3>
+            <input
+              type="text"
+              value={store.title}
+              onChange={(e) => store.setTitle(e.target.value)}
+              placeholder="Enter a title..."
+              className="w-full p-2 bg-[#1C1C1C] text-white border border-[#333333] rounded-lg mb-4"
+            />
+            <div className="flex justify-end space-x-4">
+              <button
+                onClick={() => setShowTitlePrompt(false)}
+                className="px-4 py-2 text-gray-400 hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setShowTitlePrompt(false);
+                  handleSave();
+                }}
+                className="px-4 py-2 bg-[#FFD23F] text-[#1C1C1C] rounded-lg hover:bg-[#FFD23F]/90"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header with navigation */}
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-center space-x-4">
@@ -355,6 +385,19 @@ export function Analysis({ isShared = false }: AnalysisProps) {
             </button>
           )}
         </div>
+        {store.title && (
+          <div className="flex items-center space-x-2">
+            <h1 className="text-xl font-semibold text-white">{store.title}</h1>
+            {!isShared && (
+              <button
+                onClick={() => setShowTitlePrompt(true)}
+                className="text-gray-400 hover:text-white"
+              >
+                <Edit className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="flex space-x-1 bg-[#1C1C1C] p-1 rounded-lg">

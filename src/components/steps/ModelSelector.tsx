@@ -4,6 +4,10 @@ import { suggestModel } from '../../services/ai/suggestions';
 import type { ModelType } from '../../types';
 import { MessageSquarePlus, Loader2, HelpCircle } from 'lucide-react';
 
+interface ModelSelectorProps {
+  readOnly?: boolean;
+}
+
 const modelDescriptions: Record<ModelType, {
   title: string;
   description: string;
@@ -108,7 +112,7 @@ const modelDescriptions: Record<ModelType, {
   }
 };
 
-export function ModelSelector() {
+export function ModelSelector({ readOnly = false }: ModelSelectorProps) {
   const { 
     selectedModel, 
     setSelectedModel,
@@ -130,7 +134,7 @@ export function ModelSelector() {
   const beginnerOutcome = outcomes.find(o => o.level === 'beginner')?.text || '';
 
   const handleGetSuggestion = async () => {
-    if (!productDescription || !beginnerOutcome) return;
+    if (!productDescription || !beginnerOutcome || readOnly) return;
     
     setIsGenerating(true);
     try {
@@ -166,27 +170,29 @@ export function ModelSelector() {
           >
             <HelpCircle className="w-5 h-5" />
           </button>
-          <button
-            onClick={handleGetSuggestion}
-            disabled={isGenerating || !productDescription || !beginnerOutcome}
-            className={`flex items-center px-4 py-2 rounded-lg ${
-              isGenerating || !productDescription || !beginnerOutcome
-                ? 'bg-[#333333] text-gray-500 cursor-not-allowed'
-                : 'bg-[#FFD23F] text-[#1C1C1C] hover:bg-[#FFD23F]/90'
-            }`}
-          >
-            {isGenerating ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Analyzing...
-              </>
-            ) : (
-              <>
-                <MessageSquarePlus className="w-4 h-4 mr-2" />
-                Get Suggestion
-              </>
-            )}
-          </button>
+          {!readOnly && (
+            <button
+              onClick={handleGetSuggestion}
+              disabled={isGenerating || !productDescription || !beginnerOutcome}
+              className={`flex items-center px-4 py-2 rounded-lg ${
+                isGenerating || !productDescription || !beginnerOutcome
+                  ? 'bg-[#333333] text-gray-500 cursor-not-allowed'
+                  : 'bg-[#FFD23F] text-[#1C1C1C] hover:bg-[#FFD23F]/90'
+              }`}
+            >
+              {isGenerating ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Analyzing...
+                </>
+              ) : (
+                <>
+                  <MessageSquarePlus className="w-4 h-4 mr-2" />
+                  Get Suggestion
+                </>
+              )}
+            </button>
+          )}
         </div>
       </div>
 
@@ -283,11 +289,15 @@ export function ModelSelector() {
         {(Object.entries(modelDescriptions) as [ModelType, typeof modelDescriptions[ModelType]][]).map(([model, info]) => (
           <div
             key={model}
-            onClick={() => setSelectedModel(model)}
-            className={`p-4 border rounded-lg cursor-pointer transition-colors ${
-              selectedModel === model
-                ? 'border-[#FFD23F] bg-[#2A2A2A]'
-                : 'border-[#333333] hover:border-[#FFD23F]'
+            onClick={() => !readOnly && setSelectedModel(model)}
+            className={`p-4 border rounded-lg ${
+              readOnly 
+                ? selectedModel === model
+                  ? 'border-[#FFD23F] bg-[#2A2A2A]'
+                  : 'border-[#333333] bg-[#2A2A2A] opacity-50'
+                : selectedModel === model
+                  ? 'border-[#FFD23F] bg-[#2A2A2A] cursor-pointer'
+                  : 'border-[#333333] hover:border-[#FFD23F] cursor-pointer'
             }`}
           >
             <div className="flex items-center space-x-3">

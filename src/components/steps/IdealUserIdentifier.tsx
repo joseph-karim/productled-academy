@@ -6,7 +6,11 @@ import { ErrorMessage } from '../shared/ErrorMessage';
 import { IdealUserWizard } from '../wizard/IdealUserWizard';
 import type { IdealUser } from '../../types';
 
-export function IdealUserIdentifier() {
+interface IdealUserIdentifierProps {
+  readOnly?: boolean;
+}
+
+export function IdealUserIdentifier({ readOnly = false }: IdealUserIdentifierProps) {
   const { 
     productDescription, 
     idealUser, 
@@ -119,7 +123,7 @@ export function IdealUserIdentifier() {
         </div>
       )}
 
-      {!idealUser && (
+      {!idealUser && !readOnly && (
         <div className="flex space-x-4">
           <button
             onClick={() => setShowWizard(true)}
@@ -212,12 +216,14 @@ export function IdealUserIdentifier() {
                 </div>
               </div>
 
-              <button
-                onClick={() => setIdealUser(undefined)}
-                className="text-sm text-[#FFD23F] hover:text-[#FFD23F]/80"
-              >
-                Edit
-              </button>
+              {!readOnly && (
+                <button
+                  onClick={() => setIdealUser(undefined)}
+                  className="text-sm text-[#FFD23F] hover:text-[#FFD23F]/80"
+                >
+                  Edit
+                </button>
+              )}
             </div>
           </div>
         ) : (
@@ -234,6 +240,7 @@ export function IdealUserIdentifier() {
                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                     placeholder="e.g., Senior Marketing Manager"
                     className="w-full p-2 bg-[#1C1C1C] text-white border border-[#333333] rounded-lg focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent"
+                    disabled={readOnly}
                   />
                 </div>
 
@@ -247,6 +254,7 @@ export function IdealUserIdentifier() {
                     placeholder="Describe your ideal user..."
                     rows={3}
                     className="w-full p-2 bg-[#1C1C1C] text-white border border-[#333333] rounded-lg focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent"
+                    disabled={readOnly}
                   />
                 </div>
               </div>
@@ -260,6 +268,7 @@ export function IdealUserIdentifier() {
                     value={formData.motivation}
                     onChange={(e) => setFormData({ ...formData, motivation: e.target.value as 'Low' | 'Medium' | 'High' })}
                     className="w-full p-2 bg-[#1C1C1C] text-white border border-[#333333] rounded-lg focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent"
+                    disabled={readOnly}
                   >
                     <option value="Low">Low</option>
                     <option value="Medium">Medium</option>
@@ -275,6 +284,7 @@ export function IdealUserIdentifier() {
                     value={formData.ability}
                     onChange={(e) => setFormData({ ...formData, ability: e.target.value as 'Low' | 'Medium' | 'High' })}
                     className="w-full p-2 bg-[#1C1C1C] text-white border border-[#333333] rounded-lg focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent"
+                    disabled={readOnly}
                   >
                     <option value="Low">Low</option>
                     <option value="Medium">Medium</option>
@@ -301,9 +311,10 @@ export function IdealUserIdentifier() {
                     }}
                     placeholder={`Trait ${index + 1}`}
                     className="w-full p-2 bg-[#1C1C1C] text-white border border-[#333333] rounded-lg focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent"
+                    disabled={readOnly}
                   />
                 ))}
-                {formData.traits.length < 5 && (
+                {!readOnly && formData.traits.length < 5 && (
                   <button
                     onClick={() => setFormData({ ...formData, traits: [...formData.traits, ''] })}
                     className="text-sm text-[#FFD23F] hover:text-[#FFD23F]/80"
@@ -324,23 +335,26 @@ export function IdealUserIdentifier() {
                 placeholder="Describe the business impact..."
                 rows={2}
                 className="w-full p-2 bg-[#1C1C1C] text-white border border-[#333333] rounded-lg focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent"
+                disabled={readOnly}
               />
             </div>
 
-            <div className="flex justify-end">
-              <button
-                onClick={handleSubmit}
-                disabled={!formData.title || !formData.description}
-                className={`flex items-center px-4 py-2 rounded-lg ${
-                  !formData.title || !formData.description
-                    ? 'bg-[#333333] text-gray-500 cursor-not-allowed'
-                    : 'bg-[#FFD23F] text-[#1C1C1C] hover:bg-[#FFD23F]/90'
-                }`}
-              >
-                <CheckCircle className="w-4 h-4 mr-2" />
-                Save Ideal User
-              </button>
-            </div>
+            {!readOnly && (
+              <div className="flex justify-end">
+                <button
+                  onClick={handleSubmit}
+                  disabled={!formData.title || !formData.description}
+                  className={`flex items-center px-4 py-2 rounded-lg ${
+                    !formData.title || !formData.description
+                      ? 'bg-[#333333] text-gray-500 cursor-not-allowed'
+                      : 'bg-[#FFD23F] text-[#1C1C1C] hover:bg-[#FFD23F]/90'
+                  }`}
+                >
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  Save Ideal User
+                </button>
+              </div>
+            )}
           </div>
         )}
 
