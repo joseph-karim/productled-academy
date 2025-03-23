@@ -45,33 +45,27 @@ export async function sendPasswordResetEmail(email: string) {
 
 export async function checkConnection(): Promise<boolean> {
   try {
-    // Get current session first
     const { data: { session } } = await supabase.auth.getSession();
     
-    // If we have a session, try to refresh it
     if (session) {
       const { error: refreshError } = await supabase.auth.refreshSession();
       if (refreshError) {
         console.warn('Session refresh failed:', refreshError);
-        // Continue with health check even if refresh fails
       }
     }
 
-    // Simple health check query
     const { error } = await supabase
       .from('analyses')
       .select('count')
       .limit(1)
       .single();
     
-    // RLS policies might prevent reading any rows, which is fine
-    // We only care about being able to connect to the database
     if (error?.code === 'PGRST116') {
-      return true; // No rows found is okay
+      return true;
     }
     
     if (error?.code === 'PGRST301') {
-      return true; // Row-level security prevented access, which is okay
+      return true;
     }
     
     if (error) {
@@ -88,10 +82,9 @@ export async function checkConnection(): Promise<boolean> {
 
 export async function shareAnalysis(id: string) {
   try {
-    // First check if the analysis exists and is accessible
     const { data: analysis, error: checkError } = await supabase
       .from('analyses')
-      .select('id, user_id, is_public')
+      .select('id, user_id, is_public, share_id')
       .eq('id', id)
       .single();
 
@@ -100,10 +93,8 @@ export async function shareAnalysis(id: string) {
       throw new Error('Analysis not found');
     }
 
-    // Get current user
     const { data: { user } } = await supabase.auth.getUser();
     
-    // Check ownership - allow both authenticated user's analyses and anonymous analyses
     if (!user && analysis.user_id !== '00000000-0000-0000-0000-000000000000') {
       throw new Error('You do not have permission to share this analysis');
     }
@@ -112,26 +103,19 @@ export async function shareAnalysis(id: string) {
       throw new Error('You do not have permission to share this analysis');
     }
 
-    // Update the analysis to be public
-    const { data, error } = await supabase
-      .from('analyses')
-      .update({
-        is_public: true
-      })
-      .eq('id', id)
-      .select('share_id')
-      .single();
+    if (!analysis.is_public) {
+      const { error: updateError } = await supabase
+        .from('analyses')
+        .update({ is_public: true })
+        .eq('id', id);
 
-    if (error) {
-      console.error('Error sharing analysis:', error);
-      throw error;
+      if (updateError) {
+        console.error('Error updating analysis:', updateError);
+        throw updateError;
+      }
     }
 
-    if (!data?.share_id) {
-      throw new Error('Failed to generate share link');
-    }
-
-    return data.share_id;
+    return analysis.share_id;
   } catch (error) {
     console.error('Share analysis error:', error);
     throw error;
@@ -154,6 +138,60 @@ export async function getSharedAnalysis(shareId: string) {
   return data;
 }
 
+export async function getAnalyses() {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
+
+  const { data, error } = await supabase
+    .from('analyses')
+    .select('*')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  return data;
+}
+
+export async function getAnalysis(id: string) {
+  const { data, error } = await supabase
+    .from('analyses')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function createAnalysis() {
+  const { data: { user } } = await supabase.auth.getUser();
+  const userId = user?.id || '00000000-0000-0000-0000-000000000000';
+
+  const { data, error } = await supabase
+    .from('analyses')
+    .insert({
+      user_id: userId,
+      share_id: crypto.randomUUID(),
+      product_description: '',
+      ideal_user: null,
+      outcomes: [],
+      challenges: [],
+      solutions: [],
+      selected_model: null,
+      features: [],
+      user_journey: null,
+      analysis_results: null
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error creating analysis:', error);
+    throw error;
+  }
+  return data;
+}
+
 export async function saveAnalysis(analysis: {
   productDescription: string;
   idealUser?: any;
@@ -165,10 +203,7 @@ export async function saveAnalysis(analysis: {
   userJourney?: any;
   analysisResults?: any;
 }) {
-  // Get current user if authenticated
   const { data: { user } } = await supabase.auth.getUser();
-  
-  // Use actual user ID if authenticated, otherwise use anonymous ID
   const userId = user?.id || '00000000-0000-0000-0000-000000000000';
 
   const { data, error } = await supabase
@@ -183,7 +218,8 @@ export async function saveAnalysis(analysis: {
       selected_model: analysis.selectedModel,
       features: analysis.features,
       user_journey: analysis.userJourney,
-      analysis_results: analysis.analysisResults
+      analysis_results: analysis.analysisResults,
+      share_id: crypto.randomUUID()
     })
     .select()
     .single();
@@ -228,4 +264,13 @@ export async function updateAnalysis(id: string, analysis: {
     throw error;
   }
   return data;
+}
+
+export async function deleteAnalysis(id: string) {
+  const { error } = await supabase
+    .from('analyses')
+    .delete()
+    .eq('id', id);
+
+  if (error) throw error;
 }
