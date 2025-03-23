@@ -17,6 +17,7 @@ interface MultiStepFormProps {
   readOnly?: boolean;
 }
 
+// Define steps array before using it
 const steps = [
   { 
     title: 'Product Description', 
