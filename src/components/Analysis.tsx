@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useFormStore } from '../store/formStore';
 import { usePackageStore } from '../store/packageStore';
 import { useAuthStore } from '../store/authStore';
+import { Link, useNavigate } from 'react-router-dom';
 import { 
   Loader2, 
   X, 
@@ -15,7 +16,9 @@ import {
   Package,
   DollarSign,
   Share2,
-  Link
+  Link as LinkIcon,
+  Save,
+  Home
 } from 'lucide-react';
 import { Chart as ChartJS, RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend, CategoryScale, LinearScale, BarElement } from 'chart.js';
 import { Radar, Bar } from 'react-chartjs-2';
@@ -44,15 +47,17 @@ export function Analysis({ isShared = false }: AnalysisProps) {
   const store = useFormStore();
   const packageStore = usePackageStore();
   const { user } = useAuthStore();
+  const navigate = useNavigate();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('overview');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [isSharing, setIsSharing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [showCopiedMessage, setShowCopiedMessage] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const [pendingAction, setPendingAction] = useState<'share' | 'export' | null>(null);
+  const [pendingAction, setPendingAction] = useState<'share' | 'export' | 'save' | null>(null);
 
   useEffect(() => {
     const analyzeData = async () => {
@@ -113,7 +118,48 @@ export function Analysis({ isShared = false }: AnalysisProps) {
     analyzeData();
   }, [store, packageStore, isAnalyzing, isShared]);
 
-  const handleAuthRequired = (action: 'share' | 'export') => {
+  const handleSave = async () => {
+    if (handleAuthRequired('save')) return;
+    
+    try {
+      setIsSaving(true);
+      setError(null);
+
+      const analysisData = {
+        productDescription: store.productDescription,
+        idealUser: store.idealUser,
+        outcomes: store.outcomes,
+        challenges: store.challenges,
+        solutions: store.solutions,
+        selectedModel: store.selectedModel,
+        features: packageStore.features,
+        userJourney: store.userJourney,
+        analysisResults: store.analysis
+      };
+
+      if (store.analysis?.id) {
+        await updateAnalysis(store.analysis.id, analysisData);
+      } else {
+        const savedAnalysis = await saveAnalysis(analysisData);
+        store.setAnalysis({ ...store.analysis!, id: savedAnalysis.id });
+      }
+
+      // Show success message
+      const successMessage = document.createElement('div');
+      successMessage.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg';
+      successMessage.textContent = 'Analysis saved successfully';
+      document.body.appendChild(successMessage);
+      setTimeout(() => successMessage.remove(), 3000);
+
+    } catch (error) {
+      console.error('Error saving analysis:', error);
+      setError(error instanceof Error ? error.message : 'Failed to save analysis');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleAuthRequired = (action: 'share' | 'export' | 'save') => {
     if (!user) {
       setPendingAction(action);
       setShowAuthModal(true);
@@ -124,16 +170,14 @@ export function Analysis({ isShared = false }: AnalysisProps) {
 
   const handleShare = async () => {
     if (handleAuthRequired('share')) return;
-
     if (!store.analysis?.id) {
-      setError("Analysis must be saved before sharing");
-      return;
+      await handleSave();
     }
-    
+
     try {
       setIsSharing(true);
       setError(null);
-      const shareId = await shareAnalysis(store.analysis.id);
+      const shareId = await shareAnalysis(store.analysis!.id);
       const shareUrl = `${window.location.origin}/share/${shareId}`;
       setShareUrl(shareUrl);
       
@@ -143,7 +187,6 @@ export function Analysis({ isShared = false }: AnalysisProps) {
         setTimeout(() => setShowCopiedMessage(false), 3000);
       } catch (clipboardError) {
         console.warn('Could not copy to clipboard:', clipboardError);
-        setError("Share link generated. Click 'Copy Share Link' to copy to clipboard.");
       }
     } catch (error) {
       console.error('Error sharing analysis:', error);
@@ -164,21 +207,6 @@ export function Analysis({ isShared = false }: AnalysisProps) {
       setError('Failed to copy to clipboard');
       setTimeout(() => setError(null), 3000);
     }
-  };
-
-  const handleExport = () => {
-    if (handleAuthRequired('export')) return;
-    window.print();
-  };
-
-  const handleAuthSuccess = () => {
-    setShowAuthModal(false);
-    if (pendingAction === 'share') {
-      handleShare();
-    } else if (pendingAction === 'export') {
-      handleExport();
-    }
-    setPendingAction(null);
   };
 
   if (isAnalyzing) {
@@ -297,6 +325,38 @@ export function Analysis({ isShared = false }: AnalysisProps) {
 
   return (
     <div className="space-y-8">
+      {/* Header with navigation */}
+      <div className="flex justify-between items-center mb-6">
+        <div className="flex items-center space-x-4">
+          <Link
+            to="/my-analyses"
+            className="flex items-center px-4 py-2 bg-[#2A2A2A] text-white rounded-lg hover:bg-[#333333]"
+          >
+            <Home className="w-4 h-4 mr-2" />
+            My Analyses
+          </Link>
+          {!isShared && (
+            <button
+              onClick={handleSave}
+              disabled={isSaving}
+              className="flex items-center px-4 py-2 bg-[#FFD23F] text-[#1C1C1C] rounded-lg hover:bg-[#FFD23F]/90 disabled:opacity-50"
+            >
+              {isSaving ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4 mr-2" />
+                  Save Analysis
+                </>
+              )}
+            </button>
+          )}
+        </div>
+      </div>
+
       <div className="flex space-x-1 bg-[#1C1C1C] p-1 rounded-lg">
         <button
           onClick={() => setActiveTab('overview')}
@@ -491,7 +551,7 @@ export function Analysis({ isShared = false }: AnalysisProps) {
         <div className="flex justify-between items-center">
           <div className="flex space-x-2">
             <button
-              onClick={handleExport}
+              onClick={() => window.print()}
               className="flex items-center px-4 py-2 rounded-lg bg-[#1C1C1C] text-white hover:bg-[#333333]"
             >
               <Download className="w-4 h-4 mr-2" />
@@ -499,10 +559,10 @@ export function Analysis({ isShared = false }: AnalysisProps) {
             </button>
             {shareUrl ? (
               <button
-                onClick={handleCopyToClipboard}
+                onClick={() => navigator.clipboard.writeText(shareUrl)}
                 className="flex items-center px-4 py-2 rounded-lg bg-[#1C1C1C] text-[#FFD23F] hover:bg-[#333333]"
               >
-                <Link className="w-4 h-4 mr-2" />
+                <LinkIcon className="w-4 h-4 mr-2" />
                 Copy Share Link
               </button>
             ) : (
@@ -541,7 +601,12 @@ export function Analysis({ isShared = false }: AnalysisProps) {
             setShowAuthModal(false);
             setPendingAction(null);
           }}
-          onSuccess={handleAuthSuccess}
+          onSuccess={() => {
+            setShowAuthModal(false);
+            if (pendingAction === 'share') handleShare();
+            else if (pendingAction === 'save') handleSave();
+            setPendingAction(null);
+          }}
         />
       )}
     </div>

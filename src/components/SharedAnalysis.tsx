@@ -2,14 +2,17 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getSharedAnalysis } from '../services/supabase';
 import { Analysis } from './Analysis';
-import { Loader2, AlertTriangle } from 'lucide-react';
+import { ErrorBoundary } from './ErrorBoundary';
 import { useFormStore } from '../store/formStore';
 import { usePackageStore } from '../store/packageStore';
+import { Loader2, AlertTriangle } from 'lucide-react';
+import { MultiStepForm } from './MultiStepForm';
 
 export function SharedAnalysis() {
   const { shareId } = useParams<{ shareId: string }>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'steps' | 'analysis'>('steps');
   const store = useFormStore();
   const packageStore = usePackageStore();
   const navigate = useNavigate();
@@ -111,5 +114,46 @@ export function SharedAnalysis() {
     );
   }
 
-  return <Analysis isShared />;
+  return (
+    <ErrorBoundary>
+      <div className="relative">
+        {/* View-only banner */}
+        <div className="bg-[#2A2A2A] border-b border-[#333333] p-4 mb-6">
+          <div className="max-w-7xl mx-auto flex justify-between items-center">
+            <p className="text-gray-400">
+              You are viewing a shared analysis in read-only mode
+            </p>
+            <div className="flex space-x-4">
+              <button
+                onClick={() => setViewMode('steps')}
+                className={`px-4 py-2 rounded-lg ${
+                  viewMode === 'steps'
+                    ? 'bg-[#FFD23F] text-[#1C1C1C]'
+                    : 'bg-[#1C1C1C] text-gray-400 hover:text-white'
+                }`}
+              >
+                View Steps
+              </button>
+              <button
+                onClick={() => setViewMode('analysis')}
+                className={`px-4 py-2 rounded-lg ${
+                  viewMode === 'analysis'
+                    ? 'bg-[#FFD23F] text-[#1C1C1C]'
+                    : 'bg-[#1C1C1C] text-gray-400 hover:text-white'
+                }`}
+              >
+                View Analysis
+              </button>
+            </div>
+          </div>
+        </div>
+        
+        {viewMode === 'steps' ? (
+          <MultiStepForm readOnly />
+        ) : (
+          <Analysis isShared />
+        )}
+      </div>
+    </ErrorBoundary>
+  );
 }

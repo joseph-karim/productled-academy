@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { ChevronLeft, ChevronRight, Save, Loader2 } from 'lucide-react';
 import { ProductDescription } from './steps/ProductDescription';
 import { IdealUserIdentifier } from './steps/IdealUserIdentifier';
 import { UserEndgame } from './steps/UserEndgame';
@@ -10,6 +11,11 @@ import { FreeModelCanvas } from './steps/FreeModelCanvas';
 import { Analysis } from './Analysis';
 import { useFormStore } from '../store/formStore';
 import { usePackageStore } from '../store/packageStore';
+import { getAnalysis, saveAnalysis, updateAnalysis } from '../services/supabase';
+
+interface MultiStepFormProps {
+  readOnly?: boolean;
+}
 
 const steps = [
   { 
@@ -114,11 +120,99 @@ const steps = [
   },
 ];
 
-export function MultiStepForm() {
+export function MultiStepForm({ readOnly = false }: MultiStepFormProps) {
   const [currentStep, setCurrentStep] = useState(0);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const formStore = useFormStore();
   const packageStore = usePackageStore();
+  const { id } = useParams();
+  const navigate = useNavigate();
   const CurrentStepComponent = steps[currentStep].component;
+
+  useEffect(() => {
+    if (id) {
+      loadAnalysis(id);
+    }
+  }, [id]);
+
+  const loadAnalysis = async (analysisId: string) => {
+    try {
+      const analysis = await getAnalysis(analysisId);
+      
+      // Update form store with loaded data
+      formStore.setProductDescription(analysis.product_description || '');
+      if (analysis.ideal_user) formStore.setIdealUser(analysis.ideal_user);
+      if (analysis.outcomes) {
+        analysis.outcomes.forEach((outcome: any) => {
+          formStore.updateOutcome(outcome.level, outcome.text);
+        });
+      }
+      if (analysis.challenges) {
+        analysis.challenges.forEach((challenge: any) => {
+          formStore.addChallenge(challenge);
+        });
+      }
+      if (analysis.solutions) {
+        analysis.solutions.forEach((solution: any) => {
+          formStore.addSolution(solution);
+        });
+      }
+      if (analysis.selected_model) formStore.setSelectedModel(analysis.selected_model);
+      if (analysis.features) {
+        analysis.features.forEach((feature: any) => {
+          packageStore.addFeature(feature);
+        });
+      }
+      if (analysis.user_journey) formStore.setUserJourney(analysis.user_journey);
+      if (analysis.analysis_results) formStore.setAnalysis(analysis.analysis_results);
+      
+    } catch (error) {
+      console.error('Error loading analysis:', error);
+      setError('Failed to load analysis');
+    }
+  };
+
+  const handleSave = async () => {
+    if (readOnly) return;
+
+    try {
+      setIsSaving(true);
+      setError(null);
+
+      const analysisData = {
+        productDescription: formStore.productDescription,
+        idealUser: formStore.idealUser,
+        outcomes: formStore.outcomes,
+        challenges: formStore.challenges,
+        solutions: formStore.solutions,
+        selectedModel: formStore.selectedModel,
+        features: packageStore.features,
+        userJourney: formStore.userJourney,
+        analysisResults: formStore.analysis
+      };
+
+      if (id) {
+        await updateAnalysis(id, analysisData);
+      } else {
+        const savedAnalysis = await saveAnalysis(analysisData);
+        navigate(`/analysis/${savedAnalysis.id}`);
+      }
+
+      // Show success message
+      const successMessage = document.createElement('div');
+      successMessage.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+      successMessage.textContent = 'Progress saved successfully';
+      document.body.appendChild(successMessage);
+      setTimeout(() => successMessage.remove(), 3000);
+
+    } catch (error) {
+      console.error('Error saving analysis:', error);
+      setError(error instanceof Error ? error.message : 'Failed to save progress');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const goNext = () => {
     if (currentStep < steps.length - 1 && 
@@ -152,10 +246,10 @@ export function MultiStepForm() {
             return (
               <button
                 key={step.title}
-                onClick={() => goToStep(index)}
-                disabled={!isUnlocked}
+                onClick={() => !readOnly && goToStep(index)}
+                disabled={!isUnlocked || readOnly}
                 className={`text-sm px-3 py-1 rounded transition-colors ${
-                  !isUnlocked
+                  !isUnlocked || readOnly
                     ? 'text-gray-600 cursor-not-allowed'
                     : isCurrent
                     ? 'text-[#1C1C1C] bg-[#FFD23F]'
@@ -181,36 +275,65 @@ export function MultiStepForm() {
 
       {/* Current Step */}
       <div className="bg-[#2A2A2A] rounded-lg shadow-lg p-6 mb-6">
-        <CurrentStepComponent />
+        <CurrentStepComponent readOnly={readOnly} />
       </div>
 
-      {/* Navigation */}
-      <div className="flex justify-between">
-        <button
-          onClick={goPrevious}
-          disabled={currentStep === 0}
-          className={`flex items-center px-4 py-2 rounded ${
-            currentStep === 0
-              ? 'bg-[#2A2A2A] text-gray-600 cursor-not-allowed'
-              : 'bg-[#2A2A2A] text-white hover:border-[#FFD23F] border border-gray-700'
-          }`}
-        >
-          <ChevronLeft className="w-5 h-5 mr-2" />
-          Previous
-        </button>
-        <button
-          onClick={goNext}
-          disabled={currentStep === steps.length - 1 || !steps[currentStep].isComplete(formStore, packageStore)}
-          className={`flex items-center px-4 py-2 rounded ${
-            currentStep === steps.length - 1 || !steps[currentStep].isComplete(formStore, packageStore)
-              ? 'bg-[#2A2A2A] text-gray-600 cursor-not-allowed'
-              : 'bg-[#FFD23F] text-[#1C1C1C] hover:bg-opacity-90'
-          }`}
-        >
-          Next
-          <ChevronRight className="w-5 h-5 ml-2" />
-        </button>
-      </div>
+      {/* Navigation and Save */}
+      {!readOnly && (
+        <div className="flex justify-between items-center">
+          <button
+            onClick={goPrevious}
+            disabled={currentStep === 0}
+            className={`flex items-center px-4 py-2 rounded ${
+              currentStep === 0
+                ? 'bg-[#2A2A2A] text-gray-600 cursor-not-allowed'
+                : 'bg-[#2A2A2A] text-white hover:border-[#FFD23F] border border-gray-700'
+            }`}
+          >
+            <ChevronLeft className="w-5 h-5 mr-2" />
+            Previous
+          </button>
+
+          <div className="flex space-x-4">
+            <button
+              onClick={handleSave}
+              disabled={isSaving}
+              className="flex items-center px-4 py-2 bg-[#2A2A2A] text-[#FFD23F] border border-[#FFD23F] rounded hover:bg-[#FFD23F] hover:text-[#1C1C1C] disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isSaving ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4 mr-2" />
+                  Save Progress
+                </>
+              )}
+            </button>
+
+            <button
+              onClick={goNext}
+              disabled={currentStep === steps.length - 1 || !steps[currentStep].isComplete(formStore, packageStore)}
+              className={`flex items-center px-4 py-2 rounded ${
+                currentStep === steps.length - 1 || !steps[currentStep].isComplete(formStore, packageStore)
+                  ? 'bg-[#2A2A2A] text-gray-600 cursor-not-allowed'
+                  : 'bg-[#FFD23F] text-[#1C1C1C] hover:bg-opacity-90'
+              }`}
+            >
+              Next
+              <ChevronRight className="w-5 h-5 ml-2" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {error && (
+        <div className="fixed bottom-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg">
+          {error}
+        </div>
+      )}
     </div>
   );
 }
