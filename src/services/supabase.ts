@@ -158,6 +158,46 @@ export async function getAnalysis(id: string) {
   return data;
 }
 
+export async function loadAnalysis(id: string) {
+  try {
+    const analysis = await getAnalysis(id);
+    
+    // Update form store with loaded data
+    formStore.setTitle(analysis.title || 'Untitled Analysis');
+    formStore.setProductDescription(analysis.product_description || '');
+    if (analysis.ideal_user) formStore.setIdealUser(analysis.ideal_user);
+    if (analysis.outcomes) {
+      analysis.outcomes.forEach((outcome: any) => {
+        formStore.updateOutcome(outcome.level, outcome.text);
+      });
+    }
+    if (analysis.challenges) {
+      analysis.challenges.forEach((challenge: any) => {
+        formStore.addChallenge(challenge);
+      });
+    }
+    if (analysis.solutions) {
+      analysis.solutions.forEach((solution: any) => {
+        formStore.addSolution(solution);
+      });
+    }
+    if (analysis.selected_model) formStore.setSelectedModel(analysis.selected_model);
+    if (analysis.features) {
+      packageStore.reset(); // Clear existing features
+      analysis.features.forEach((feature: any) => {
+        packageStore.addFeature(feature);
+      });
+    }
+    if (analysis.user_journey) formStore.setUserJourney(analysis.user_journey);
+    if (analysis.analysis_results) formStore.setAnalysis(analysis.analysis_results);
+    if (analysis.pricing_strategy) packageStore.setPricingStrategy(analysis.pricing_strategy);
+    
+  } catch (error) {
+    console.error('Error loading analysis:', error);
+    throw error;
+  }
+}
+
 export async function createAnalysis(title?: string) {
   const { data: { user } } = await supabase.auth.getUser();
   const userId = user?.id || '00000000-0000-0000-0000-000000000000';
@@ -199,6 +239,7 @@ export async function saveAnalysis(analysis: {
   features?: any;
   userJourney?: any;
   analysisResults?: any;
+  pricingStrategy?: any;
 }) {
   const { data: { user } } = await supabase.auth.getUser();
   const userId = user?.id || '00000000-0000-0000-0000-000000000000';
@@ -217,6 +258,7 @@ export async function saveAnalysis(analysis: {
       features: analysis.features,
       user_journey: analysis.userJourney,
       analysis_results: analysis.analysisResults,
+      pricing_strategy: analysis.pricingStrategy,
       share_id: crypto.randomUUID()
     })
     .select()
@@ -240,6 +282,7 @@ export async function updateAnalysis(id: string, analysis: {
   features?: any;
   userJourney?: any;
   analysisResults?: any;
+  pricingStrategy?: any;
 }) {
   const { data, error } = await supabase
     .from('analyses')
@@ -253,7 +296,8 @@ export async function updateAnalysis(id: string, analysis: {
       selected_model: analysis.selectedModel,
       features: analysis.features,
       user_journey: analysis.userJourney,
-      analysis_results: analysis.analysisResults
+      analysis_results: analysis.analysisResults,
+      pricing_strategy: analysis.pricingStrategy
     })
     .eq('id', id)
     .select()

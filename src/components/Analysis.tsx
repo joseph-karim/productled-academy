@@ -3,6 +3,7 @@ import { useFormStore } from '../store/formStore';
 import { usePackageStore } from '../store/packageStore';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
+  Mic, 
   Loader2, 
   X, 
   Download, 
@@ -15,11 +16,12 @@ import {
   Package,
   DollarSign,
   Share2,
-  LinkIcon,
+  Link as LinkIcon,
   Save,
   Home,
   Edit
 } from 'lucide-react';
+import { VoiceChat } from './VoiceChat';
 import { Chart as ChartJS, RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend, CategoryScale, LinearScale, BarElement } from 'chart.js';
 import { Radar, Bar } from 'react-chartjs-2';
 import { analyzeFormData } from '../services/ai/analysis';
@@ -58,6 +60,7 @@ export function Analysis({ isShared = false }: AnalysisProps) {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [pendingAction, setPendingAction] = useState<'share' | 'export' | 'save' | null>(null);
   const [showTitlePrompt, setShowTitlePrompt] = useState(false);
+  const [showVoiceChat, setShowVoiceChat] = useState(false);
 
   useEffect(() => {
     const analyzeData = async () => {
@@ -82,7 +85,9 @@ export function Analysis({ isShared = false }: AnalysisProps) {
           solutions: store.solutions,
           selectedModel: store.selectedModel,
           features: packageStore.features,
-          userJourney: store.userJourney
+          userJourney: store.userJourney,
+          pricingStrategy: packageStore.pricingStrategy,
+          analysisResults: null // Initialize as null
         };
 
         const savedAnalysis = await saveAnalysis(analysisData);
@@ -101,7 +106,8 @@ export function Analysis({ isShared = false }: AnalysisProps) {
         });
         
         await updateAnalysis(savedAnalysis.id, {
-          analysisResults: result
+          analysisResults: result,
+          pricingStrategy: packageStore.pricingStrategy // Keep pricing strategy during update
         });
 
         store.setAnalysis({
@@ -145,9 +151,15 @@ export function Analysis({ isShared = false }: AnalysisProps) {
       };
 
       if (store.analysis?.id) {
-        await updateAnalysis(store.analysis.id, analysisData);
+        await updateAnalysis(store.analysis.id, {
+          ...analysisData,
+          pricingStrategy: packageStore.pricingStrategy
+        });
       } else {
-        const savedAnalysis = await saveAnalysis(analysisData);
+        const savedAnalysis = await saveAnalysis({
+          ...analysisData,
+          pricingStrategy: packageStore.pricingStrategy
+        });
         store.setAnalysis({ ...store.analysis!, id: savedAnalysis.id });
       }
 
@@ -652,6 +664,30 @@ export function Analysis({ isShared = false }: AnalysisProps) {
           }}
         />
       )}
+
+      {showVoiceChat && (
+        <VoiceChat
+          onClose={() => setShowVoiceChat(false)}
+          context={{
+            productDescription: store.productDescription,
+            idealUser: store.idealUser,
+            outcomes: store.outcomes,
+            challenges: store.challenges,
+            solutions: store.solutions,
+            selectedModel: store.selectedModel,
+            features: packageStore.features,
+            pricingStrategy: packageStore.pricingStrategy,
+            analysis: store.analysis
+          }}
+        />
+      )}
+
+      <button
+        onClick={() => setShowVoiceChat(true)}
+        className="fixed bottom-4 right-4 p-4 bg-[#FFD23F] text-[#1C1C1C] rounded-full shadow-lg hover:bg-[#FFD23F]/90"
+      >
+        <Mic className="w-6 h-6" />
+      </button>
     </div>
   );
 }

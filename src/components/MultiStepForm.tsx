@@ -173,6 +173,7 @@ export function MultiStepForm({ readOnly = false }: MultiStepFormProps) {
       }
       if (analysis.user_journey) formStore.setUserJourney(analysis.user_journey);
       if (analysis.analysis_results) formStore.setAnalysis(analysis.analysis_results);
+      if (analysis.pricing_strategy) packageStore.setPricingStrategy(analysis.pricing_strategy);
       
     } catch (error) {
       console.error('Error loading analysis:', error);
@@ -197,11 +198,15 @@ export function MultiStepForm({ readOnly = false }: MultiStepFormProps) {
         selectedModel: formStore.selectedModel,
         features: packageStore.features,
         userJourney: formStore.userJourney,
-        analysisResults: formStore.analysis
+        analysisResults: formStore.analysis,
+        pricingStrategy: packageStore.pricingStrategy
       };
 
       if (id) {
-        await updateAnalysis(id, analysisData);
+        await updateAnalysis(id, {
+          ...analysisData,
+          pricingStrategy: packageStore.pricingStrategy
+        });
       } else {
         setShowTitlePrompt(true);
       }
@@ -265,7 +270,8 @@ export function MultiStepForm({ readOnly = false }: MultiStepFormProps) {
                 onClick={async () => {
                   const savedAnalysis = await saveAnalysis({
                     title: formStore.title || 'Untitled Analysis',
-                    ...analysisData
+                    ...analysisData,
+                    pricingStrategy: packageStore.pricingStrategy
                   });
                   setShowTitlePrompt(false);
                   navigate(`/analysis/${savedAnalysis.id}`);
