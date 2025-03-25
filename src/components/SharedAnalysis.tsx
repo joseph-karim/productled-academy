@@ -39,16 +39,12 @@ export function SharedAnalysis() {
           store.resetState();
           packageStore.reset();
 
-          // Update store with shared analysis data
+          // Update form store with shared analysis data
           store.setTitle(analysis.title || 'Untitled Analysis');
           store.setProductDescription(analysis.product_description);
           
           if (analysis.ideal_user) {
             store.setIdealUser(analysis.ideal_user);
-          }
-          
-          if (analysis.selected_model) {
-            store.setSelectedModel(analysis.selected_model);
           }
           
           if (analysis.outcomes) {
@@ -69,6 +65,10 @@ export function SharedAnalysis() {
             });
           }
 
+          if (analysis.selected_model) {
+            store.setSelectedModel(analysis.selected_model);
+          }
+
           if (analysis.features) {
             analysis.features.forEach((feature: any) => {
               packageStore.addFeature(feature);
@@ -77,6 +77,11 @@ export function SharedAnalysis() {
 
           if (analysis.user_journey) {
             store.setUserJourney(analysis.user_journey);
+          }
+
+          // Set pricing strategy if available
+          if (analysis.pricing_strategy) {
+            packageStore.setPricingStrategy(analysis.pricing_strategy);
           }
 
           if (analysis.analysis_results) {
