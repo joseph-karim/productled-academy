@@ -75,6 +75,25 @@ export async function analyzeFormData(input: AnalysisInput): Promise<Analysis> {
     try {
       const parsedResult = JSON.parse(result);
       
+      // Validate required fields
+      const requiredFields = [
+        'deepScore',
+        'summary',
+        'strengths',
+        'weaknesses',
+        'recommendations',
+        'componentScores',
+        'componentFeedback',
+        'actionPlan',
+        'testing',
+        'journeyAnalysis'
+      ];
+
+      const missingFields = requiredFields.filter(field => !parsedResult[field]);
+      if (missingFields.length > 0) {
+        throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
+      }
+      
       // Add fallbacks for missing properties
       const defaultEmptyArray: string[] = [];
       
@@ -116,7 +135,7 @@ export async function analyzeFormData(input: AnalysisInput): Promise<Analysis> {
     }
   } catch (error) {
     console.error("API error:", error);
-    throw new Error("Failed to analyze form data");
+    throw error;
   }
 }
 

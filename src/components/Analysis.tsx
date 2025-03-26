@@ -15,17 +15,19 @@ import {
   Package,
   DollarSign,
   Share2,
-  LinkIcon,
+  Link as LinkIcon,
   Save,
   Home,
   Edit
 } from 'lucide-react';
+import { VoiceChat } from './VoiceChat';
 import { Chart as ChartJS, RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend, CategoryScale, LinearScale, BarElement } from 'chart.js';
 import { Radar, Bar } from 'react-chartjs-2';
 import { analyzeFormData } from '../services/ai/analysis';
 import { ComponentCard } from './analysis/ComponentCard';
 import { shareAnalysis, saveAnalysis, updateAnalysis } from '../services/supabase';
 import { AuthModal } from './auth/AuthModal';
+import { supabase } from '../services/supabase';
 
 ChartJS.register(
   RadialLinearScale,
@@ -58,6 +60,7 @@ export function Analysis({ isShared = false }: AnalysisProps) {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [pendingAction, setPendingAction] = useState<'share' | 'export' | 'save' | null>(null);
   const [showTitlePrompt, setShowTitlePrompt] = useState(false);
+  const [showVoiceChat, setShowVoiceChat] = useState(false);
 
   useEffect(() => {
     // Debug the current store state
@@ -99,8 +102,9 @@ export function Analysis({ isShared = false }: AnalysisProps) {
           solutions: store.solutions,
           selectedModel: store.selectedModel,
           features: packageStore.features,
-          pricingStrategy: packageStore.pricingStrategy,
-          userJourney: store.userJourney
+            pricingStrategy: packageStore.pricingStrategy,
+            userJourney: store.userJourney,
+            analysisResults: null // Initialize as null
         };
 
         const savedAnalysis = await saveAnalysis(analysisData);
@@ -119,7 +123,8 @@ export function Analysis({ isShared = false }: AnalysisProps) {
         });
         
         await updateAnalysis(savedAnalysis.id, {
-          analysisResults: result
+          analysisResults: result,
+          pricingStrategy: packageStore.pricingStrategy // Keep pricing strategy during update
         });
 
         store.setAnalysis({
@@ -164,9 +169,15 @@ export function Analysis({ isShared = false }: AnalysisProps) {
       };
 
       if (store.analysis?.id) {
-        await updateAnalysis(store.analysis.id, analysisData);
+        await updateAnalysis(store.analysis.id, {
+          ...analysisData,
+          pricingStrategy: packageStore.pricingStrategy
+        });
       } else {
-        const savedAnalysis = await saveAnalysis(analysisData);
+        const savedAnalysis = await saveAnalysis({
+          ...analysisData,
+          pricingStrategy: packageStore.pricingStrategy
+        });
         store.setAnalysis({ ...store.analysis!, id: savedAnalysis.id });
       }
 
@@ -185,314 +196,310 @@ export function Analysis({ isShared = false }: AnalysisProps) {
   };
 
   const handleShare = async () => {
-    if (!store.analysis?.id) {
-      await handleSave();
+    // Check if user is authenticated
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    // If not authenticated, show auth modal
+    if (!user) {
+      setShowAuthModal(true);
+      setPendingAction('share');
+      return;
     }
+    
+    // Check if analysis has a title
+    if (!store.title || store.title.trim() === '' || store.title === 'Untitled Analysis') {
+      setShowTitlePrompt(true);
+      setPendingAction('share');
+      return;
+    }
+    
+    if (!store.analysis?.id) {
+      try {
+        const analysisData = {
+          title: store.title,
+          productDescription: store.productDescription,
+          idealUser: store.idealUser,
+          outcomes: store.outcomes,
+          challenges: store.challenges,
+          solutions: store.solutions,
+          selectedModel: store.selectedModel,
+          features: packageStore.features,
+          userJourney: store.userJourney,
+          analysisResults: store.analysis,
+          pricingStrategy: packageStore.pricingStrategy
+        };
+        
+        const savedAnalysis = await saveAnalysis(analysisData);
+        store.setAnalysis({ ...store.analysis!, id: savedAnalysis.id });
+        
+        await handleShareWithId(savedAnalysis.id);
+      } catch (error) {
+        console.error('Error saving analysis for sharing:', error);
+        setError(error instanceof Error ? error.message : 'Failed to save analysis for sharing');
+      }
+    } else {
+      await handleShareWithId(store.analysis.id);
+    }
+  };
 
+  const handleShareWithId = async (analysisId: string) => {
     try {
       setIsSharing(true);
       setError(null);
-      const shareId = await shareAnalysis(store.analysis!.id);
-      const shareUrl = `${window.location.origin}/share/${shareId}`;
-      setShareUrl(shareUrl);
       
-      try {
-        await navigator.clipboard.writeText(shareUrl);
-        setShowCopiedMessage(true);
-        setTimeout(() => setShowCopiedMessage(false), 3000);
-      } catch (clipboardError) {
-        console.warn('Could not copy to clipboard:', clipboardError);
-      }
+      const { id: shareId } = await shareAnalysis(analysisId);
+      const url = `${window.location.origin}/shared/${shareId}`;
+      setShareUrl(url);
+      
+      await navigator.clipboard.writeText(url);
+      setShowCopiedMessage(true);
+      
+      setTimeout(() => {
+        setShowCopiedMessage(false);
+      }, 3000);
+      
+      setError('Share link copied to clipboard!');
     } catch (error) {
-      console.error('Share analysis error:', error);
+      console.error('Error sharing analysis:', error);
       setError(error instanceof Error ? error.message : 'Failed to share analysis');
     } finally {
       setIsSharing(false);
     }
   };
 
-  const handleCopyToClipboard = async () => {
-    if (!shareUrl) return;
-    
-    try {
-      await navigator.clipboard.writeText(shareUrl);
-      setShowCopiedMessage(true);
-      setTimeout(() => setShowCopiedMessage(false), 3000);
-    } catch (error) {
-      setError('Failed to copy to clipboard');
-      setTimeout(() => setError(null), 3000);
-    }
-  };
-
   if (isAnalyzing) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center space-y-4">
-          <Loader2 className="w-8 h-8 animate-spin mx-auto text-[#FFD23F]" />
-          <p className="text-gray-400">Analyzing your product strategy...</p>
-          <p className="text-gray-500 text-sm max-w-md mx-auto">This may take a minute as we evaluate your entire strategy against industry benchmarks and best practices.</p>
+      <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
+        <Loader2 className="w-8 h-8 text-[#FFD23F] animate-spin" />
+        <p className="text-gray-300">Analyzing your product and pricing strategy...</p>
+        <p className="text-gray-500 text-sm">This may take up to 30 seconds</p>
+      </div>
+    );
+  }
+
+  if (!store.analysis && !isShared) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] space-y-6">
+        <div className="bg-[#1C1C1C] p-6 rounded-lg max-w-lg">
+          <h3 className="text-lg font-medium text-white mb-4">Analysis Unavailable</h3>
+          <p className="text-gray-300 mb-4">
+            We couldn't generate an analysis for your product. Please make sure you've completed all the previous steps.
+          </p>
+          <div className="flex justify-end">
+            <Link 
+              to="/"
+              className="px-4 py-2 bg-[#FFD23F] text-[#1C1C1C] rounded-lg hover:bg-[#FFD23F]/90 flex items-center"
+            >
+              <Home className="w-4 h-4 mr-2" />
+              Return Home
+            </Link>
+          </div>
         </div>
+        {error && (
+          <div className="text-red-500">
+            {error}
+          </div>
+        )}
       </div>
     );
   }
 
   if (!store.analysis) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center space-y-4 max-w-md mx-auto">
-          <AlertTriangle className="w-8 h-8 mx-auto text-red-500" />
-          <p className="text-gray-400">
-            {error || "Unable to analyze the strategy. Please ensure all previous sections are completed."}
-          </p>
-          <ul className="text-left text-gray-500 text-sm space-y-1">
-            <li>• Product Description must be completed</li>
-            <li>• Ideal User must be defined</li>
-            <li>• User Endgame for beginners must be specified</li>
-            <li>• Model Selection must be made</li>
-            <li>• Package features must be defined</li>
-            <li>• Pricing strategy must be set</li>
-          </ul>
-        </div>
+      <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
+        <Loader2 className="w-8 h-8 text-[#FFD23F] animate-spin" />
+        <p className="text-gray-300">Loading shared analysis...</p>
       </div>
     );
   }
-
+  
+  // Extract analysis data
   const { 
-    deepScore, 
-    componentScores, 
-    componentFeedback, 
-    actionPlan, 
-    testing, 
-    summary, 
-    strengths, 
-    weaknesses, 
-    journeyAnalysis 
+    overallScore,
+    strengths,
+    weaknesses,
+    componentScores,
+    componentFeedback,
+    pricing: {
+      revenueProjection,
+      keyMetrics,
+      benchmarks
+    },
+    actionPlan,
+    testing
   } = store.analysis;
 
+  // Prepare data for radar chart
   const radarData = {
-    labels: ['Desirability', 'Effectiveness', 'Efficiency', 'Polish'],
+    labels: Object.keys(componentScores).map(key => {
+      // Convert camelCase to regular text with spaces
+      return key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+    }),
     datasets: [
       {
-        label: 'Your Score',
-        data: [
-          deepScore.desirability,
-          deepScore.effectiveness,
-          deepScore.efficiency,
-          deepScore.polish
-        ],
+        label: 'Component Scores',
+        data: Object.values(componentScores),
         backgroundColor: 'rgba(255, 210, 63, 0.2)',
         borderColor: '#FFD23F',
         borderWidth: 2,
-      },
-      {
-        label: 'Industry Benchmark',
-        data: [7.1, 6.9, 6.7, 6.3],
-        backgroundColor: 'rgba(156, 163, 175, 0.2)',
-        borderColor: 'rgba(156, 163, 175, 1)',
-        borderWidth: 2,
+        pointBackgroundColor: '#FFD23F',
+        pointBorderColor: '#FFD23F',
+        pointHoverBackgroundColor: '#fff',
+        pointHoverBorderColor: '#FFD23F'
       }
-    ],
+    ]
   };
 
-  const chartOptions = {
-    scales: {
-      r: {
-        grid: {
-          color: '#333333',
-        },
-        angleLines: {
-          color: '#333333',
-        },
-        pointLabels: {
-          color: '#FFFFFF',
-          font: {
-            size: 11
-          }
-        },
-        ticks: {
-          color: '#FFFFFF',
-          backdropColor: '#1C1C1C',
-          maxTicksLimit: 5,
-          display: false
-        },
-        min: 0,
-        max: 10
+  // Prepare data for revenue projection bar chart
+  const revenueData = {
+    labels: revenueProjection.months.map(m => m.month),
+    datasets: [
+      {
+        label: 'Revenue',
+        data: revenueProjection.months.map(m => m.revenue),
+        backgroundColor: '#FFD23F',
+        borderColor: '#FFD23F',
+        borderWidth: 1
+      },
+      {
+        label: 'Users',
+        data: revenueProjection.months.map(m => m.users * 10), // Scale up users for visibility
+        backgroundColor: '#4C6EF5',
+        borderColor: '#4C6EF5',
+        borderWidth: 1
       }
-    },
-    plugins: {
-      legend: {
-        labels: {
-          color: '#FFFFFF',
-          font: {
-            size: 12
-          }
-        },
-      },
-      tooltip: {
-        backgroundColor: '#2A2A2A',
-        titleColor: '#FFFFFF',
-        bodyColor: '#FFFFFF',
-        borderColor: '#333333',
-        borderWidth: 1,
-      },
-    },
-    maintainAspectRatio: false
+    ]
   };
 
   return (
-    <div className="space-y-8">
-      {/* Title prompt modal */}
-      {showTitlePrompt && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-[#2A2A2A] p-6 rounded-lg shadow-lg w-full max-w-md">
-            <h3 className="text-lg font-medium text-white mb-4">Name your analysis</h3>
-            <input
-              type="text"
-              value={store.title}
-              onChange={(e) => store.setTitle(e.target.value)}
-              placeholder="Enter a title..."
-              className="w-full p-2 bg-[#1C1C1C] text-white border border-[#333333] rounded-lg mb-4"
-            />
-            <div className="flex justify-end space-x-4">
-              <button
-                onClick={() => setShowTitlePrompt(false)}
-                className="px-4 py-2 text-gray-400 hover:text-white"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  setShowTitlePrompt(false);
-                  handleSave();
-                }}
-                className="px-4 py-2 bg-[#FFD23F] text-[#1C1C1C] rounded-lg hover:bg-[#FFD23F]/90"
-              >
-                Save
-              </button>
+    <div className="space-y-6">
+      <div className="bg-[#1C1C1C] rounded-lg p-6">
+        <div className="flex flex-wrap justify-between items-center mb-6">
+          <div>
+            {isShared ? (
+              <h2 className="text-2xl font-bold text-white">{store.title || 'Shared Analysis'}</h2>
+            ) : (
+              <div className="flex items-center space-x-2">
+                <h2 className="text-2xl font-bold text-white">{store.title || 'Untitled Analysis'}</h2>
+                <button 
+                  onClick={() => setShowTitlePrompt(true)}
+                  className="p-1 hover:bg-[#333333] rounded"
+                >
+                  <Edit className="w-4 h-4 text-gray-400" />
+                </button>
+              </div>
+            )}
+            <p className="text-gray-400 text-sm mt-1">Free Model Analyzer Report</p>
+          </div>
+          
+          <div className="flex items-center space-x-4">
+            <span className="text-sm text-gray-400">Overall Score</span>
+            <div className="flex items-center bg-[#333333] rounded-full px-3 py-1">
+              <span className="text-[#FFD23F] font-bold">{overallScore}%</span>
             </div>
           </div>
         </div>
-      )}
 
-      {/* Header with navigation */}
-      <div className="flex justify-between items-center mb-6">
-        <div className="flex items-center space-x-4">
-          <Link
-            to="/my-analyses"
-            className="flex items-center px-4 py-2 bg-[#2A2A2A] text-white rounded-lg hover:bg-[#333333]"
+        <div className="flex overflow-x-auto space-x-2 mb-6 pb-2">
+          <button
+            onClick={() => setActiveTab('overview')}
+            className={`px-4 py-2 rounded-lg whitespace-nowrap ${
+              activeTab === 'overview'
+                ? 'bg-[#FFD23F] text-[#1C1C1C] font-medium'
+                : 'bg-[#333333] text-gray-300 hover:bg-[#444444]'
+            }`}
           >
-            <Home className="w-4 h-4 mr-2" />
-            My Analyses
-          </Link>
-          {!isShared && (
-            <button
-              onClick={handleSave}
-              disabled={isSaving}
-              className="flex items-center px-4 py-2 bg-[#FFD23F] text-[#1C1C1C] rounded-lg hover:bg-[#FFD23F]/90 disabled:opacity-50"
-            >
-              {isSaving ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Save className="w-4 h-4 mr-2" />
-                  Save Analysis
-                </>
-              )}
-            </button>
-          )}
+            Overview
+          </button>
+          <button
+            onClick={() => setActiveTab('components')}
+            className={`px-4 py-2 rounded-lg whitespace-nowrap ${
+              activeTab === 'components'
+                ? 'bg-[#FFD23F] text-[#1C1C1C] font-medium'
+                : 'bg-[#333333] text-gray-300 hover:bg-[#444444]'
+            }`}
+          >
+            Components
+          </button>
+          <button
+            onClick={() => setActiveTab('packages')}
+            className={`px-4 py-2 rounded-lg whitespace-nowrap ${
+              activeTab === 'packages'
+                ? 'bg-[#FFD23F] text-[#1C1C1C] font-medium'
+                : 'bg-[#333333] text-gray-300 hover:bg-[#444444]'
+            }`}
+          >
+            <Package className="w-4 h-4 inline-block mr-1" />
+            Package Analysis
+          </button>
+          <button
+            onClick={() => setActiveTab('revenue')}
+            className={`px-4 py-2 rounded-lg whitespace-nowrap ${
+              activeTab === 'revenue'
+                ? 'bg-[#FFD23F] text-[#1C1C1C] font-medium'
+                : 'bg-[#333333] text-gray-300 hover:bg-[#444444]'
+            }`}
+          >
+            <DollarSign className="w-4 h-4 inline-block mr-1" />
+            Revenue Projection
+          </button>
+          <button
+            onClick={() => setActiveTab('action')}
+            className={`px-4 py-2 rounded-lg whitespace-nowrap ${
+              activeTab === 'action'
+                ? 'bg-[#FFD23F] text-[#1C1C1C] font-medium'
+                : 'bg-[#333333] text-gray-300 hover:bg-[#444444]'
+            }`}
+          >
+            <Target className="w-4 h-4 inline-block mr-1" />
+            Action Plan
+          </button>
         </div>
-        {store.title && (
-          <div className="flex items-center space-x-2">
-            <h1 className="text-xl font-semibold text-white">{store.title}</h1>
-            {!isShared && (
-              <button
-                onClick={() => setShowTitlePrompt(true)}
-                className="text-gray-400 hover:text-white"
-              >
-                <Edit className="w-4 h-4" />
-              </button>
-            )}
-          </div>
-        )}
-      </div>
-
-      <div className="flex space-x-1 bg-[#1C1C1C] p-1 rounded-lg">
-        <button
-          onClick={() => setActiveTab('overview')}
-          className={`px-4 py-2 rounded-md ${activeTab === 'overview' ? 'bg-[#2A2A2A] text-white' : 'text-gray-400 hover:text-white'}`}
-        >
-          Strategy Overview
-        </button>
-        <button
-          onClick={() => setActiveTab('components')}
-          className={`px-4 py-2 rounded-md ${activeTab === 'components' ? 'bg-[#2A2A2A] text-white' : 'text-gray-400 hover:text-white'}`}
-        >
-          Component Analysis
-        </button>
-        <button
-          onClick={() => setActiveTab('packages')}
-          className={`px-4 py-2 rounded-md ${activeTab === 'packages' ? 'bg-[#2A2A2A] text-white' : 'text-gray-400 hover:text-white'}`}
-        >
-          Package Analysis
-        </button>
-        <button
-          onClick={() => setActiveTab('action')}
-          className={`px-4 py-2 rounded-md ${activeTab === 'action' ? 'bg-[#2A2A2A] text-white' : 'text-gray-400 hover:text-white'}`}
-        >
-          Action Plan
-        </button>
       </div>
 
       {activeTab === 'overview' && (
-        <div className="bg-[#2A2A2A] p-6 rounded-lg shadow-lg space-y-6">
-          <div className="flex justify-between items-start mb-6">
-            <div>
-              <h2 className="text-2xl font-bold text-white">Strategy Analysis</h2>
-              <div className="mt-2 flex items-center">
-                <span className="text-gray-400 mr-2">Overall Score:</span>
-                <span className={`text-2xl font-bold ${
-                  deepScore.desirability >= 8 ? 'text-green-400' :
-                  deepScore.desirability >= 6 ? 'text-[#FFD23F]' :
-                  'text-red-400'
-                }`}>
-                  {Math.round((
-                    deepScore.desirability +
-                    deepScore.effectiveness +
-                    deepScore.efficiency +
-                    deepScore.polish
-                  ) * 2.5)}/100
-                </span>
+        <div className="space-y-6">
+          <div className="bg-[#1C1C1C] p-6 rounded-lg">
+            <h3 className="text-xl font-bold text-white mb-4">Product & Model Overview</h3>
+            <div className="mb-6">
+              <div className="mx-auto" style={{ width: '100%', maxWidth: '600px', height: '400px' }}>
+                <Radar 
+                  data={radarData} 
+                  options={{
+                    plugins: {
+                      legend: {
+                        labels: {
+                          color: '#FFFFFF'
+                        }
+                      }
+                    },
+                    scales: {
+                      r: {
+                        angleLines: {
+                          color: '#333333'
+                        },
+                        grid: {
+                          color: '#333333'
+                        },
+                        pointLabels: {
+                          color: '#FFFFFF'
+                        },
+                        ticks: {
+                          color: '#CCCCCC',
+                          backdropColor: 'transparent'
+                        }
+                      }
+                    },
+                    elements: {
+                      line: {
+                        tension: 0.2
+                      }
+                    }
+                  }}
+                />
               </div>
             </div>
-            <div className="text-right">
-              <p className="text-sm text-gray-400">Model Selected:</p>
-              <p className="text-lg font-medium text-white capitalize">
-                {store.selectedModel?.replace('-', ' ')}
-              </p>
-              <p className="text-xs text-gray-400 mt-1">Analysis Date: {new Date().toLocaleDateString()}</p>
-            </div>
-          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div>
-              <h3 className="text-lg font-semibold text-white mb-4">DEEP Score Breakdown</h3>
-              <div className="h-[300px] bg-[#1C1C1C] p-4 rounded-lg">
-                <Radar data={radarData} options={chartOptions} />
-              </div>
-            </div>
-
-            <div>
-              <h3 className="text-lg font-semibold text-white mb-4">Executive Summary</h3>
-              <div className="bg-[#1C1C1C] p-4 rounded-lg h-[300px] overflow-y-auto">
-                <p className="text-gray-300 whitespace-pre-line">{summary}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="bg-[#1C1C1C] p-4 rounded-lg">
               <h4 className="text-lg font-semibold text-white mb-3">Key Strengths</h4>
               <div className="space-y-2">
@@ -668,6 +675,23 @@ export function Analysis({ isShared = false }: AnalysisProps) {
             if (pendingAction === 'share') handleShare();
             else if (pendingAction === 'save') handleSave();
             setPendingAction(null);
+          }}
+        />
+      )}
+
+      {showVoiceChat && (
+        <VoiceChat
+          onClose={() => setShowVoiceChat(false)}
+          context={{
+            productDescription: store.productDescription,
+            idealUser: store.idealUser,
+            outcomes: store.outcomes,
+            challenges: store.challenges,
+            solutions: store.solutions,
+            selectedModel: store.selectedModel,
+            features: packageStore.features,
+            pricingStrategy: packageStore.pricingStrategy,
+            analysis: store.analysis
           }}
         />
       )}

@@ -81,6 +81,14 @@ export async function checkConnection(): Promise<boolean> {
 
 export async function shareAnalysis(id: string) {
   try {
+    // First check if user is authenticated
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    // Anonymous users should be required to login before sharing
+    if (!user || user.id === '00000000-0000-0000-0000-000000000000') {
+      throw new Error('You must be logged in to share an analysis');
+    }
+
     const { data: analysis, error: checkError } = await supabase
       .from('analyses')
       .select('id, user_id, is_public, share_id')
@@ -92,13 +100,8 @@ export async function shareAnalysis(id: string) {
       throw new Error('Analysis not found');
     }
 
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user && analysis.user_id !== '00000000-0000-0000-0000-000000000000') {
-      throw new Error('You do not have permission to share this analysis');
-    }
-    
-    if (user && analysis.user_id !== user.id && analysis.user_id !== '00000000-0000-0000-0000-000000000000') {
+    // Ensure user owns the analysis
+    if (analysis.user_id !== user.id) {
       throw new Error('You do not have permission to share this analysis');
     }
 
@@ -122,6 +125,37 @@ export async function shareAnalysis(id: string) {
 }
 
 export async function getSharedAnalysis(shareId: string) {
+  console.log('Getting shared analysis with ID:', shareId);
+  
+  // First, check if the analysis exists
+  const { data: checkData, error: checkError } = await supabase
+    .from('analyses')
+    .select('id, is_public, share_id')
+    .eq('share_id', shareId)
+    .maybeSingle();
+    
+  console.log('Analysis check result:', { 
+    exists: !!checkData, 
+    isPublic: checkData?.is_public,
+    error: checkError
+  });
+  
+  if (checkError) {
+    console.error('Error checking analysis:', checkError);
+    throw checkError;
+  }
+  
+  if (!checkData) {
+    console.error('No analysis found with this share ID');
+    throw new Error('Analysis not found');
+  }
+  
+  if (!checkData.is_public) {
+    console.error('Analysis exists but is not public');
+    throw new Error('This analysis is not available for viewing');
+  }
+  
+  // Get full analysis data
   const { data, error } = await supabase
     .from('analyses')
     .select('*')
@@ -129,7 +163,19 @@ export async function getSharedAnalysis(shareId: string) {
     .eq('is_public', true)
     .single();
 
-  if (error) throw error;
+  if (error) {
+    console.error('Error fetching shared analysis data:', error);
+    throw error;
+  }
+  
+  console.log('Shared analysis data loaded successfully', {
+    hasData: !!data,
+    hasProductDesc: !!data?.product_description,
+    hasResults: !!data?.analysis_results,
+    hasPricingStrategy: !!data?.pricing_strategy,
+    hasFeatures: Array.isArray(data?.features) && data.features.length > 0
+  });
+
   return data;
 }
 
@@ -158,14 +204,58 @@ export async function getAnalysis(id: string) {
   return data;
 }
 
+export async function loadAnalysis(id: string) {
+  try {
+    const analysis = await getAnalysis(id);
+    
+    // Update form store with loaded data
+    formStore.setTitle(analysis.title || 'Untitled Analysis');
+    formStore.setProductDescription(analysis.product_description || '');
+    if (analysis.ideal_user) formStore.setIdealUser(analysis.ideal_user);
+    if (analysis.outcomes) {
+      analysis.outcomes.forEach((outcome: any) => {
+        formStore.updateOutcome(outcome.level, outcome.text);
+      });
+    }
+    if (analysis.challenges) {
+      analysis.challenges.forEach((challenge: any) => {
+        formStore.addChallenge(challenge);
+      });
+    }
+    if (analysis.solutions) {
+      analysis.solutions.forEach((solution: any) => {
+        formStore.addSolution(solution);
+      });
+    }
+    if (analysis.selected_model) formStore.setSelectedModel(analysis.selected_model);
+    if (analysis.features) {
+      packageStore.reset(); // Clear existing features
+      analysis.features.forEach((feature: any) => {
+        packageStore.addFeature(feature);
+      });
+    }
+    if (analysis.user_journey) formStore.setUserJourney(analysis.user_journey);
+    if (analysis.analysis_results) formStore.setAnalysis(analysis.analysis_results);
+    if (analysis.pricing_strategy) packageStore.setPricingStrategy(analysis.pricing_strategy);
+    
+  } catch (error) {
+    console.error('Error loading analysis:', error);
+    throw error;
+  }
+}
+
 export async function createAnalysis(title?: string) {
   const { data: { user } } = await supabase.auth.getUser();
-  const userId = user?.id || '00000000-0000-0000-0000-000000000000';
+  
+  // Check if the user is authenticated
+  if (!user || user.id === '00000000-0000-0000-0000-000000000000') {
+    throw new Error('You must be logged in to create an analysis');
+  }
 
   const { data, error } = await supabase
     .from('analyses')
     .insert({
-      user_id: userId,
+      user_id: user.id,
       share_id: crypto.randomUUID(),
       title: title || 'Untitled Analysis',
       product_description: '',
@@ -199,14 +289,19 @@ export async function saveAnalysis(analysis: {
   features?: any;
   userJourney?: any;
   analysisResults?: any;
+  pricingStrategy?: any;
 }) {
   const { data: { user } } = await supabase.auth.getUser();
-  const userId = user?.id || '00000000-0000-0000-0000-000000000000';
+  
+  // Check if the user is authenticated
+  if (!user || user.id === '00000000-0000-0000-0000-000000000000') {
+    throw new Error('You must be logged in to save an analysis');
+  }
 
   const { data, error } = await supabase
     .from('analyses')
     .insert({
-      user_id: userId,
+      user_id: user.id,
       title: analysis.title || 'Untitled Analysis',
       product_description: analysis.productDescription,
       ideal_user: analysis.idealUser,
@@ -217,6 +312,7 @@ export async function saveAnalysis(analysis: {
       features: analysis.features,
       user_journey: analysis.userJourney,
       analysis_results: analysis.analysisResults,
+      pricing_strategy: analysis.pricingStrategy,
       share_id: crypto.randomUUID()
     })
     .select()
@@ -240,7 +336,30 @@ export async function updateAnalysis(id: string, analysis: {
   features?: any;
   userJourney?: any;
   analysisResults?: any;
+  pricingStrategy?: any;
 }) {
+  // Check if user is authenticated
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user || user.id === '00000000-0000-0000-0000-000000000000') {
+    throw new Error('You must be logged in to update an analysis');
+  }
+
+  // Check if user owns the analysis
+  const { data: existingAnalysis, error: checkError } = await supabase
+    .from('analyses')
+    .select('user_id')
+    .eq('id', id)
+    .single();
+
+  if (checkError) {
+    throw new Error('Analysis not found');
+  }
+
+  if (existingAnalysis.user_id !== user.id) {
+    throw new Error('You do not have permission to update this analysis');
+  }
+
   const { data, error } = await supabase
     .from('analyses')
     .update({
@@ -253,7 +372,8 @@ export async function updateAnalysis(id: string, analysis: {
       selected_model: analysis.selectedModel,
       features: analysis.features,
       user_journey: analysis.userJourney,
-      analysis_results: analysis.analysisResults
+      analysis_results: analysis.analysisResults,
+      pricing_strategy: analysis.pricingStrategy
     })
     .eq('id', id)
     .select()
@@ -273,4 +393,41 @@ export async function deleteAnalysis(id: string) {
     .eq('id', id);
 
   if (error) throw error;
+}
+
+export async function debugSharedAnalysis(shareId: string) {
+  console.log('Debugging shared analysis with ID:', shareId);
+  
+  // Check if analysis exists without filters
+  const { data: allAnalyses } = await supabase
+    .from('analyses')
+    .select('id, share_id, is_public, user_id, created_at')
+    .eq('share_id', shareId);
+    
+  console.log('All analyses with this share_id:', allAnalyses);
+  
+  // Check with is_public filter
+  const { data: publicAnalyses } = await supabase
+    .from('analyses')
+    .select('id, share_id, is_public, user_id')
+    .eq('share_id', shareId)
+    .eq('is_public', true);
+    
+  console.log('Public analyses with this share_id:', publicAnalyses);
+  
+  // Check current user
+  const { data: { user } } = await supabase.auth.getUser();
+  console.log('Current user:', user?.id || 'Not authenticated');
+  
+  // Check RLS policies
+  const { data: rlsPolicies } = await supabase
+    .rpc('check_rls_policies', { table_name: 'analyses' });
+    
+  console.log('RLS policies:', rlsPolicies);
+  
+  return {
+    allAnalyses,
+    publicAnalyses,
+    userId: user?.id || null
+  };
 }
