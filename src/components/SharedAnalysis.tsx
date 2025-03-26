@@ -13,6 +13,7 @@ export function SharedAnalysis() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'steps' | 'analysis'>('steps');
+  const [analysisData, setAnalysisData] = useState<any>(null);
   const store = useFormStore();
   const packageStore = usePackageStore();
   const navigate = useNavigate();
@@ -29,7 +30,8 @@ export function SharedAnalysis() {
       try {
         setLoading(true);
         const analysis = await getSharedAnalysis(shareId);
-        
+        setAnalysisData(analysis);
+
         if (!analysis) {
           throw new Error('Analysis not found');
         }
@@ -89,6 +91,11 @@ export function SharedAnalysis() {
               ...analysis.analysis_results,
               id: analysis.id
             });
+
+            // Set pricing strategy if available
+            if (analysis.pricing_strategy) {
+              packageStore.setPricingStrategy(analysis.pricing_strategy);
+            }
           }
         }
       } catch (error) {
@@ -144,7 +151,7 @@ export function SharedAnalysis() {
         <div className="bg-[#2A2A2A] border-b border-[#333333] p-4 mb-6">
           <div className="max-w-7xl mx-auto flex justify-between items-center">
             <p className="text-gray-400">
-              You are viewing a shared analysis in read-only mode
+              {analysisData?.title || 'Untitled Analysis'} (Shared View)
             </p>
             <div className="flex space-x-4">
               <button
