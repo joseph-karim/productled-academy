@@ -13,6 +13,8 @@ import { useFormStore } from '../store/formStore';
 import { usePackageStore } from '../store/packageStore';
 import { getAnalysis, saveAnalysis, updateAnalysis } from '../services/supabase';
 import { ErrorBoundary } from 'react-error-boundary';
+import { supabase } from '../services/supabase';
+import { AuthModal } from './auth/AuthModal';
 
 interface MultiStepFormProps {
   readOnly?: boolean;
@@ -126,6 +128,8 @@ export function MultiStepForm({ readOnly = false }: MultiStepFormProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showTitlePrompt, setShowTitlePrompt] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [pendingAction, setPendingAction] = useState<'save' | null>(null);
   const formStore = useFormStore();
   const packageStore = usePackageStore();
   const { id } = useParams();
@@ -188,6 +192,16 @@ export function MultiStepForm({ readOnly = false }: MultiStepFormProps) {
     if (readOnly) return;
 
     try {
+      // Check if user is authenticated
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      // If not authenticated, show auth modal
+      if (!user) {
+        setShowAuthModal(true);
+        setPendingAction('save');
+        return;
+      }
+      
       setIsSaving(true);
       setError(null);
 
@@ -201,42 +215,37 @@ export function MultiStepForm({ readOnly = false }: MultiStepFormProps) {
         selectedModel: formStore.selectedModel,
         features: packageStore.features,
         userJourney: formStore.userJourney,
-        analysisResults: formStore.analysis
+        analysisResults: formStore.analysis,
+        pricingStrategy: packageStore.pricingStrategy
       };
 
-      if (formStore.analysis?.id) {
-        await updateAnalysis(formStore.analysis.id, {
+      if (id) {
+        await updateAnalysis(id, {
           ...analysisData,
           pricingStrategy: packageStore.pricingStrategy
         });
       } else {
-        const savedAnalysis = await saveAnalysis({
-          ...analysisData,
-          pricingStrategy: packageStore.pricingStrategy
-        });
-        formStore.setAnalysis({ ...formStore.analysis!, id: savedAnalysis.id });
-
-        // Update URL with the new analysis ID
-        navigate(`/analysis/${savedAnalysis.id}`, { replace: true });
+        setShowTitlePrompt(true);
       }
 
-      // Show a success message
+      // Show success message
       const successMessage = document.createElement('div');
-      successMessage.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg';
-      successMessage.textContent = 'Analysis saved successfully';
+      successMessage.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+      successMessage.textContent = 'Progress saved successfully';
       document.body.appendChild(successMessage);
-      
       setTimeout(() => successMessage.remove(), 3000);
+
     } catch (error) {
       console.error('Error saving analysis:', error);
-      setError(error instanceof Error ? error.message : 'Failed to save analysis');
+      setError(error instanceof Error ? error.message : 'Failed to save progress');
     } finally {
       setIsSaving(false);
     }
   };
 
   const goNext = () => {
-    if (currentStep < steps.length - 1) {
+    if (currentStep < steps.length - 1 && 
+        steps[currentStep].isComplete(formStore, packageStore)) {
       setCurrentStep(currentStep + 1);
     }
   };
@@ -248,7 +257,7 @@ export function MultiStepForm({ readOnly = false }: MultiStepFormProps) {
   };
 
   const goToStep = (index: number) => {
-    if (index >= 0 && index < steps.length) {
+    if (steps[index].isUnlocked(formStore, packageStore)) {
       setCurrentStep(index);
     }
   };
@@ -292,9 +301,32 @@ export function MultiStepForm({ readOnly = false }: MultiStepFormProps) {
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  setShowTitlePrompt(false);
-                  handleSave();
+                onClick={async () => {
+                  try {
+                    const savedAnalysis = await saveAnalysis({
+                      title: formStore.title || 'Untitled Analysis',
+                      productDescription: formStore.productDescription,
+                      idealUser: formStore.idealUser,
+                      outcomes: formStore.outcomes,
+                      challenges: formStore.challenges,
+                      solutions: formStore.solutions,
+                      selectedModel: formStore.selectedModel,
+                      features: packageStore.features,
+                      userJourney: formStore.userJourney,
+                      analysisResults: formStore.analysis,
+                      pricingStrategy: packageStore.pricingStrategy
+                    });
+                    setShowTitlePrompt(false);
+                    navigate(`/analysis/${savedAnalysis.id}`);
+                  } catch (error) {
+                    if (error instanceof Error && error.message.includes('must be logged in')) {
+                      setShowTitlePrompt(false);
+                      setShowAuthModal(true);
+                      setPendingAction('save');
+                    } else {
+                      setError(error instanceof Error ? error.message : 'Failed to save analysis');
+                    }
+                  }
                 }}
                 className="px-4 py-2 bg-[#FFD23F] text-[#1C1C1C] rounded-lg hover:bg-[#FFD23F]/90"
               >
@@ -305,6 +337,27 @@ export function MultiStepForm({ readOnly = false }: MultiStepFormProps) {
         </div>
       )}
 
+      {/* Auth modal for non-authenticated users */}
+      {showAuthModal && (
+        <AuthModal 
+          onClose={() => {
+            setShowAuthModal(false);
+            setPendingAction(null);
+          }}
+          onSuccess={() => {
+            setShowAuthModal(false);
+            if (pendingAction === 'save') {
+              if (showTitlePrompt) {
+                setShowTitlePrompt(true);
+              } else {
+                handleSave();
+              }
+            }
+            setPendingAction(null);
+          }}
+        />
+      )}
+      
       {/* Form header with steps navigation */}
       <div className="bg-[#2A2A2A] rounded-lg p-6">
         <div className="flex flex-wrap gap-2">
@@ -314,7 +367,7 @@ export function MultiStepForm({ readOnly = false }: MultiStepFormProps) {
               onClick={() => isStepUnlocked(index) && goToStep(index)}
               disabled={!isStepUnlocked(index) && !readOnly}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors
-                ${currentStep === index ? 'bg-[#FFD23F] text-[#1C1C1C]' : ''}
+                ${currentStep === index ? 'bg-[#FFD23F] text-black' : ''}
                 ${
                   isStepUnlocked(index) || readOnly
                     ? isStepCompleted(index)
