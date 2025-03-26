@@ -1,5 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '../types/supabase';
+import { useFormStore } from '../store/formStore';
+import { usePackageStore } from '../store/packageStore';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -122,21 +124,95 @@ export async function shareAnalysis(id: string) {
 }
 
 export async function getSharedAnalysis(shareId: string) {
+  console.log('Getting shared analysis with ID:', shareId);
+  
+  // First, check if the analysis exists
+  const { data: checkData, error: checkError } = await supabase
+    .from('analyses')
+    .select('id, is_public, share_id')
+    .eq('share_id', shareId)
+    .maybeSingle();
+    
+  console.log('Analysis check result:', { 
+    exists: !!checkData, 
+    isPublic: checkData?.is_public,
+    error: checkError
+  });
+  
+  if (checkError) {
+    console.error('Error checking analysis:', checkError);
+    throw checkError;
+  }
+  
+  if (!checkData) {
+    console.error('No analysis found with this share ID');
+    throw new Error('Analysis not found');
+  }
+  
+  if (!checkData.is_public) {
+    console.error('Analysis exists but is not public');
+    throw new Error('This analysis is not available for viewing');
+  }
+  
+  // Get full analysis data
   const { data, error } = await supabase
     .from('analyses')
-    .select(`
-      *,
-      pricing_strategy,
-      analysis_results,
-      features,
-      user_journey
-    `)
+    .select('*')
     .eq('share_id', shareId)
     .eq('is_public', true)
     .single();
 
-  if (error) throw error;
+  if (error) {
+    console.error('Error fetching shared analysis data:', error);
+    throw error;
+  }
+  
+  console.log('Shared analysis data loaded successfully', {
+    hasData: !!data,
+    hasProductDesc: !!data?.product_description,
+    hasResults: !!data?.analysis_results,
+    hasPricingStrategy: !!data?.pricing_strategy,
+    hasFeatures: Array.isArray(data?.features) && data.features.length > 0
+  });
+
   return data;
+}
+
+export async function debugSharedAnalysis(shareId: string) {
+  console.log('Debugging shared analysis with ID:', shareId);
+  
+  // Check if analysis exists without filters
+  const { data: allAnalyses } = await supabase
+    .from('analyses')
+    .select('id, share_id, is_public, user_id, created_at')
+    .eq('share_id', shareId);
+    
+  console.log('All analyses with this share_id:', allAnalyses);
+  
+  // Check with is_public filter
+  const { data: publicAnalyses } = await supabase
+    .from('analyses')
+    .select('id, share_id, is_public, user_id')
+    .eq('share_id', shareId)
+    .eq('is_public', true);
+    
+  console.log('Public analyses with this share_id:', publicAnalyses);
+  
+  // Check current user
+  const { data: { user } } = await supabase.auth.getUser();
+  console.log('Current user:', user?.id || 'Not authenticated');
+  
+  // Check RLS policies
+  const { data: rlsPolicies } = await supabase
+    .rpc('check_rls_policies', { table_name: 'analyses' });
+    
+  console.log('RLS policies:', rlsPolicies);
+  
+  return {
+    allAnalyses,
+    publicAnalyses,
+    userId: user?.id || null
+  };
 }
 
 export async function getAnalyses() {
@@ -169,6 +245,9 @@ export async function loadAnalysis(id: string) {
     const analysis = await getAnalysis(id);
     
     // Update form store with loaded data
+    const formStore = useFormStore.getState();
+    const packageStore = usePackageStore.getState();
+    
     formStore.setTitle(analysis.title || 'Untitled Analysis');
     formStore.setProductDescription(analysis.product_description || '');
     if (analysis.ideal_user) formStore.setIdealUser(analysis.ideal_user);
