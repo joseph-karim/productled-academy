@@ -124,7 +124,13 @@ export async function shareAnalysis(id: string) {
 export async function getSharedAnalysis(shareId: string) {
   const { data, error } = await supabase
     .from('analyses')
-    .select('*')
+    .select(`
+      *,
+      pricing_strategy,
+      analysis_results,
+      features,
+      user_journey
+    `)
     .eq('share_id', shareId)
     .eq('is_public', true)
     .single();

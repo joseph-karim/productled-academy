@@ -19,7 +19,8 @@ import {
   Link as LinkIcon,
   Save,
   Home,
-  Edit
+  Edit,
+  Bot
 } from 'lucide-react';
 import { VoiceChat } from './VoiceChat';
 import { Chart as ChartJS, RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend, CategoryScale, LinearScale, BarElement } from 'chart.js';
@@ -179,7 +180,26 @@ export function Analysis({ isShared = false }: AnalysisProps) {
 
   const handleShare = async () => {
     if (!store.analysis?.id) {
-      await handleSave();
+      try {
+        const savedAnalysis = await saveAnalysis({
+          title: store.title || 'Untitled Analysis',
+          productDescription: store.productDescription,
+          idealUser: store.idealUser,
+          outcomes: store.outcomes,
+          challenges: store.challenges,
+          solutions: store.solutions,
+          selectedModel: store.selectedModel,
+          features: packageStore.features,
+          userJourney: store.userJourney,
+          analysisResults: store.analysis,
+          pricingStrategy: packageStore.pricingStrategy
+        });
+        store.setAnalysis({ ...store.analysis!, id: savedAnalysis.id });
+      } catch (error) {
+        console.error('Error saving analysis:', error);
+        setError('Failed to save analysis before sharing');
+        return;
+      }
     }
 
     try {
@@ -686,7 +706,7 @@ export function Analysis({ isShared = false }: AnalysisProps) {
         onClick={() => setShowVoiceChat(true)}
         className="fixed bottom-4 right-4 p-4 bg-[#FFD23F] text-[#1C1C1C] rounded-full shadow-lg hover:bg-[#FFD23F]/90"
       >
-        <Mic className="w-6 h-6" />
+        <Bot className="w-6 h-6" />
       </button>
     </div>
   );
