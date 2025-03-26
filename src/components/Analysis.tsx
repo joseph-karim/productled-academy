@@ -1,49 +1,61 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { supabase } from '../services/supabase';
 import { useFormStore } from '../store/formStore';
 import { usePackageStore } from '../store/packageStore';
-import { Link, useNavigate } from 'react-router-dom';
-import { 
-  Mic, 
-  Loader2, 
-  X, 
-  Download, 
-  Lightbulb, 
-  AlertTriangle, 
-  CheckCircle, 
-  ArrowRight, 
-  Target, 
-  Users,
-  Package,
-  DollarSign,
-  Share2,
-  Link as LinkIcon,
-  Save,
-  Home,
-  Edit,
-  Bot
-} from 'lucide-react';
-import { VoiceChat } from './VoiceChat';
-import { Chart as ChartJS, RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend, CategoryScale, LinearScale, BarElement } from 'chart.js';
-import { Radar, Bar } from 'react-chartjs-2';
-import { analyzeFormData } from '../services/ai/analysis';
-import { ComponentCard } from './analysis/ComponentCard';
-import { shareAnalysis, saveAnalysis, updateAnalysis } from '../services/supabase';
+import { analyzeStrategy } from '../services/ai';
+import { saveAnalysis, shareAnalysis } from '../services/supabase';
 import { AuthModal } from './auth/AuthModal';
+import {
+  AlertTriangle,
+  Download,
+  CheckCircle,
+  Save,
+  Share2,
+  Edit,
+  Menu,
+  X,
+  ChevronRight,
+  ChevronDown,
+  Home,
+  Bot,
+  Copy,
+  Link as LinkIcon,
+  Loader2,
+  Mic
+} from 'lucide-react';
+import { Chart, CategoryScale, RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend } from 'chart.js';
+import { Radar } from 'react-chartjs-2';
+import { AnalysisScoreBox } from './ui/AnalysisScoreBox';
+import { ComponentCard } from './ui/ComponentCard';
+import { ActionTask } from './ui/ActionTask';
+import { UserJourneyStage } from './ui/UserJourneyStage';
+import { VoiceChat } from './VoiceChat';
 
-ChartJS.register(
-  RadialLinearScale,
-  PointElement,
-  LineElement,
-  Filler,
-  Tooltip,
-  Legend,
-  CategoryScale,
-  LinearScale,
-  BarElement
-);
+Chart.register(CategoryScale, RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend);
 
 interface AnalysisProps {
   isShared?: boolean;
+}
+
+interface ComponentScore {
+  productDescription: number;
+  idealUser: number;
+  userEndgame: number;
+  challenges: number;
+  solutions: number;
+  modelSelection: number;
+  freeModelCanvas: number;
+}
+
+interface ComponentFeedback {
+  productDescription: { strengths: string[]; recommendations: string[] };
+  idealUser: { strengths: string[]; recommendations: string[] };
+  userEndgame: { strengths: string[]; recommendations: string[] };
+  challenges: { strengths: string[]; recommendations: string[] };
+  solutions: { strengths: string[]; recommendations: string[] };
+  modelSelection: { strengths: string[]; recommendations: string[] };
+  freeModelCanvas: { strengths: string[]; recommendations: string[] };
 }
 
 export function Analysis({ isShared = false }: AnalysisProps) {
@@ -64,71 +76,50 @@ export function Analysis({ isShared = false }: AnalysisProps) {
   const [showVoiceChat, setShowVoiceChat] = useState(false);
 
   useEffect(() => {
-    const analyzeData = async () => {
-      if (isAnalyzing || store.analysis || isShared) return;
-      
-      const beginnerOutcome = store.outcomes.find(o => o.level === 'beginner');
-      
-      if (!store.productDescription || !beginnerOutcome?.text || !store.selectedModel || !store.idealUser) {
-        setError("Please complete all previous sections before viewing the analysis.");
-        return;
-      }
+    if (!store.analysis && !isShared) {
+      analyzeProductStrategy();
+    }
+  }, []);
 
+  const analyzeProductStrategy = async () => {
+    try {
       setIsAnalyzing(true);
+      setError(null);
+
+      const result = await analyzeStrategy({
+        productDescription: store.productDescription,
+        idealUser: store.idealUser,
+        outcomes: store.outcomes,
+        challenges: store.challenges,
+        solutions: store.solutions,
+        selectedModel: store.selectedModel,
+        features: packageStore.features,
+        pricingStrategy: packageStore.pricingStrategy
+      });
       
-      try {
-        const analysisData = {
-          title: store.title || 'Untitled Analysis',
-          productDescription: store.productDescription,
-          idealUser: store.idealUser,
-          outcomes: store.outcomes,
-          challenges: store.challenges,
-          solutions: store.solutions,
-          selectedModel: store.selectedModel,
-          features: packageStore.features,
-          userJourney: store.userJourney,
-          pricingStrategy: packageStore.pricingStrategy,
-          analysisResults: null // Initialize as null
-        };
-
-        const savedAnalysis = await saveAnalysis(analysisData);
-
-        const result = await analyzeFormData({
-          productDescription: store.productDescription,
-          idealUser: store.idealUser,
-          userEndgame: beginnerOutcome.text,
-          challenges: store.challenges,
-          solutions: store.solutions,
-          selectedModel: store.selectedModel,
-          packages: {
-            features: packageStore.features,
-            pricingStrategy: packageStore.pricingStrategy!
-          }
-        });
-        
-        await updateAnalysis(savedAnalysis.id, {
-          analysisResults: result,
-          pricingStrategy: packageStore.pricingStrategy // Keep pricing strategy during update
-        });
-
-        store.setAnalysis({
-          ...result,
-          id: savedAnalysis.id
-        });
-        
-        setError(null);
-      } catch (error) {
-        console.error('Error analyzing data:', error);
-        setError(error instanceof Error ? error.message : 'An unexpected error occurred during analysis');
-      } finally {
-        setIsAnalyzing(false);
-      }
-    };
-
-    analyzeData();
-  }, [store, packageStore, isAnalyzing, isShared]);
+      store.setAnalysis(result);
+    } catch (error) {
+      console.error('Analysis error:', error);
+      setError(error instanceof Error ? error.message : 'Failed to analyze strategy');
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
 
   const handleSave = async () => {
+    if (isShared) return;
+
+    // Check if user is authenticated
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    // If not authenticated, show auth modal
+    if (!user) {
+      setShowAuthModal(true);
+      setPendingAction('save');
+      return;
+    }
+
+    // If no title, prompt for one
     if (!store.title) {
       setShowTitlePrompt(true);
       return;
@@ -138,6 +129,7 @@ export function Analysis({ isShared = false }: AnalysisProps) {
       setIsSaving(true);
       setError(null);
 
+      // Prepare analysis data
       const analysisData = {
         title: store.title,
         productDescription: store.productDescription,
@@ -148,28 +140,26 @@ export function Analysis({ isShared = false }: AnalysisProps) {
         selectedModel: store.selectedModel,
         features: packageStore.features,
         userJourney: store.userJourney,
-        analysisResults: store.analysis
+        analysisResults: store.analysis,
+        pricingStrategy: packageStore.pricingStrategy
       };
 
+      // Update or create the analysis
       if (store.analysis?.id) {
-        await updateAnalysis(store.analysis.id, {
+        await saveAnalysis({
           ...analysisData,
-          pricingStrategy: packageStore.pricingStrategy
+          id: store.analysis.id
         });
+        setError('Analysis saved successfully');
+        setTimeout(() => setError(null), 3000);
       } else {
-        const savedAnalysis = await saveAnalysis({
-          ...analysisData,
-          pricingStrategy: packageStore.pricingStrategy
-        });
+        const savedAnalysis = await saveAnalysis(analysisData);
         store.setAnalysis({ ...store.analysis!, id: savedAnalysis.id });
+        // Navigate to the permalink
+        navigate(`/analysis/${savedAnalysis.id}`, { replace: true });
+        setError('Analysis saved successfully');
+        setTimeout(() => setError(null), 3000);
       }
-
-      const successMessage = document.createElement('div');
-      successMessage.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg';
-      successMessage.textContent = 'Analysis saved successfully';
-      document.body.appendChild(successMessage);
-      setTimeout(() => successMessage.remove(), 3000);
-
     } catch (error) {
       console.error('Error saving analysis:', error);
       setError(error instanceof Error ? error.message : 'Failed to save analysis');
@@ -179,10 +169,27 @@ export function Analysis({ isShared = false }: AnalysisProps) {
   };
 
   const handleShare = async () => {
+    // Check if user is authenticated
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    // If not authenticated, show auth modal
+    if (!user) {
+      setShowAuthModal(true);
+      setPendingAction('share');
+      return;
+    }
+    
+    // Check if analysis has a title
+    if (!store.title || store.title.trim() === '' || store.title === 'Untitled Analysis') {
+      setShowTitlePrompt(true);
+      setPendingAction('share');
+      return;
+    }
+    
     if (!store.analysis?.id) {
       try {
         const savedAnalysis = await saveAnalysis({
-          title: store.title || 'Untitled Analysis',
+          title: store.title,
           productDescription: store.productDescription,
           idealUser: store.idealUser,
           outcomes: store.outcomes,
@@ -368,15 +375,28 @@ export function Analysis({ isShared = false }: AnalysisProps) {
             />
             <div className="flex justify-end space-x-4">
               <button
-                onClick={() => setShowTitlePrompt(false)}
+                onClick={() => {
+                  setShowTitlePrompt(false);
+                  setPendingAction(null);
+                }}
                 className="px-4 py-2 text-gray-400 hover:text-white"
               >
                 Cancel
               </button>
               <button
                 onClick={() => {
+                  if (!store.title || store.title.trim() === '') {
+                    store.setTitle('My Analysis');
+                  }
                   setShowTitlePrompt(false);
-                  handleSave();
+                  
+                  if (pendingAction === 'share') {
+                    handleShare();
+                  } else {
+                    handleSave();
+                  }
+                  
+                  setPendingAction(null);
                 }}
                 className="px-4 py-2 bg-[#FFD23F] text-[#1C1C1C] rounded-lg hover:bg-[#FFD23F]/90"
               >
@@ -570,55 +590,166 @@ export function Analysis({ isShared = false }: AnalysisProps) {
             score={componentScores.modelSelection}
             strengths={componentFeedback.modelSelection.strengths}
             recommendations={componentFeedback.modelSelection.recommendations}
-            analysis={componentFeedback.modelSelection.analysis}
-            considerations={componentFeedback.modelSelection.considerations}
+          />
+          <ComponentCard
+            title="Free Model Canvas"
+            score={componentScores.freeModelCanvas}
+            strengths={componentFeedback.freeModelCanvas.strengths}
+            recommendations={componentFeedback.freeModelCanvas.recommendations}
           />
         </div>
       )}
 
       {activeTab === 'packages' && (
         <div className="space-y-6">
-          <ComponentCard
-            title="Package Design"
-            score={componentScores.packageDesign}
-            strengths={componentFeedback.packageDesign.strengths}
-            recommendations={componentFeedback.packageDesign.recommendations}
-            analysis={componentFeedback.packageDesign.analysis}
-            metrics={{
-              'Balance Score': componentFeedback.packageDesign.balanceScore
-            }}
-          />
-          <ComponentCard
-            title="Pricing Strategy"
-            score={componentScores.pricingStrategy}
-            strengths={componentFeedback.pricingStrategy.strengths}
-            recommendations={componentFeedback.pricingStrategy.recommendations}
-            analysis={componentFeedback.pricingStrategy.analysis}
-            metrics={{
-              'Conversion Potential': componentFeedback.pricingStrategy.conversionPotential
-            }}
-          />
+          <div className="bg-[#2A2A2A] p-6 rounded-lg shadow-lg">
+            <h3 className="text-xl font-semibold text-white mb-4">Free Package Analysis</h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+              <div className="bg-[#1C1C1C] p-4 rounded-lg">
+                <h4 className="text-lg font-semibold text-white mb-3">Limitations Assessment</h4>
+                <ul className="space-y-2">
+                  {packageStore.pricingStrategy?.freePackage.limitations.map((limitation, index) => (
+                    <li key={index} className="flex items-start space-x-2">
+                      <div className="w-5 h-5 bg-[#FFD23F] text-[#1C1C1C] rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                        {index + 1}
+                      </div>
+                      <div>
+                        <p className="text-gray-300">{limitation.text}</p>
+                        <p className="text-xs text-gray-500 mt-1">{limitation.reasoning}</p>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              
+              <div className="bg-[#1C1C1C] p-4 rounded-lg">
+                <h4 className="text-lg font-semibold text-white mb-3">Conversion Goals</h4>
+                <ul className="space-y-2">
+                  {packageStore.pricingStrategy?.freePackage.conversionGoals.map((goal, index) => (
+                    <li key={index} className="flex items-start space-x-2">
+                      <div className="w-5 h-5 bg-green-500 text-white rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                        {index + 1}
+                      </div>
+                      <div>
+                        <p className="text-gray-300">{goal.text}</p>
+                        <p className="text-xs text-gray-500 mt-1">{goal.reasoning}</p>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+            
+            <h3 className="text-xl font-semibold text-white mb-4">Paid Package Analysis</h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="bg-[#1C1C1C] p-4 rounded-lg">
+                <h4 className="text-lg font-semibold text-white mb-3">Value Metrics</h4>
+                <ul className="space-y-2">
+                  {packageStore.pricingStrategy?.paidPackage.valueMetrics.map((metric, index) => (
+                    <li key={index} className="flex items-start space-x-2">
+                      <div className="w-5 h-5 bg-[#FFD23F] text-[#1C1C1C] rounded-full flex items-center justify-center flex-shrink-0 mt-1">
+                        {index + 1}
+                      </div>
+                      <div>
+                        <p className="text-gray-300">{metric.text}</p>
+                        <p className="text-xs text-gray-500 mt-1">{metric.reasoning}</p>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              
+              <div className="bg-[#1C1C1C] p-4 rounded-lg">
+                <h4 className="text-lg font-semibold text-white mb-3">Target Conversion Rate</h4>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="text-3xl font-bold text-[#FFD23F]">{packageStore.pricingStrategy?.paidPackage.targetConversion}%</span>
+                    <p className="text-xs text-gray-500 mt-1">Based on industry benchmarks and your product's value proposition</p>
+                  </div>
+                  
+                  <AnalysisScoreBox 
+                    score={Math.round(componentScores.freeModelCanvas * 10) / 10}
+                    label="Package Strategy Score"
+                  />
+                </div>
+                
+                <div className="mt-4">
+                  <h5 className="text-sm font-medium text-gray-400 mb-2">Recommendations</h5>
+                  <ul className="space-y-2">
+                    {componentFeedback.freeModelCanvas.recommendations.map((rec, index) => (
+                      <li key={index} className="text-gray-300 text-sm">
+                        • {rec}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
       {activeTab === 'action' && (
         <div className="space-y-6">
-          <ComponentCard
-            title="Implementation Timeline"
-            score={100}
-            strengths={[]}
-            recommendations={[
-              ...actionPlan.immediate.map(a => `Immediate (1-30 days): ${a}`),
-              ...actionPlan.medium.map(a => `Medium-term (30-90 days): ${a}`),
-              ...actionPlan.long.map(a => `Long-term (90+ days): ${a}`)
-            ]}
-          />
-          <ComponentCard
-            title="Testing Framework"
-            score={100}
-            strengths={testing.metrics.map(m => `Metric: ${m}`)}
-            recommendations={testing.abTests.map(t => `A/B Test: ${t}`)}
-          />
+          <div className="bg-[#2A2A2A] p-6 rounded-lg shadow-lg">
+            <h3 className="text-xl font-semibold text-white mb-4">Implementation Action Plan</h3>
+            
+            <div className="space-y-4">
+              {actionPlan.map((action, index) => (
+                <ActionTask 
+                  key={index}
+                  number={index + 1}
+                  title={action.title}
+                  description={action.description}
+                  priority={action.priority}
+                  effort={action.effort}
+                  impact={action.impact}
+                />
+              ))}
+            </div>
+          </div>
+          
+          <div className="bg-[#2A2A2A] p-6 rounded-lg shadow-lg">
+            <h3 className="text-xl font-semibold text-white mb-4">User Journey Analysis</h3>
+            
+            <div className="space-y-8">
+              {journeyAnalysis.map((stage, index) => (
+                <UserJourneyStage 
+                  key={index}
+                  number={index + 1}
+                  title={stage.title}
+                  description={stage.description}
+                  kpis={stage.kpis}
+                />
+              ))}
+            </div>
+          </div>
+          
+          <div className="bg-[#2A2A2A] p-6 rounded-lg shadow-lg">
+            <h3 className="text-xl font-semibold text-white mb-4">Recommended Testing & Validation</h3>
+            
+            <div className="space-y-4">
+              {testing.map((test, index) => (
+                <div key={index} className="bg-[#1C1C1C] p-4 rounded-lg">
+                  <h4 className="text-lg font-semibold text-white mb-2">{test.title}</h4>
+                  <p className="text-gray-300 mb-3">{test.description}</p>
+                  
+                  <div className="flex flex-wrap gap-2">
+                    {test.tags.map((tag, tagIndex) => (
+                      <span 
+                        key={tagIndex} 
+                        className="px-2 py-1 bg-[#333333] text-xs text-gray-300 rounded-md"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       )}
 
