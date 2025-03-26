@@ -26,6 +26,7 @@ import { analyzeFormData } from '../services/ai/analysis';
 import { ComponentCard } from './analysis/ComponentCard';
 import { shareAnalysis, saveAnalysis, updateAnalysis } from '../services/supabase';
 import { AuthModal } from './auth/AuthModal';
+import { supabase } from '../services/supabase';
 
 ChartJS.register(
   RadialLinearScale,
@@ -56,7 +57,7 @@ export function Analysis({ isShared = false }: AnalysisProps) {
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [showCopiedMessage, setShowCopiedMessage] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const [pendingAction, setPendingAction] = useState<'share' | 'export' | 'save' | null>(null);
+  const [pendingAction, setPendingAction] = useState<'save' | 'share' | null>(null);
   const [showTitlePrompt, setShowTitlePrompt] = useState(false);
 
   useEffect(() => {
@@ -90,21 +91,7 @@ export function Analysis({ isShared = false }: AnalysisProps) {
       setIsAnalyzing(true);
       
       try {
-        const analysisData = {
-          title: store.title || 'Untitled Analysis',
-          productDescription: store.productDescription,
-          idealUser: store.idealUser,
-          outcomes: store.outcomes,
-          challenges: store.challenges,
-          solutions: store.solutions,
-          selectedModel: store.selectedModel,
-          features: packageStore.features,
-          pricingStrategy: packageStore.pricingStrategy,
-          userJourney: store.userJourney
-        };
-
-        const savedAnalysis = await saveAnalysis(analysisData);
-
+        // Generate the analysis - this doesn't require authentication
         const result = await analyzeFormData({
           productDescription: store.productDescription,
           idealUser: store.idealUser,
@@ -118,13 +105,46 @@ export function Analysis({ isShared = false }: AnalysisProps) {
           }
         });
         
-        await updateAnalysis(savedAnalysis.id, {
-          analysisResults: result
-        });
+        // Check if authenticated AFTER getting the analysis results
+        // This means anonymous users still see the analysis
+        const { data: { user } } = await supabase.auth.getUser();
+        let analysisId = undefined;
+        
+        // Only attempt database operations if the user is logged in
+        if (user) {
+          try {
+            // First save the base analysis
+            const analysisData = {
+              title: store.title || 'Untitled Analysis',
+              productDescription: store.productDescription,
+              idealUser: store.idealUser,
+              outcomes: store.outcomes,
+              challenges: store.challenges,
+              solutions: store.solutions,
+              selectedModel: store.selectedModel,
+              features: packageStore.features,
+              pricingStrategy: packageStore.pricingStrategy,
+              userJourney: store.userJourney
+            };
+            
+            const savedAnalysis = await saveAnalysis(analysisData);
+            analysisId = savedAnalysis.id;
+            
+            // Then update with the results
+            await updateAnalysis(savedAnalysis.id, {
+              analysisResults: result
+            });
+          } catch (dbError) {
+            // Don't block rendering due to database errors
+            console.error('Database operation failed:', dbError);
+            // Just continue with local analysis
+          }
+        }
 
+        // Always set the analysis in the store, regardless of authentication
         store.setAnalysis({
           ...result,
-          id: savedAnalysis.id
+          id: analysisId
         });
         
         setError(null);
@@ -140,6 +160,16 @@ export function Analysis({ isShared = false }: AnalysisProps) {
   }, [store, packageStore, isAnalyzing, isShared]);
 
   const handleSave = async () => {
+    // Check authentication
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      // Show auth modal and set pending action to save
+      setPendingAction('save');
+      setShowAuthModal(true);
+      return;
+    }
+
     if (!store.title) {
       setShowTitlePrompt(true);
       return;
@@ -147,8 +177,6 @@ export function Analysis({ isShared = false }: AnalysisProps) {
 
     try {
       setIsSaving(true);
-      setError(null);
-
       const analysisData = {
         title: store.title,
         productDescription: store.productDescription,
@@ -163,51 +191,105 @@ export function Analysis({ isShared = false }: AnalysisProps) {
         analysisResults: store.analysis
       };
 
-      if (store.analysis?.id) {
-        await updateAnalysis(store.analysis.id, analysisData);
-      } else {
-        const savedAnalysis = await saveAnalysis(analysisData);
-        store.setAnalysis({ ...store.analysis!, id: savedAnalysis.id });
+      const response = await saveAnalysis(analysisData);
+      
+      // If we get here, it succeeded
+      notifySuccess('Analysis saved successfully');
+      console.log('Saved analysis:', response);
+      
+      // Update the analysis ID in the store
+      if (store.analysis) {
+        store.setAnalysis({
+          ...store.analysis,
+          id: response.id
+        });
       }
-
-      const successMessage = document.createElement('div');
-      successMessage.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg';
-      successMessage.textContent = 'Analysis saved successfully';
-      document.body.appendChild(successMessage);
-      setTimeout(() => successMessage.remove(), 3000);
-
     } catch (error) {
       console.error('Error saving analysis:', error);
-      setError(error instanceof Error ? error.message : 'Failed to save analysis');
+      notifyError('Failed to save analysis');
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleShare = async () => {
-    if (!store.analysis?.id) {
-      await handleSave();
+    // Check authentication
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      // Show auth modal and set pending action to share
+      setPendingAction('share');
+      setShowAuthModal(true);
+      return;
     }
 
-    try {
-      setIsSharing(true);
-      setError(null);
-      const shareId = await shareAnalysis(store.analysis!.id);
-      const shareUrl = `${window.location.origin}/share/${shareId}`;
-      setShareUrl(shareUrl);
+    // If no analysis ID, we need to save first
+    if (!store.analysis?.id) {
+      if (!store.title) {
+        setShowTitlePrompt(true);
+        return;
+      }
       
       try {
-        await navigator.clipboard.writeText(shareUrl);
+        setIsSaving(true);
+        const analysisData = {
+          title: store.title,
+          productDescription: store.productDescription,
+          idealUser: store.idealUser,
+          outcomes: store.outcomes,
+          challenges: store.challenges,
+          solutions: store.solutions,
+          selectedModel: store.selectedModel,
+          features: packageStore.features,
+          pricingStrategy: packageStore.pricingStrategy,
+          userJourney: store.userJourney,
+          analysisResults: store.analysis
+        };
+
+        const savedAnalysis = await saveAnalysis(analysisData);
+        // If we get here, it succeeded
+        console.log('Saved analysis before sharing:', savedAnalysis);
+        
+        // Update the analysis ID in the store
+        if (store.analysis) {
+          store.setAnalysis({
+            ...store.analysis,
+            id: savedAnalysis.id
+          });
+        }
+        
+        // Now continue with sharing
+        handleShareAnalysis(savedAnalysis.id);
+      } catch (error) {
+        console.error('Error saving analysis before sharing:', error);
+        notifyError('Failed to save analysis before sharing');
+        setIsSaving(false);
+      }
+    } else {
+      // Analysis already has ID, proceed with sharing
+      handleShareAnalysis(store.analysis.id);
+    }
+  };
+
+  const handleShareAnalysis = async (analysisId: string) => {
+    try {
+      setIsSharing(true);
+      const shareResponse = await shareAnalysis(analysisId);
+      console.log('Share response:', shareResponse);
+      
+      if (shareResponse.shareId) {
+        setShareUrl(`${window.location.origin}/shared/${shareResponse.shareId}`);
         setShowCopiedMessage(true);
-        setTimeout(() => setShowCopiedMessage(false), 3000);
-      } catch (clipboardError) {
-        console.warn('Could not copy to clipboard:', clipboardError);
+        notifySuccess('Analysis shared successfully');
+      } else {
+        notifyError('Failed to generate sharing link');
       }
     } catch (error) {
-      console.error('Share analysis error:', error);
-      setError(error instanceof Error ? error.message : 'Failed to share analysis');
+      console.error('Error sharing analysis:', error);
+      notifyError('Failed to share analysis');
     } finally {
       setIsSharing(false);
+      setIsSaving(false); // In case we were saving before sharing
     }
   };
 
@@ -222,6 +304,40 @@ export function Analysis({ isShared = false }: AnalysisProps) {
       setError('Failed to copy to clipboard');
       setTimeout(() => setError(null), 3000);
     }
+  };
+
+  // Handle user authentication completion
+  const handleAuthComplete = (success: boolean) => {
+    setShowAuthModal(false);
+    
+    if (success && pendingAction) {
+      // Execute the pending action
+      if (pendingAction === 'save') {
+        handleSave();
+      } else if (pendingAction === 'share') {
+        handleShare();
+      }
+      setPendingAction(null);
+    } else {
+      setPendingAction(null);
+    }
+  };
+
+  // Notification utilities
+  const notifySuccess = (message: string) => {
+    const successMessage = document.createElement('div');
+    successMessage.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+    successMessage.textContent = message;
+    document.body.appendChild(successMessage);
+    setTimeout(() => successMessage.remove(), 3000);
+  };
+
+  const notifyError = (message: string) => {
+    const errorMessage = document.createElement('div');
+    errorMessage.className = 'fixed bottom-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+    errorMessage.textContent = message;
+    document.body.appendChild(errorMessage);
+    setTimeout(() => errorMessage.remove(), 3000);
   };
 
   if (isAnalyzing) {
@@ -658,17 +774,9 @@ export function Analysis({ isShared = false }: AnalysisProps) {
       )}
 
       {showAuthModal && (
-        <AuthModal 
-          onClose={() => {
-            setShowAuthModal(false);
-            setPendingAction(null);
-          }}
-          onSuccess={() => {
-            setShowAuthModal(false);
-            if (pendingAction === 'share') handleShare();
-            else if (pendingAction === 'save') handleSave();
-            setPendingAction(null);
-          }}
+        <AuthModal
+          onComplete={handleAuthComplete}
+          action={pendingAction || 'view'}
         />
       )}
     </div>
