@@ -14,8 +14,6 @@ export function SharedAnalysis() {
   const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'steps' | 'analysis'>('steps');
   const [analysisData, setAnalysisData] = useState<any>(null);
-  const store = useFormStore();
-  const packageStore = usePackageStore();
   const navigate = useNavigate();
   const [debugResults, setDebugResults] = useState<any>(null);
   const [isDebugging, setIsDebugging] = useState(false);
@@ -50,69 +48,74 @@ export function SharedAnalysis() {
         if (mounted) {
           // Only reset stores after confirming we have valid data
           console.log('Resetting stores and loading shared data');
-          store.resetState();
-          packageStore.reset();
+          
+          // Get store methods instead of store instances to avoid re-renders
+          const formStoreActions = useFormStore.getState();
+          const packageStoreActions = usePackageStore.getState();
+          
+          formStoreActions.resetState();
+          packageStoreActions.reset();
 
           // Update form store with shared analysis data
-          store.setTitle(analysis.title || 'Untitled Analysis');
+          formStoreActions.setTitle(analysis.title || 'Untitled Analysis');
           
           if (analysis.product_description) {
             console.log('Setting product description');
-            store.setProductDescription(analysis.product_description);
+            formStoreActions.setProductDescription(analysis.product_description);
           }
           
           if (analysis.ideal_user) {
             console.log('Setting ideal user');
-            store.setIdealUser(analysis.ideal_user);
+            formStoreActions.setIdealUser(analysis.ideal_user);
           }
           
           if (analysis.outcomes && Array.isArray(analysis.outcomes)) {
             console.log('Setting outcomes:', analysis.outcomes.length);
             analysis.outcomes.forEach((outcome: any) => {
-              store.updateOutcome(outcome.level, outcome.text);
+              formStoreActions.updateOutcome(outcome.level, outcome.text);
             });
           }
 
           if (analysis.challenges && Array.isArray(analysis.challenges)) {
             console.log('Setting challenges:', analysis.challenges.length);
             analysis.challenges.forEach((challenge: any) => {
-              store.addChallenge(challenge);
+              formStoreActions.addChallenge(challenge);
             });
           }
 
           if (analysis.solutions && Array.isArray(analysis.solutions)) {
             console.log('Setting solutions:', analysis.solutions.length);
             analysis.solutions.forEach((solution: any) => {
-              store.addSolution(solution);
+              formStoreActions.addSolution(solution);
             });
           }
 
           if (analysis.selected_model) {
             console.log('Setting selected model:', analysis.selected_model);
-            store.setSelectedModel(analysis.selected_model);
+            formStoreActions.setSelectedModel(analysis.selected_model);
           }
 
           if (analysis.features && Array.isArray(analysis.features)) {
             console.log('Setting features:', analysis.features.length);
             analysis.features.forEach((feature: any) => {
-              packageStore.addFeature(feature);
+              packageStoreActions.addFeature(feature);
             });
           }
 
           if (analysis.user_journey) {
             console.log('Setting user journey');
-            store.setUserJourney(analysis.user_journey);
+            formStoreActions.setUserJourney(analysis.user_journey);
           }
 
           // Set pricing strategy if available (only do this once)
           if (analysis.pricing_strategy) {
             console.log('Setting pricing strategy');
-            packageStore.setPricingStrategy(analysis.pricing_strategy);
+            packageStoreActions.setPricingStrategy(analysis.pricing_strategy);
           }
 
           if (analysis.analysis_results) {
             console.log('Setting analysis results');
-            store.setAnalysis({
+            formStoreActions.setAnalysis({
               ...analysis.analysis_results,
               id: analysis.id
             });
@@ -135,7 +138,7 @@ export function SharedAnalysis() {
     return () => {
       mounted = false;
     };
-  }, [shareId, navigate, store, packageStore]);
+  }, [shareId, navigate]);
 
   const handleDebugAnalysis = async () => {
     if (!shareId) return;
