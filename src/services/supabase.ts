@@ -1,7 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '../types/supabase';
-import { useFormStore } from '../store/formStore';
-import { usePackageStore } from '../store/packageStore';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -83,6 +81,14 @@ export async function checkConnection(): Promise<boolean> {
 
 export async function shareAnalysis(id: string) {
   try {
+    // First check if user is authenticated
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    // Anonymous users should be required to login before sharing
+    if (!user || user.id === '00000000-0000-0000-0000-000000000000') {
+      throw new Error('You must be logged in to share an analysis');
+    }
+
     const { data: analysis, error: checkError } = await supabase
       .from('analyses')
       .select('id, user_id, is_public, share_id')
@@ -94,13 +100,8 @@ export async function shareAnalysis(id: string) {
       throw new Error('Analysis not found');
     }
 
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user && analysis.user_id !== '00000000-0000-0000-0000-000000000000') {
-      throw new Error('You do not have permission to share this analysis');
-    }
-    
-    if (user && analysis.user_id !== user.id && analysis.user_id !== '00000000-0000-0000-0000-000000000000') {
+    // Ensure user owns the analysis
+    if (analysis.user_id !== user.id) {
       throw new Error('You do not have permission to share this analysis');
     }
 
@@ -178,43 +179,6 @@ export async function getSharedAnalysis(shareId: string) {
   return data;
 }
 
-export async function debugSharedAnalysis(shareId: string) {
-  console.log('Debugging shared analysis with ID:', shareId);
-  
-  // Check if analysis exists without filters
-  const { data: allAnalyses } = await supabase
-    .from('analyses')
-    .select('id, share_id, is_public, user_id, created_at')
-    .eq('share_id', shareId);
-    
-  console.log('All analyses with this share_id:', allAnalyses);
-  
-  // Check with is_public filter
-  const { data: publicAnalyses } = await supabase
-    .from('analyses')
-    .select('id, share_id, is_public, user_id')
-    .eq('share_id', shareId)
-    .eq('is_public', true);
-    
-  console.log('Public analyses with this share_id:', publicAnalyses);
-  
-  // Check current user
-  const { data: { user } } = await supabase.auth.getUser();
-  console.log('Current user:', user?.id || 'Not authenticated');
-  
-  // Check RLS policies
-  const { data: rlsPolicies } = await supabase
-    .rpc('check_rls_policies', { table_name: 'analyses' });
-    
-  console.log('RLS policies:', rlsPolicies);
-  
-  return {
-    allAnalyses,
-    publicAnalyses,
-    userId: user?.id || null
-  };
-}
-
 export async function getAnalyses() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return [];
@@ -245,9 +209,6 @@ export async function loadAnalysis(id: string) {
     const analysis = await getAnalysis(id);
     
     // Update form store with loaded data
-    const formStore = useFormStore.getState();
-    const packageStore = usePackageStore.getState();
-    
     formStore.setTitle(analysis.title || 'Untitled Analysis');
     formStore.setProductDescription(analysis.product_description || '');
     if (analysis.ideal_user) formStore.setIdealUser(analysis.ideal_user);
@@ -285,12 +246,16 @@ export async function loadAnalysis(id: string) {
 
 export async function createAnalysis(title?: string) {
   const { data: { user } } = await supabase.auth.getUser();
-  const userId = user?.id || '00000000-0000-0000-0000-000000000000';
+  
+  // Check if the user is authenticated
+  if (!user || user.id === '00000000-0000-0000-0000-000000000000') {
+    throw new Error('You must be logged in to create an analysis');
+  }
 
   const { data, error } = await supabase
     .from('analyses')
     .insert({
-      user_id: userId,
+      user_id: user.id,
       share_id: crypto.randomUUID(),
       title: title || 'Untitled Analysis',
       product_description: '',
@@ -327,12 +292,16 @@ export async function saveAnalysis(analysis: {
   pricingStrategy?: any;
 }) {
   const { data: { user } } = await supabase.auth.getUser();
-  const userId = user?.id || '00000000-0000-0000-0000-000000000000';
+  
+  // Check if the user is authenticated
+  if (!user || user.id === '00000000-0000-0000-0000-000000000000') {
+    throw new Error('You must be logged in to save an analysis');
+  }
 
   const { data, error } = await supabase
     .from('analyses')
     .insert({
-      user_id: userId,
+      user_id: user.id,
       title: analysis.title || 'Untitled Analysis',
       product_description: analysis.productDescription,
       ideal_user: analysis.idealUser,
@@ -369,6 +338,28 @@ export async function updateAnalysis(id: string, analysis: {
   analysisResults?: any;
   pricingStrategy?: any;
 }) {
+  // Check if user is authenticated
+  const { data: { user } } = await supabase.auth.getUser();
+  
+  if (!user || user.id === '00000000-0000-0000-0000-000000000000') {
+    throw new Error('You must be logged in to update an analysis');
+  }
+
+  // Check if user owns the analysis
+  const { data: existingAnalysis, error: checkError } = await supabase
+    .from('analyses')
+    .select('user_id')
+    .eq('id', id)
+    .single();
+
+  if (checkError) {
+    throw new Error('Analysis not found');
+  }
+
+  if (existingAnalysis.user_id !== user.id) {
+    throw new Error('You do not have permission to update this analysis');
+  }
+
   const { data, error } = await supabase
     .from('analyses')
     .update({
@@ -402,4 +393,41 @@ export async function deleteAnalysis(id: string) {
     .eq('id', id);
 
   if (error) throw error;
+}
+
+export async function debugSharedAnalysis(shareId: string) {
+  console.log('Debugging shared analysis with ID:', shareId);
+  
+  // Check if analysis exists without filters
+  const { data: allAnalyses } = await supabase
+    .from('analyses')
+    .select('id, share_id, is_public, user_id, created_at')
+    .eq('share_id', shareId);
+    
+  console.log('All analyses with this share_id:', allAnalyses);
+  
+  // Check with is_public filter
+  const { data: publicAnalyses } = await supabase
+    .from('analyses')
+    .select('id, share_id, is_public, user_id')
+    .eq('share_id', shareId)
+    .eq('is_public', true);
+    
+  console.log('Public analyses with this share_id:', publicAnalyses);
+  
+  // Check current user
+  const { data: { user } } = await supabase.auth.getUser();
+  console.log('Current user:', user?.id || 'Not authenticated');
+  
+  // Check RLS policies
+  const { data: rlsPolicies } = await supabase
+    .rpc('check_rls_policies', { table_name: 'analyses' });
+    
+  console.log('RLS policies:', rlsPolicies);
+  
+  return {
+    allAnalyses,
+    publicAnalyses,
+    userId: user?.id || null
+  };
 }
