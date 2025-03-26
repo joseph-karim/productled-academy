@@ -17,6 +17,10 @@ export function SharedAnalysis() {
   const navigate = useNavigate();
   const [debugResults, setDebugResults] = useState<any>(null);
   const [isDebugging, setIsDebugging] = useState(false);
+  
+  // Get the store actions directly
+  const formStore = useFormStore();
+  const packageStore = usePackageStore();
 
   useEffect(() => {
     let mounted = true;
@@ -49,73 +53,70 @@ export function SharedAnalysis() {
           // Only reset stores after confirming we have valid data
           console.log('Resetting stores and loading shared data');
           
-          // Get store methods instead of store instances to avoid re-renders
-          const formStoreActions = useFormStore.getState();
-          const packageStoreActions = usePackageStore.getState();
-          
-          formStoreActions.resetState();
-          packageStoreActions.reset();
+          // Fully reset both stores before setting new data
+          formStore.resetState();
+          packageStore.reset();
 
           // Update form store with shared analysis data
-          formStoreActions.setTitle(analysis.title || 'Untitled Analysis');
+          formStore.setTitle(analysis.title || 'Untitled Analysis');
           
           if (analysis.product_description) {
             console.log('Setting product description');
-            formStoreActions.setProductDescription(analysis.product_description);
+            formStore.setProductDescription(analysis.product_description);
           }
           
           if (analysis.ideal_user) {
             console.log('Setting ideal user');
-            formStoreActions.setIdealUser(analysis.ideal_user);
+            formStore.setIdealUser(analysis.ideal_user);
           }
           
           if (analysis.outcomes && Array.isArray(analysis.outcomes)) {
             console.log('Setting outcomes:', analysis.outcomes.length);
             analysis.outcomes.forEach((outcome: any) => {
-              formStoreActions.updateOutcome(outcome.level, outcome.text);
+              formStore.updateOutcome(outcome.level, outcome.text);
             });
           }
 
           if (analysis.challenges && Array.isArray(analysis.challenges)) {
             console.log('Setting challenges:', analysis.challenges.length);
             analysis.challenges.forEach((challenge: any) => {
-              formStoreActions.addChallenge(challenge);
+              formStore.addChallenge(challenge);
             });
           }
 
           if (analysis.solutions && Array.isArray(analysis.solutions)) {
             console.log('Setting solutions:', analysis.solutions.length);
             analysis.solutions.forEach((solution: any) => {
-              formStoreActions.addSolution(solution);
+              formStore.addSolution(solution);
             });
           }
 
           if (analysis.selected_model) {
             console.log('Setting selected model:', analysis.selected_model);
-            formStoreActions.setSelectedModel(analysis.selected_model);
+            formStore.setSelectedModel(analysis.selected_model);
           }
 
           if (analysis.features && Array.isArray(analysis.features)) {
             console.log('Setting features:', analysis.features.length);
             analysis.features.forEach((feature: any) => {
-              packageStoreActions.addFeature(feature);
+              packageStore.addFeature(feature);
             });
           }
 
           if (analysis.user_journey) {
             console.log('Setting user journey');
-            formStoreActions.setUserJourney(analysis.user_journey);
+            formStore.setUserJourney(analysis.user_journey);
           }
 
           // Set pricing strategy if available (only do this once)
           if (analysis.pricing_strategy) {
             console.log('Setting pricing strategy');
-            packageStoreActions.setPricingStrategy(analysis.pricing_strategy);
+            packageStore.setPricingStrategy(analysis.pricing_strategy);
           }
 
           if (analysis.analysis_results) {
             console.log('Setting analysis results');
-            formStoreActions.setAnalysis({
+            formStore.setAnalysis({
               ...analysis.analysis_results,
               id: analysis.id
             });
