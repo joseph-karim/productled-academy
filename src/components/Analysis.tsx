@@ -63,9 +63,26 @@ export function Analysis({ isShared = false }: AnalysisProps) {
   const [showVoiceChat, setShowVoiceChat] = useState(false);
 
   useEffect(() => {
+    // Debug the current store state
+    console.log("Analysis component - isShared:", isShared);
+    console.log("Analysis component - store.analysis:", store.analysis);
+    console.log("Analysis component - packageStore state:", packageStore);
+    
     const analyzeData = async () => {
-      if (isAnalyzing || store.analysis || isShared) return;
+      // If already analyzing or we already have analysis data, don't do anything
+      if (isAnalyzing || store.analysis) return;
       
+      // For shared analyses, we expect the data to already be in the store
+      // If it's not there, show an error
+      if (isShared) {
+        if (!store.analysis) {
+          console.error("Analysis data missing in shared view");
+          setError("Analysis data not available");
+        }
+        return;
+      }
+      
+      // For regular (non-shared) analyses, validate required data
       const beginnerOutcome = store.outcomes.find(o => o.level === 'beginner');
       
       if (!store.productDescription || !beginnerOutcome?.text || !store.selectedModel || !store.idealUser) {
@@ -85,9 +102,9 @@ export function Analysis({ isShared = false }: AnalysisProps) {
           solutions: store.solutions,
           selectedModel: store.selectedModel,
           features: packageStore.features,
-          userJourney: store.userJourney,
-          pricingStrategy: packageStore.pricingStrategy,
-          analysisResults: null // Initialize as null
+            pricingStrategy: packageStore.pricingStrategy,
+            userJourney: store.userJourney,
+            analysisResults: null // Initialize as null
         };
 
         const savedAnalysis = await saveAnalysis(analysisData);
@@ -146,6 +163,7 @@ export function Analysis({ isShared = false }: AnalysisProps) {
         solutions: store.solutions,
         selectedModel: store.selectedModel,
         features: packageStore.features,
+        pricingStrategy: packageStore.pricingStrategy,
         userJourney: store.userJourney,
         analysisResults: store.analysis
       };
