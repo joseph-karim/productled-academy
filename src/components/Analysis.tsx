@@ -1,65 +1,56 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useFormStore } from '../store/formStore';
-import { usePackageStore } from '../store/packageStore';
-import { Link, useNavigate } from 'react-router-dom';
-import { 
-  Loader2, 
-  X, 
-  Download, 
-  Lightbulb, 
-  AlertTriangle, 
-  CheckCircle, 
-  ArrowRight, 
-  Target, 
-  Users,
-  Package,
-  DollarSign,
-  Share2,
-  Link as LinkIcon,
-  Save,
-  Home,
-  Edit
-} from 'lucide-react';
-import { VoiceChat } from './VoiceChat';
-import { Chart as ChartJS, RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend, CategoryScale, LinearScale, BarElement } from 'chart.js';
-import { Radar, Bar } from 'react-chartjs-2';
-import { analyzeFormData } from '../services/ai/analysis';
-import { ComponentCard } from './analysis/ComponentCard';
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { observer } from 'mobx-react-lite';
+import { useFormStore } from '../stores/formStore';
+import { analyzeFormData } from '../services/openai';
 import { shareAnalysis, saveAnalysis, updateAnalysis } from '../services/supabase';
 import { AuthModal } from './auth/AuthModal';
 import { supabase } from '../services/supabase';
-
-ChartJS.register(
-  RadialLinearScale,
-  PointElement,
-  LineElement,
-  Filler,
-  Tooltip,
-  Legend,
+import { Alert } from './ui/Alert';
+import { Button } from './ui/Button';
+import { usePackageStore } from '../stores/packageStore';
+import { Loading } from './Loading';
+import { DownloadIcon, Share2Icon, Save, Mic, X } from 'lucide-react';
+import {
+  Chart as ChartJS,
   CategoryScale,
   LinearScale,
-  BarElement
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+} from 'chart.js';
+import { Bar } from 'react-chartjs-2';
+import { generateExportData } from '../utils/exportUtils';
+import { download } from '../utils/downloadUtils';
+import { VoiceChat } from './VoiceChat';
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend
 );
 
-interface AnalysisProps {
-  isShared?: boolean;
-}
-
-export function Analysis({ isShared = false }: AnalysisProps) {
+const Analysis = observer(() => {
   const store = useFormStore();
   const packageStore = usePackageStore();
+  const { id: sharedId } = useParams();
   const navigate = useNavigate();
+  const isShared = !!sharedId;
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState('overview');
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [isSharing, setIsSharing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [isSharing, setIsSharing] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [shareUrl, setShareUrl] = useState('');
   const [showCopiedMessage, setShowCopiedMessage] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const [pendingAction, setPendingAction] = useState<'share' | 'export' | 'save' | null>(null);
+  const [pendingAction, setPendingAction] = useState<'save' | 'share' | null>(null);
   const [showTitlePrompt, setShowTitlePrompt] = useState(false);
+  const [tempTitle, setTempTitle] = useState('');
   const [showVoiceChat, setShowVoiceChat] = useState(false);
 
   useEffect(() => {
@@ -93,22 +84,7 @@ export function Analysis({ isShared = false }: AnalysisProps) {
       setIsAnalyzing(true);
       
       try {
-        const analysisData = {
-          title: store.title || 'Untitled Analysis',
-          productDescription: store.productDescription,
-          idealUser: store.idealUser,
-          outcomes: store.outcomes,
-          challenges: store.challenges,
-          solutions: store.solutions,
-          selectedModel: store.selectedModel,
-          features: packageStore.features,
-            pricingStrategy: packageStore.pricingStrategy,
-            userJourney: store.userJourney,
-            analysisResults: null // Initialize as null
-        };
-
-        const savedAnalysis = await saveAnalysis(analysisData);
-
+        // Generate the analysis - this doesn't require authentication
         const result = await analyzeFormData({
           productDescription: store.productDescription,
           idealUser: store.idealUser,
@@ -122,14 +98,46 @@ export function Analysis({ isShared = false }: AnalysisProps) {
           }
         });
         
-        await updateAnalysis(savedAnalysis.id, {
-          analysisResults: result,
-          pricingStrategy: packageStore.pricingStrategy // Keep pricing strategy during update
-        });
+        // Check if authenticated AFTER getting the analysis results
+        // This means anonymous users still see the analysis
+        const { data: { user } } = await supabase.auth.getUser();
+        let analysisId = undefined;
+        
+        // Only attempt database operations if the user is logged in
+        if (user) {
+          try {
+            // First save the base analysis
+            const analysisData = {
+              title: store.title || 'Untitled Analysis',
+              productDescription: store.productDescription,
+              idealUser: store.idealUser,
+              outcomes: store.outcomes,
+              challenges: store.challenges,
+              solutions: store.solutions,
+              selectedModel: store.selectedModel,
+              features: packageStore.features,
+              pricingStrategy: packageStore.pricingStrategy,
+              userJourney: store.userJourney
+            };
+            
+            const savedAnalysis = await saveAnalysis(analysisData);
+            analysisId = savedAnalysis.id;
+            
+            // Then update with the results
+            await updateAnalysis(savedAnalysis.id, {
+              analysisResults: result
+            });
+          } catch (dbError) {
+            // Don't block rendering due to database errors
+            console.error('Database operation failed:', dbError);
+            // Just continue with local analysis
+          }
+        }
 
+        // Always set the analysis in the store, regardless of authentication
         store.setAnalysis({
           ...result,
-          id: savedAnalysis.id
+          id: analysisId
         });
         
         setError(null);
@@ -144,7 +152,31 @@ export function Analysis({ isShared = false }: AnalysisProps) {
     analyzeData();
   }, [store, packageStore, isAnalyzing, isShared]);
 
+  const handleExport = async () => {
+    try {
+      setIsExporting(true);
+      const exportData = generateExportData(store, packageStore);
+      const jsonString = JSON.stringify(exportData, null, 2);
+      const fileName = `${store.title || 'untitled_analysis'}_export.json`;
+      download(jsonString, fileName, 'application/json');
+      setIsExporting(false);
+    } catch (error) {
+      console.error('Error exporting data:', error);
+      setIsExporting(false);
+    }
+  };
+
   const handleSave = async () => {
+    // Check authentication
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      // Show auth modal and set pending action to save
+      setPendingAction('save');
+      setShowAuthModal(true);
+      return;
+    }
+
     if (!store.title) {
       setShowTitlePrompt(true);
       return;
@@ -152,8 +184,6 @@ export function Analysis({ isShared = false }: AnalysisProps) {
 
     try {
       setIsSaving(true);
-      setError(null);
-
       const analysisData = {
         title: store.title,
         productDescription: store.productDescription,
@@ -168,53 +198,47 @@ export function Analysis({ isShared = false }: AnalysisProps) {
         analysisResults: store.analysis
       };
 
-      if (store.analysis?.id) {
-        await updateAnalysis(store.analysis.id, {
-          ...analysisData,
-          pricingStrategy: packageStore.pricingStrategy
+      const response = await saveAnalysis(analysisData);
+      
+      // If we get here, it succeeded
+      notifySuccess('Analysis saved successfully');
+      console.log('Saved analysis:', response);
+      
+      // Update the analysis ID in the store
+      if (store.analysis) {
+        store.setAnalysis({
+          ...store.analysis,
+          id: response.id
         });
-      } else {
-        const savedAnalysis = await saveAnalysis({
-          ...analysisData,
-          pricingStrategy: packageStore.pricingStrategy
-        });
-        store.setAnalysis({ ...store.analysis!, id: savedAnalysis.id });
       }
-
-      const successMessage = document.createElement('div');
-      successMessage.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg';
-      successMessage.textContent = 'Analysis saved successfully';
-      document.body.appendChild(successMessage);
-      setTimeout(() => successMessage.remove(), 3000);
-
     } catch (error) {
       console.error('Error saving analysis:', error);
-      setError(error instanceof Error ? error.message : 'Failed to save analysis');
+      notifyError('Failed to save analysis');
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleShare = async () => {
-    // Check if user is authenticated
+    // Check authentication
     const { data: { user } } = await supabase.auth.getUser();
     
-    // If not authenticated, show auth modal
     if (!user) {
+      // Show auth modal and set pending action to share
+      setPendingAction('share');
       setShowAuthModal(true);
-      setPendingAction('share');
       return;
     }
-    
-    // Check if analysis has a title
-    if (!store.title || store.title.trim() === '' || store.title === 'Untitled Analysis') {
-      setShowTitlePrompt(true);
-      setPendingAction('share');
-      return;
-    }
-    
+
+    // If no analysis ID, we need to save first
     if (!store.analysis?.id) {
+      if (!store.title) {
+        setShowTitlePrompt(true);
+        return;
+      }
+      
       try {
+        setIsSaving(true);
         const analysisData = {
           title: store.title,
           productDescription: store.productDescription,
@@ -224,477 +248,339 @@ export function Analysis({ isShared = false }: AnalysisProps) {
           solutions: store.solutions,
           selectedModel: store.selectedModel,
           features: packageStore.features,
+          pricingStrategy: packageStore.pricingStrategy,
           userJourney: store.userJourney,
-          analysisResults: store.analysis,
-          pricingStrategy: packageStore.pricingStrategy
+          analysisResults: store.analysis
         };
-        
+
         const savedAnalysis = await saveAnalysis(analysisData);
-        store.setAnalysis({ ...store.analysis!, id: savedAnalysis.id });
+        // If we get here, it succeeded
+        console.log('Saved analysis before sharing:', savedAnalysis);
         
-        await handleShareWithId(savedAnalysis.id);
+        // Update the analysis ID in the store
+        if (store.analysis) {
+          store.setAnalysis({
+            ...store.analysis,
+            id: savedAnalysis.id
+          });
+        }
+        
+        // Now continue with sharing
+        handleShareAnalysis(savedAnalysis.id);
       } catch (error) {
-        console.error('Error saving analysis for sharing:', error);
-        setError(error instanceof Error ? error.message : 'Failed to save analysis for sharing');
+        console.error('Error saving analysis before sharing:', error);
+        notifyError('Failed to save analysis before sharing');
+        setIsSaving(false);
       }
     } else {
-      await handleShareWithId(store.analysis.id);
+      // Analysis already has ID, proceed with sharing
+      handleShareAnalysis(store.analysis.id);
     }
   };
 
-  const handleShareWithId = async (analysisId: string) => {
+  const handleShareAnalysis = async (analysisId: string) => {
     try {
       setIsSharing(true);
-      setError(null);
+      const shareResponse = await shareAnalysis(analysisId);
+      console.log('Share response:', shareResponse);
       
-      const { id: shareId } = await shareAnalysis(analysisId);
-      const url = `${window.location.origin}/shared/${shareId}`;
-      setShareUrl(url);
-      
-      await navigator.clipboard.writeText(url);
-      setShowCopiedMessage(true);
-      
-      setTimeout(() => {
-        setShowCopiedMessage(false);
-      }, 3000);
-      
-      setError('Share link copied to clipboard!');
+      if (shareResponse.shareId) {
+        setShareUrl(`${window.location.origin}/shared/${shareResponse.shareId}`);
+        setShowCopiedMessage(true);
+        notifySuccess('Analysis shared successfully');
+      } else {
+        notifyError('Failed to generate sharing link');
+      }
     } catch (error) {
       console.error('Error sharing analysis:', error);
-      setError(error instanceof Error ? error.message : 'Failed to share analysis');
+      notifyError('Failed to share analysis');
     } finally {
       setIsSharing(false);
+      setIsSaving(false); // In case we were saving before sharing
+    }
+  };
+
+  // Notification utilities
+  const notifySuccess = (message: string) => {
+    const successMessage = document.createElement('div');
+    successMessage.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+    successMessage.textContent = message;
+    document.body.appendChild(successMessage);
+    setTimeout(() => successMessage.remove(), 3000);
+  };
+
+  const notifyError = (message: string) => {
+    const errorMessage = document.createElement('div');
+    errorMessage.className = 'fixed bottom-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+    errorMessage.textContent = message;
+    document.body.appendChild(errorMessage);
+    setTimeout(() => errorMessage.remove(), 3000);
+  };
+
+  const handleTitleSet = () => {
+    if (tempTitle) {
+      store.setTitle(tempTitle);
+      setShowTitlePrompt(false);
+      setTempTitle('');
+
+      // Continue with the pending action
+      if (pendingAction === 'share') {
+        handleShare();
+      } else {
+        handleSave();
+      }
+    }
+  };
+
+  // Handle user authentication completion
+  const handleAuthComplete = (success: boolean) => {
+    setShowAuthModal(false);
+    
+    if (success && pendingAction) {
+      // Execute the pending action
+      if (pendingAction === 'save') {
+        handleSave();
+      } else if (pendingAction === 'share') {
+        handleShare();
+      }
+      setPendingAction(null);
+    } else {
+      setPendingAction(null);
     }
   };
 
   if (isAnalyzing) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
-        <Loader2 className="w-8 h-8 text-[#FFD23F] animate-spin" />
-        <p className="text-gray-300">Analyzing your product and pricing strategy...</p>
-        <p className="text-gray-500 text-sm">This may take up to 30 seconds</p>
-      </div>
-    );
+    return <Loading message="Generating your analysis..." />;
   }
 
-  if (!store.analysis && !isShared) {
+  if (error) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] space-y-6">
-        <div className="bg-[#1C1C1C] p-6 rounded-lg max-w-lg">
-          <h3 className="text-lg font-medium text-white mb-4">Analysis Unavailable</h3>
-          <p className="text-gray-300 mb-4">
-            We couldn't generate an analysis for your product. Please make sure you've completed all the previous steps.
-          </p>
-          <div className="flex justify-end">
-            <Link 
-              to="/"
-              className="px-4 py-2 bg-[#FFD23F] text-[#1C1C1C] rounded-lg hover:bg-[#FFD23F]/90 flex items-center"
-            >
-              <Home className="w-4 h-4 mr-2" />
-              Return Home
-            </Link>
-          </div>
-        </div>
-        {error && (
-          <div className="text-red-500">
-            {error}
-          </div>
-        )}
+      <div className="flex flex-col items-center justify-center p-4 h-full">
+        <Alert title="Error" message={error} />
+        <Button 
+          onClick={() => navigate('/form/step/1')} 
+          className="mt-4"
+        >
+          Back to Start
+        </Button>
       </div>
     );
   }
 
   if (!store.analysis) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
-        <Loader2 className="w-8 h-8 text-[#FFD23F] animate-spin" />
-        <p className="text-gray-300">Loading shared analysis...</p>
-      </div>
-    );
+    return <Loading message="Loading analysis data..." />;
   }
-  
-  // Extract analysis data
-  const { 
-    overallScore,
-    strengths,
-    weaknesses,
-    componentScores,
-    componentFeedback,
-    pricing: {
-      revenueProjection,
-      keyMetrics,
-      benchmarks
-    },
-    actionPlan,
-    testing
-  } = store.analysis;
-
-  // Prepare data for radar chart
-  const radarData = {
-    labels: Object.keys(componentScores).map(key => {
-      // Convert camelCase to regular text with spaces
-      return key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
-    }),
-    datasets: [
-      {
-        label: 'Component Scores',
-        data: Object.values(componentScores),
-        backgroundColor: 'rgba(255, 210, 63, 0.2)',
-        borderColor: '#FFD23F',
-        borderWidth: 2,
-        pointBackgroundColor: '#FFD23F',
-        pointBorderColor: '#FFD23F',
-        pointHoverBackgroundColor: '#fff',
-        pointHoverBorderColor: '#FFD23F'
-      }
-    ]
-  };
-
-  // Prepare data for revenue projection bar chart
-  const revenueData = {
-    labels: revenueProjection.months.map(m => m.month),
-    datasets: [
-      {
-        label: 'Revenue',
-        data: revenueProjection.months.map(m => m.revenue),
-        backgroundColor: '#FFD23F',
-        borderColor: '#FFD23F',
-        borderWidth: 1
-      },
-      {
-        label: 'Users',
-        data: revenueProjection.months.map(m => m.users * 10), // Scale up users for visibility
-        backgroundColor: '#4C6EF5',
-        borderColor: '#4C6EF5',
-        borderWidth: 1
-      }
-    ]
-  };
 
   return (
-    <div className="space-y-6">
-      <div className="bg-[#1C1C1C] rounded-lg p-6">
-        <div className="flex flex-wrap justify-between items-center mb-6">
-          <div>
-            {isShared ? (
-              <h2 className="text-2xl font-bold text-white">{store.title || 'Shared Analysis'}</h2>
-            ) : (
-              <div className="flex items-center space-x-2">
-                <h2 className="text-2xl font-bold text-white">{store.title || 'Untitled Analysis'}</h2>
-                <button 
-                  onClick={() => setShowTitlePrompt(true)}
-                  className="p-1 hover:bg-[#333333] rounded"
-                >
-                  <Edit className="w-4 h-4 text-gray-400" />
-                </button>
-              </div>
-            )}
-            <p className="text-gray-400 text-sm mt-1">Free Model Analyzer Report</p>
-          </div>
-          
-          <div className="flex items-center space-x-4">
-            <span className="text-sm text-gray-400">Overall Score</span>
-            <div className="flex items-center bg-[#333333] rounded-full px-3 py-1">
-              <span className="text-[#FFD23F] font-bold">{overallScore}%</span>
-            </div>
-          </div>
+    <div className="container mx-auto p-4 mb-16 relative">
+      <h2 className="text-2xl font-bold mb-6 text-center">
+        {store.title ? `${store.title} - Analysis` : 'Your Analysis'}
+      </h2>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <div className="bg-white p-6 rounded-lg shadow-md">
+          <h3 className="text-xl font-semibold mb-4">Product Description</h3>
+          <p className="text-gray-700">{store.productDescription}</p>
         </div>
-
-        <div className="flex overflow-x-auto space-x-2 mb-6 pb-2">
-          <button
-            onClick={() => setActiveTab('overview')}
-            className={`px-4 py-2 rounded-lg whitespace-nowrap ${
-              activeTab === 'overview'
-                ? 'bg-[#FFD23F] text-[#1C1C1C] font-medium'
-                : 'bg-[#333333] text-gray-300 hover:bg-[#444444]'
-            }`}
-          >
-            Overview
-          </button>
-          <button
-            onClick={() => setActiveTab('components')}
-            className={`px-4 py-2 rounded-lg whitespace-nowrap ${
-              activeTab === 'components'
-                ? 'bg-[#FFD23F] text-[#1C1C1C] font-medium'
-                : 'bg-[#333333] text-gray-300 hover:bg-[#444444]'
-            }`}
-          >
-            Components
-          </button>
-          <button
-            onClick={() => setActiveTab('packages')}
-            className={`px-4 py-2 rounded-lg whitespace-nowrap ${
-              activeTab === 'packages'
-                ? 'bg-[#FFD23F] text-[#1C1C1C] font-medium'
-                : 'bg-[#333333] text-gray-300 hover:bg-[#444444]'
-            }`}
-          >
-            <Package className="w-4 h-4 inline-block mr-1" />
-            Package Analysis
-          </button>
-          <button
-            onClick={() => setActiveTab('revenue')}
-            className={`px-4 py-2 rounded-lg whitespace-nowrap ${
-              activeTab === 'revenue'
-                ? 'bg-[#FFD23F] text-[#1C1C1C] font-medium'
-                : 'bg-[#333333] text-gray-300 hover:bg-[#444444]'
-            }`}
-          >
-            <DollarSign className="w-4 h-4 inline-block mr-1" />
-            Revenue Projection
-          </button>
-          <button
-            onClick={() => setActiveTab('action')}
-            className={`px-4 py-2 rounded-lg whitespace-nowrap ${
-              activeTab === 'action'
-                ? 'bg-[#FFD23F] text-[#1C1C1C] font-medium'
-                : 'bg-[#333333] text-gray-300 hover:bg-[#444444]'
-            }`}
-          >
-            <Target className="w-4 h-4 inline-block mr-1" />
-            Action Plan
-          </button>
+        
+        <div className="bg-white p-6 rounded-lg shadow-md">
+          <h3 className="text-xl font-semibold mb-4">Ideal User</h3>
+          <p className="text-gray-700">{store.idealUser}</p>
         </div>
       </div>
-
-      {activeTab === 'overview' && (
-        <div className="space-y-6">
-          <div className="bg-[#1C1C1C] p-6 rounded-lg">
-            <h3 className="text-xl font-bold text-white mb-4">Product & Model Overview</h3>
-            <div className="mb-6">
-              <div className="mx-auto" style={{ width: '100%', maxWidth: '600px', height: '400px' }}>
-                <Radar 
-                  data={radarData} 
-                  options={{
-                    plugins: {
-                      legend: {
-                        labels: {
-                          color: '#FFFFFF'
-                        }
-                      }
+      
+      <div className="bg-white p-6 rounded-lg shadow-md mb-8">
+        <h3 className="text-xl font-semibold mb-4">Analysis Results</h3>
+        
+        <div className="mb-6">
+          <h4 className="text-lg font-medium mb-2">Summary</h4>
+          <p className="text-gray-700">{store.analysis.summary}</p>
+        </div>
+        
+        <div className="mb-6">
+          <h4 className="text-lg font-medium mb-2">Strengths</h4>
+          <ul className="list-disc pl-6 text-gray-700">
+            {store.analysis.strengths.map((strength, index) => (
+              <li key={index} className="mb-2">{strength}</li>
+            ))}
+          </ul>
+        </div>
+        
+        <div className="mb-6">
+          <h4 className="text-lg font-medium mb-2">Weaknesses</h4>
+          <ul className="list-disc pl-6 text-gray-700">
+            {store.analysis.weaknesses.map((weakness, index) => (
+              <li key={index} className="mb-2">{weakness}</li>
+            ))}
+          </ul>
+        </div>
+        
+        <div className="mb-6">
+          <h4 className="text-lg font-medium mb-2">Opportunities</h4>
+          <ul className="list-disc pl-6 text-gray-700">
+            {store.analysis.opportunities.map((opportunity, index) => (
+              <li key={index} className="mb-2">{opportunity}</li>
+            ))}
+          </ul>
+        </div>
+        
+        <div className="mb-6">
+          <h4 className="text-lg font-medium mb-2">Threats</h4>
+          <ul className="list-disc pl-6 text-gray-700">
+            {store.analysis.threats.map((threat, index) => (
+              <li key={index} className="mb-2">{threat}</li>
+            ))}
+          </ul>
+        </div>
+        
+        <div className="mb-6">
+          <h4 className="text-lg font-medium mb-2">User Journey Optimization</h4>
+          <p className="text-gray-700 mb-4">{store.analysis.userJourneyOptimization}</p>
+        </div>
+        
+        {!isShared && (
+          <div className="mb-6">
+            <h4 className="text-lg font-medium mb-2">Model Rating</h4>
+            <div style={{ maxWidth: '600px', margin: '0 auto' }}>
+              <Bar 
+                data={{
+                  labels: ['Viability', 'Market Fit', 'Value Proposition', 'Pricing Strategy', 'Overall Score'],
+                  datasets: [
+                    {
+                      label: 'Rating (0-10)',
+                      data: [
+                        store.analysis.viabilityScore,
+                        store.analysis.marketFitScore,
+                        store.analysis.valuePropositionScore,
+                        store.analysis.pricingStrategyScore,
+                        store.analysis.overallScore
+                      ],
+                      backgroundColor: 'rgba(75, 192, 192, 0.6)',
+                      borderColor: 'rgba(75, 192, 192, 1)',
+                      borderWidth: 1,
                     },
-                    scales: {
-                      r: {
-                        angleLines: {
-                          color: '#333333'
-                        },
-                        grid: {
-                          color: '#333333'
-                        },
-                        pointLabels: {
-                          color: '#FFFFFF'
-                        },
-                        ticks: {
-                          color: '#CCCCCC',
-                          backdropColor: 'transparent'
-                        }
-                      }
+                  ],
+                }}
+                options={{
+                  scales: {
+                    y: {
+                      beginAtZero: true,
+                      max: 10,
                     },
-                    elements: {
-                      line: {
-                        tension: 0.2
-                      }
-                    }
-                  }}
-                />
-              </div>
-            </div>
-
-            <div className="bg-[#1C1C1C] p-4 rounded-lg">
-              <h4 className="text-lg font-semibold text-white mb-3">Key Strengths</h4>
-              <div className="space-y-2">
-                {strengths.map((strength, index) => (
-                  <div key={index} className="flex items-start space-x-2">
-                    <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0 mt-1" />
-                    <p className="text-gray-300">{strength}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="bg-[#1C1C1C] p-4 rounded-lg">
-              <h4 className="text-lg font-semibold text-white mb-3">Areas for Improvement</h4>
-              <div className="space-y-2">
-                {weaknesses.map((weakness, index) => (
-                  <div key={index} className="flex items-start space-x-2">
-                    <AlertTriangle className="w-5 h-5 text-[#FFD23F] flex-shrink-0 mt-1" />
-                    <p className="text-gray-300">{weakness}</p>
-                  </div>
-                ))}
-              </div>
+                  },
+                  responsive: true,
+                  plugins: {
+                    legend: {
+                      display: false,
+                    },
+                    title: {
+                      display: true,
+                      text: 'Model Evaluation Scores',
+                    },
+                  },
+                }}
+              />
             </div>
           </div>
-        </div>
-      )}
-
-      {activeTab === 'components' && (
-        <div className="space-y-6">
-          <ComponentCard
-            title="Product Description"
-            score={componentScores.productDescription}
-            strengths={componentFeedback.productDescription.strengths}
-            recommendations={componentFeedback.productDescription.recommendations}
-          />
-          <ComponentCard
-            title="Ideal User"
-            score={componentScores.idealUser}
-            strengths={componentFeedback.idealUser.strengths}
-            recommendations={componentFeedback.idealUser.recommendations}
-          />
-          <ComponentCard
-            title="User Endgame"
-            score={componentScores.userEndgame}
-            strengths={componentFeedback.userEndgame.strengths}
-            recommendations={componentFeedback.userEndgame.recommendations}
-          />
-          <ComponentCard
-            title="Challenges"
-            score={componentScores.challenges}
-            strengths={componentFeedback.challenges.strengths}
-            recommendations={componentFeedback.challenges.recommendations}
-          />
-          <ComponentCard
-            title="Solutions"
-            score={componentScores.solutions}
-            strengths={componentFeedback.solutions.strengths}
-            recommendations={componentFeedback.solutions.recommendations}
-          />
-          <ComponentCard
-            title="Model Selection"
-            score={componentScores.modelSelection}
-            strengths={componentFeedback.modelSelection.strengths}
-            recommendations={componentFeedback.modelSelection.recommendations}
-            analysis={componentFeedback.modelSelection.analysis}
-            considerations={componentFeedback.modelSelection.considerations}
-          />
-        </div>
-      )}
-
-      {activeTab === 'packages' && (
-        <div className="space-y-6">
-          <ComponentCard
-            title="Package Design"
-            score={componentScores.packageDesign}
-            strengths={componentFeedback.packageDesign.strengths}
-            recommendations={componentFeedback.packageDesign.recommendations}
-            analysis={componentFeedback.packageDesign.analysis}
-            metrics={{
-              'Balance Score': componentFeedback.packageDesign.balanceScore
-            }}
-          />
-          <ComponentCard
-            title="Pricing Strategy"
-            score={componentScores.pricingStrategy}
-            strengths={componentFeedback.pricingStrategy.strengths}
-            recommendations={componentFeedback.pricingStrategy.recommendations}
-            analysis={componentFeedback.pricingStrategy.analysis}
-            metrics={{
-              'Conversion Potential': componentFeedback.pricingStrategy.conversionPotential
-            }}
-          />
-        </div>
-      )}
-
-      {activeTab === 'action' && (
-        <div className="space-y-6">
-          <ComponentCard
-            title="Implementation Timeline"
-            score={100}
-            strengths={[]}
-            recommendations={[
-              ...actionPlan.immediate.map(a => `Immediate (1-30 days): ${a}`),
-              ...actionPlan.medium.map(a => `Medium-term (30-90 days): ${a}`),
-              ...actionPlan.long.map(a => `Long-term (90+ days): ${a}`)
-            ]}
-          />
-          <ComponentCard
-            title="Testing Framework"
-            score={100}
-            strengths={testing.metrics.map(m => `Metric: ${m}`)}
-            recommendations={testing.abTests.map(t => `A/B Test: ${t}`)}
-          />
-        </div>
-      )}
-
+        )}
+      </div>
+      
       {!isShared && (
-        <div className="flex justify-between items-center">
-          <div className="flex space-x-2">
-            <button
-              onClick={() => window.print()}
-              className="flex items-center px-4 py-2 rounded-lg bg-[#1C1C1C] text-white hover:bg-[#333333]"
-            >
-              <Download className="w-4 h-4 mr-2" />
-              Export Analysis
-            </button>
-            {shareUrl ? (
-              <button
-                onClick={() => navigator.clipboard.writeText(shareUrl)}
-                className="flex items-center px-4 py-2 rounded-lg bg-[#1C1C1C] text-[#FFD23F] hover:bg-[#333333]"
-              >
-                <LinkIcon className="w-4 h-4 mr-2" />
-                Copy Share Link
-              </button>
-            ) : (
-              <button
-                onClick={handleShare}
-                disabled={isSharing}
-                className="flex items-center px-4 py-2 rounded-lg bg-[#1C1C1C] text-white hover:bg-[#333333]"
-              >
-                <Share2 className="w-4 h-4 mr-2" />
-                {isSharing ? 'Sharing...' : 'Share Analysis'}
-              </button>
-            )}
-          </div>
+        <div className="mt-8 flex flex-wrap gap-3 justify-center">
+          <Button
+            onClick={handleSave}
+            className="bg-green-600 hover:bg-green-700 flex items-center gap-2"
+            disabled={isSaving}
+          >
+            <Save size={16} />
+            {isSaving ? 'Saving...' : 'Save Analysis'}
+          </Button>
+          
+          <Button
+            onClick={handleShare}
+            className="bg-blue-600 hover:bg-blue-700 flex items-center gap-2"
+            disabled={isSharing}
+          >
+            <Share2Icon size={16} />
+            {isSharing ? 'Sharing...' : 'Share Analysis'}
+          </Button>
+          
+          <Button
+            onClick={handleExport}
+            className="bg-purple-600 hover:bg-purple-700 flex items-center gap-2"
+            disabled={isExporting}
+          >
+            <DownloadIcon size={16} />
+            {isExporting ? 'Exporting...' : 'Export Data'}
+          </Button>
         </div>
       )}
-
+      
       {showCopiedMessage && (
         <div className="fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg">
-          Copied to clipboard!
+          Link copied to clipboard!
         </div>
       )}
-
-      {error && !showCopiedMessage && (
-        <div className={`fixed bottom-4 right-4 px-4 py-2 rounded-lg shadow-lg ${
-          error.toLowerCase().includes('copied') || error.toLowerCase().includes('success')
-            ? 'bg-green-500 text-white'
-            : 'bg-red-500 text-white'
-        }`}>
-          {error}
+      
+      {showTitlePrompt && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-md w-full max-w-md">
+            <h3 className="text-xl font-semibold mb-4">Enter a title for your analysis</h3>
+            <p className="text-gray-600 mb-4">This will help you identify it later.</p>
+            
+            <input
+              type="text"
+              value={tempTitle}
+              onChange={(e) => setTempTitle(e.target.value)}
+              placeholder="e.g., Project X Analysis"
+              className="w-full px-4 py-2 border border-gray-300 rounded-md mb-4"
+              autoFocus
+            />
+            
+            <div className="flex justify-end gap-3">
+              <Button 
+                onClick={() => setShowTitlePrompt(false)}
+                className="bg-gray-300 hover:bg-gray-400 text-gray-800"
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleTitleSet}
+                className="bg-blue-600 hover:bg-blue-700"
+                disabled={!tempTitle}
+              >
+                Continue
+              </Button>
+            </div>
+          </div>
         </div>
       )}
-
+      
       {showAuthModal && (
-        <AuthModal 
-          onClose={() => {
-            setShowAuthModal(false);
-            setPendingAction(null);
-          }}
-          onSuccess={() => {
-            setShowAuthModal(false);
-            if (pendingAction === 'share') handleShare();
-            else if (pendingAction === 'save') handleSave();
-            setPendingAction(null);
-          }}
+        <AuthModal
+          onComplete={handleAuthComplete}
+          action={pendingAction || 'view'}
         />
       )}
-
+      
+      {/* Floating chat button */}
+      <div className="fixed bottom-4 right-4 z-10">
+        <button
+          onClick={() => setShowVoiceChat(!showVoiceChat)}
+          className="bg-blue-600 hover:bg-blue-700 text-white p-3 rounded-full shadow-lg flex items-center justify-center transition-all"
+          aria-label="Chat with your data"
+        >
+          {showVoiceChat ? <X size={24} /> : <Mic size={24} />}
+        </button>
+      </div>
+      
       {showVoiceChat && (
-        <VoiceChat
-          onClose={() => setShowVoiceChat(false)}
-          context={{
-            productDescription: store.productDescription,
-            idealUser: store.idealUser,
-            outcomes: store.outcomes,
-            challenges: store.challenges,
-            solutions: store.solutions,
-            selectedModel: store.selectedModel,
-            features: packageStore.features,
-            pricingStrategy: packageStore.pricingStrategy,
-            analysis: store.analysis
-          }}
-        />
+        <div className="fixed bottom-16 right-4 z-10 w-80 md:w-96 bg-white rounded-lg shadow-xl">
+          <VoiceChat onClose={() => setShowVoiceChat(false)} />
+        </div>
       )}
     </div>
   );
-}
+});
+
+export default Analysis;
