@@ -12,6 +12,9 @@ import { Analysis } from './Analysis';
 import { useFormStore } from '../store/formStore';
 import { usePackageStore } from '../store/packageStore';
 import { getAnalysis, saveAnalysis, updateAnalysis } from '../services/supabase';
+import { ErrorBoundary } from 'react-error-boundary';
+import { supabase } from '../services/supabase';
+import { AuthModal } from './auth/AuthModal';
 
 interface MultiStepFormProps {
   readOnly?: boolean;
@@ -125,6 +128,8 @@ export function MultiStepForm({ readOnly = false }: MultiStepFormProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showTitlePrompt, setShowTitlePrompt] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [pendingAction, setPendingAction] = useState<'save' | null>(null);
   const formStore = useFormStore();
   const packageStore = usePackageStore();
   const { id } = useParams();
@@ -135,11 +140,13 @@ export function MultiStepForm({ readOnly = false }: MultiStepFormProps) {
     if (id) {
       loadAnalysis(id);
     } else {
-      // Reset state for new analysis
-      formStore.resetState();
-      packageStore.reset();
+      // Only reset state for new analysis if not in readOnly mode
+      if (!readOnly) {
+        formStore.resetState();
+        packageStore.reset();
+      }
     }
-  }, [id]);
+  }, [id, readOnly]);
 
   const loadAnalysis = async (analysisId: string) => {
     try {
@@ -173,6 +180,7 @@ export function MultiStepForm({ readOnly = false }: MultiStepFormProps) {
       }
       if (analysis.user_journey) formStore.setUserJourney(analysis.user_journey);
       if (analysis.analysis_results) formStore.setAnalysis(analysis.analysis_results);
+      if (analysis.pricing_strategy) packageStore.setPricingStrategy(analysis.pricing_strategy);
       
     } catch (error) {
       console.error('Error loading analysis:', error);
@@ -184,6 +192,16 @@ export function MultiStepForm({ readOnly = false }: MultiStepFormProps) {
     if (readOnly) return;
 
     try {
+      // Check if user is authenticated
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      // If not authenticated, show auth modal
+      if (!user) {
+        setShowAuthModal(true);
+        setPendingAction('save');
+        return;
+      }
+      
       setIsSaving(true);
       setError(null);
 
@@ -197,11 +215,15 @@ export function MultiStepForm({ readOnly = false }: MultiStepFormProps) {
         selectedModel: formStore.selectedModel,
         features: packageStore.features,
         userJourney: formStore.userJourney,
-        analysisResults: formStore.analysis
+        analysisResults: formStore.analysis,
+        pricingStrategy: packageStore.pricingStrategy
       };
 
       if (id) {
-        await updateAnalysis(id, analysisData);
+        await updateAnalysis(id, {
+          ...analysisData,
+          pricingStrategy: packageStore.pricingStrategy
+        });
       } else {
         setShowTitlePrompt(true);
       }
@@ -240,10 +262,27 @@ export function MultiStepForm({ readOnly = false }: MultiStepFormProps) {
     }
   };
 
+  const isStepUnlocked = (index: number) => {
+    // When in readOnly mode, all steps are unlocked
+    if (readOnly) {
+      return true;
+    }
+    
+    // Original unlock logic
+    const step = steps[index];
+    return step.isUnlocked(formStore, packageStore);
+  };
+
+  const isStepCompleted = (index: number) => {
+    // When in readOnly mode, we still want to show completion indicators
+    const step = steps[index];
+    return step.isComplete(formStore, packageStore);
+  };
+
   return (
-    <div className="max-w-4xl mx-auto p-6">
-      {/* Title input for new analysis */}
-      {showTitlePrompt && (
+    <div className="space-y-8">
+      {/* Title prompt modal */}
+      {showTitlePrompt && !readOnly && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-[#2A2A2A] p-6 rounded-lg shadow-lg w-full max-w-md">
             <h3 className="text-lg font-medium text-white mb-4">Name your analysis</h3>
@@ -263,12 +302,31 @@ export function MultiStepForm({ readOnly = false }: MultiStepFormProps) {
               </button>
               <button
                 onClick={async () => {
-                  const savedAnalysis = await saveAnalysis({
-                    title: formStore.title || 'Untitled Analysis',
-                    ...analysisData
-                  });
-                  setShowTitlePrompt(false);
-                  navigate(`/analysis/${savedAnalysis.id}`);
+                  try {
+                    const savedAnalysis = await saveAnalysis({
+                      title: formStore.title || 'Untitled Analysis',
+                      productDescription: formStore.productDescription,
+                      idealUser: formStore.idealUser,
+                      outcomes: formStore.outcomes,
+                      challenges: formStore.challenges,
+                      solutions: formStore.solutions,
+                      selectedModel: formStore.selectedModel,
+                      features: packageStore.features,
+                      userJourney: formStore.userJourney,
+                      analysisResults: formStore.analysis,
+                      pricingStrategy: packageStore.pricingStrategy
+                    });
+                    setShowTitlePrompt(false);
+                    navigate(`/analysis/${savedAnalysis.id}`);
+                  } catch (error) {
+                    if (error instanceof Error && error.message.includes('must be logged in')) {
+                      setShowTitlePrompt(false);
+                      setShowAuthModal(true);
+                      setPendingAction('save');
+                    } else {
+                      setError(error instanceof Error ? error.message : 'Failed to save analysis');
+                    }
+                  }
                 }}
                 className="px-4 py-2 bg-[#FFD23F] text-[#1C1C1C] rounded-lg hover:bg-[#FFD23F]/90"
               >
@@ -279,102 +337,110 @@ export function MultiStepForm({ readOnly = false }: MultiStepFormProps) {
         </div>
       )}
 
-      {/* Progress Bar */}
-      <div className="mb-8">
-        <div className="flex justify-between mb-2">
-          {steps.map((step, index) => {
-            const isUnlocked = step.isUnlocked(formStore, packageStore);
-            const isComplete = step.isComplete(formStore, packageStore);
-            const isCurrent = index === currentStep;
-
-            return (
-              <button
-                key={step.title}
-                onClick={() => !readOnly && goToStep(index)}
-                disabled={!isUnlocked || readOnly}
-                className={`text-sm px-3 py-1 rounded transition-colors ${
-                  !isUnlocked || readOnly
-                    ? 'text-gray-600 cursor-not-allowed'
-                    : isCurrent
-                    ? 'text-[#1C1C1C] bg-[#FFD23F]'
-                    : isComplete
-                    ? 'text-[#FFD23F] hover:bg-[#2A2A2A]'
-                    : 'text-gray-300 hover:bg-[#2A2A2A]'
-                }`}
-              >
-                {step.title}
-              </button>
-            );
-          })}
-        </div>
-        <div className="progress-bar">
-          <div
-            className="progress-bar-fill"
-            style={{
-              width: `${((currentStep + 1) / steps.length) * 100}%`,
-            }}
-          />
+      {/* Auth modal for non-authenticated users */}
+      {showAuthModal && (
+        <AuthModal 
+          onClose={() => {
+            setShowAuthModal(false);
+            setPendingAction(null);
+          }}
+          onSuccess={() => {
+            setShowAuthModal(false);
+            if (pendingAction === 'save') {
+              if (showTitlePrompt) {
+                setShowTitlePrompt(true);
+              } else {
+                handleSave();
+              }
+            }
+            setPendingAction(null);
+          }}
+        />
+      )}
+      
+      {/* Form header with steps navigation */}
+      <div className="bg-[#2A2A2A] rounded-lg p-6">
+        <div className="flex flex-wrap gap-2">
+          {steps.map((step, index) => (
+            <button
+              key={index}
+              onClick={() => isStepUnlocked(index) && goToStep(index)}
+              disabled={!isStepUnlocked(index) && !readOnly}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors
+                ${currentStep === index ? 'bg-[#FFD23F] text-black' : ''}
+                ${
+                  isStepUnlocked(index) || readOnly
+                    ? isStepCompleted(index)
+                      ? 'bg-[#1C1C1C] text-green-400 border border-green-400'
+                      : 'bg-[#1C1C1C] text-gray-300 hover:bg-[#333333]'
+                    : 'bg-[#1C1C1C] text-gray-600 cursor-not-allowed'
+                }
+              `}
+            >
+              {step.title}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Current Step */}
-      <div className="bg-[#2A2A2A] rounded-lg shadow-lg p-6 mb-6">
-        <CurrentStepComponent readOnly={readOnly} />
+      {/* Current step content */}
+      <div className="bg-[#2A2A2A] rounded-lg p-6">
+        <ErrorBoundary>
+          <CurrentStepComponent readOnly={readOnly} />
+        </ErrorBoundary>
       </div>
 
-      {/* Navigation and Save */}
-      {!readOnly && (
-        <div className="flex justify-between items-center">
+      {/* Navigation buttons */}
+      <div className="flex justify-between">
+        <button
+          onClick={goPrevious}
+          disabled={currentStep === 0}
+          className={`px-4 py-2 rounded-lg flex items-center space-x-2 ${
+            currentStep === 0
+              ? 'bg-[#1C1C1C] text-gray-600 cursor-not-allowed'
+              : 'bg-[#1C1C1C] text-white hover:bg-[#333333]'
+          }`}
+        >
+          <ChevronLeft className="w-4 h-4" />
+          <span>Previous</span>
+        </button>
+
+        {currentStep < steps.length - 1 ? (
           <button
-            onClick={goPrevious}
-            disabled={currentStep === 0}
-            className={`flex items-center px-4 py-2 rounded ${
-              currentStep === 0
-                ? 'bg-[#2A2A2A] text-gray-600 cursor-not-allowed'
-                : 'bg-[#2A2A2A] text-white hover:border-[#FFD23F] border border-gray-700'
+            onClick={goNext}
+            disabled={!isStepCompleted(currentStep) && !readOnly}
+            className={`px-4 py-2 rounded-lg flex items-center space-x-2 ${
+              !isStepCompleted(currentStep) && !readOnly
+                ? 'bg-[#1C1C1C] text-gray-600 cursor-not-allowed'
+                : 'bg-[#FFD23F] text-[#1C1C1C] hover:bg-[#FFD23F]/90'
             }`}
           >
-            <ChevronLeft className="w-5 h-5 mr-2" />
-            Previous
+            <span>Next</span>
+            <ChevronRight className="w-4 h-4" />
           </button>
-
-          <div className="flex space-x-4">
-            <button
-              onClick={handleSave}
-              disabled={isSaving}
-              className="flex items-center px-4 py-2 bg-[#2A2A2A] text-[#FFD23F] border border-[#FFD23F] rounded hover:bg-[#FFD23F] hover:text-[#1C1C1C] disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isSaving ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Save className="w-4 h-4 mr-2" />
-                  Save Progress
-                </>
-              )}
-            </button>
-
-            <button
-              onClick={goNext}
-              disabled={currentStep === steps.length - 1 || !steps[currentStep].isComplete(formStore, packageStore)}
-              className={`flex items-center px-4 py-2 rounded ${
-                currentStep === steps.length - 1 || !steps[currentStep].isComplete(formStore, packageStore)
-                  ? 'bg-[#2A2A2A] text-gray-600 cursor-not-allowed'
-                  : 'bg-[#FFD23F] text-[#1C1C1C] hover:bg-opacity-90'
-              }`}
-            >
-              Next
-              <ChevronRight className="w-5 h-5 ml-2" />
-            </button>
-          </div>
-        </div>
-      )}
+        ) : !readOnly ? (
+          <button
+            onClick={handleSave}
+            disabled={isSaving}
+            className="px-4 py-2 rounded-lg flex items-center space-x-2 bg-green-500 text-white hover:bg-green-600"
+          >
+            {isSaving ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Saving...</span>
+              </>
+            ) : (
+              <>
+                <Save className="w-4 h-4" />
+                <span>Save Analysis</span>
+              </>
+            )}
+          </button>
+        ) : null}
+      </div>
 
       {error && (
-        <div className="fixed bottom-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg">
+        <div className="bg-red-500 text-white p-4 rounded-lg">
           {error}
         </div>
       )}

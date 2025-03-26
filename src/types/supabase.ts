@@ -22,10 +22,12 @@ export interface Database {
           features: Json | null
           user_journey: Json | null
           analysis_results: Json | null
+          pricing_strategy: Json | null
           created_at: string | null
           updated_at: string | null
           share_id: string | null
           is_public: boolean | null
+          title: string | null
         }
         Insert: {
           id?: string
@@ -39,10 +41,12 @@ export interface Database {
           features?: Json | null
           user_journey?: Json | null
           analysis_results?: Json | null
+          pricing_strategy?: Json | null
           created_at?: string | null
           updated_at?: string | null
           share_id?: string | null
           is_public?: boolean | null
+          title?: string | null
         }
         Update: {
           id?: string
@@ -56,10 +60,12 @@ export interface Database {
           features?: Json | null
           user_journey?: Json | null
           analysis_results?: Json | null
+          pricing_strategy?: Json | null
           created_at?: string | null
           updated_at?: string | null
           share_id?: string | null
           is_public?: boolean | null
+          title?: string | null
         }
       }
     }
