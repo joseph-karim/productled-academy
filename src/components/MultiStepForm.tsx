@@ -292,9 +292,14 @@ export function MultiStepForm({ readOnly = false }: MultiStepFormProps) {
                 Cancel
               </button>
               <button
-                onClick={() => {
+                onClick={async () => {
+                  const savedAnalysis = await saveAnalysis({
+                    title: formStore.title || 'Untitled Analysis',
+                    ...analysisData,
+                    pricingStrategy: packageStore.pricingStrategy
+                  });
                   setShowTitlePrompt(false);
-                  handleSave();
+                  navigate(`/analysis/${savedAnalysis.id}`);
                 }}
                 className="px-4 py-2 bg-[#FFD23F] text-[#1C1C1C] rounded-lg hover:bg-[#FFD23F]/90"
               >
@@ -314,7 +319,7 @@ export function MultiStepForm({ readOnly = false }: MultiStepFormProps) {
               onClick={() => isStepUnlocked(index) && goToStep(index)}
               disabled={!isStepUnlocked(index) && !readOnly}
               className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors
-                ${currentStep === index ? 'bg-[#FFD23F] text-[#1C1C1C]' : ''}
+                ${currentStep === index ? 'bg-[#FFD23F] text-black' : ''}
                 ${
                   isStepUnlocked(index) || readOnly
                     ? isStepCompleted(index)
