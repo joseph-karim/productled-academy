@@ -810,14 +810,23 @@ export function Analysis({ isShared = false }: AnalysisProps) {
             )}
           </div>
           
-          {/* Save button in the corner */}
-          <button
-            onClick={handleCornerSave}
-            className="flex items-center px-4 py-2 rounded-lg bg-green-500 text-white hover:bg-green-600"
-          >
-            <Save className="w-4 h-4 mr-2" />
-            Save Analysis
-          </button>
+          {/* Voice chat button - moved up next to the export/share buttons */}
+          <div className="flex space-x-2">
+            <button
+              onClick={handleCornerSave}
+              className="flex items-center px-4 py-2 rounded-lg bg-green-500 text-white hover:bg-green-600"
+            >
+              <Save className="w-4 h-4 mr-2" />
+              Save Analysis
+            </button>
+            <button
+              onClick={() => setShowVoiceChat(true)}
+              className="flex items-center px-4 py-2 rounded-lg bg-[#FFD23F] text-[#1C1C1C] hover:bg-[#FFD23F]/90"
+            >
+              <Mic className="w-4 h-4 mr-2" />
+              Voice Chat
+            </button>
+          </div>
         </div>
       )}
 
@@ -853,14 +862,6 @@ export function Analysis({ isShared = false }: AnalysisProps) {
           }}
         />
       )}
-
-      {/* Voice chat button - only keeping this one and removing the duplicate */}
-      <button
-        onClick={() => setShowVoiceChat(true)}
-        className="fixed bottom-4 right-4 p-4 bg-[#FFD23F] text-[#1C1C1C] rounded-full shadow-lg hover:bg-[#FFD23F]/90"
-      >
-        <Bot className="w-6 h-6" />
-      </button>
     </div>
   );
 }
