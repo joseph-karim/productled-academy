@@ -29,6 +29,8 @@ import { analyzeFormData } from '../services/ai/analysis';
 import { ComponentCard } from './analysis/ComponentCard';
 import { shareAnalysis, saveAnalysis, updateAnalysis } from '../services/supabase';
 import { AuthModal } from './auth/AuthModal';
+import { supabase } from '../services/supabase';
+import { useAuthStore } from '../store/authStore';
 
 ChartJS.register(
   RadialLinearScale,
@@ -62,6 +64,7 @@ export function Analysis({ isShared = false }: AnalysisProps) {
   const [pendingAction, setPendingAction] = useState<'share' | 'export' | 'save' | null>(null);
   const [showTitlePrompt, setShowTitlePrompt] = useState(false);
   const [showVoiceChat, setShowVoiceChat] = useState(false);
+  const { user } = useAuthStore();
 
   useEffect(() => {
     const analyzeData = async () => {
@@ -77,22 +80,7 @@ export function Analysis({ isShared = false }: AnalysisProps) {
       setIsAnalyzing(true);
       
       try {
-        const analysisData = {
-          title: store.title || 'Untitled Analysis',
-          productDescription: store.productDescription,
-          idealUser: store.idealUser,
-          outcomes: store.outcomes,
-          challenges: store.challenges,
-          solutions: store.solutions,
-          selectedModel: store.selectedModel,
-          features: packageStore.features,
-          userJourney: store.userJourney,
-          pricingStrategy: packageStore.pricingStrategy,
-          analysisResults: null // Initialize as null
-        };
-
-        const savedAnalysis = await saveAnalysis(analysisData);
-
+        // Analyze data first regardless of auth status
         const result = await analyzeFormData({
           productDescription: store.productDescription,
           idealUser: store.idealUser,
@@ -106,14 +94,32 @@ export function Analysis({ isShared = false }: AnalysisProps) {
           }
         });
         
-        await updateAnalysis(savedAnalysis.id, {
-          analysisResults: result,
-          pricingStrategy: packageStore.pricingStrategy // Keep pricing strategy during update
-        });
+        // Set local analysis with a temp id
+        let analysisId = undefined;
+        
+        // If user is authenticated, save to database
+        if (user) {
+          const analysisData = {
+            title: store.title || 'Untitled Analysis',
+            productDescription: store.productDescription,
+            idealUser: store.idealUser,
+            outcomes: store.outcomes,
+            challenges: store.challenges,
+            solutions: store.solutions,
+            selectedModel: store.selectedModel,
+            features: packageStore.features,
+            userJourney: store.userJourney,
+            pricingStrategy: packageStore.pricingStrategy,
+            analysisResults: result
+          };
+          
+          const savedAnalysis = await saveAnalysis(analysisData);
+          analysisId = savedAnalysis.id;
+        }
 
         store.setAnalysis({
           ...result,
-          id: savedAnalysis.id
+          id: analysisId
         });
         
         setError(null);
@@ -126,9 +132,16 @@ export function Analysis({ isShared = false }: AnalysisProps) {
     };
 
     analyzeData();
-  }, [store, packageStore, isAnalyzing, isShared]);
+  }, [store, packageStore, isAnalyzing, isShared, user]);
 
   const handleSave = async () => {
+    // Check if user is logged in
+    if (!user) {
+      setPendingAction('save');
+      setShowAuthModal(true);
+      return;
+    }
+    
     if (!store.title) {
       setShowTitlePrompt(true);
       return;
@@ -179,6 +192,19 @@ export function Analysis({ isShared = false }: AnalysisProps) {
   };
 
   const handleShare = async () => {
+    // Check if user is logged in
+    if (!user) {
+      setPendingAction('share');
+      setShowAuthModal(true);
+      return;
+    }
+    
+    if (!store.title) {
+      setShowTitlePrompt(true);
+      setPendingAction('share');
+      return;
+    }
+    
     if (!store.analysis?.id) {
       try {
         const savedAnalysis = await saveAnalysis({
@@ -222,6 +248,17 @@ export function Analysis({ isShared = false }: AnalysisProps) {
     } finally {
       setIsSharing(false);
     }
+  };
+
+  const handleExport = async () => {
+    // Check if user is logged in
+    if (!user) {
+      setPendingAction('export');
+      setShowAuthModal(true);
+      return;
+    }
+    
+    window.print();
   };
 
   const handleCopyToClipboard = async () => {
@@ -368,7 +405,10 @@ export function Analysis({ isShared = false }: AnalysisProps) {
             />
             <div className="flex justify-end space-x-4">
               <button
-                onClick={() => setShowTitlePrompt(false)}
+                onClick={() => {
+                  setShowTitlePrompt(false);
+                  setPendingAction(null);
+                }}
                 className="px-4 py-2 text-gray-400 hover:text-white"
               >
                 Cancel
@@ -376,7 +416,12 @@ export function Analysis({ isShared = false }: AnalysisProps) {
               <button
                 onClick={() => {
                   setShowTitlePrompt(false);
-                  handleSave();
+                  if (pendingAction === 'share') {
+                    handleShare();
+                  } else {
+                    handleSave();
+                  }
+                  setPendingAction(null);
                 }}
                 className="px-4 py-2 bg-[#FFD23F] text-[#1C1C1C] rounded-lg hover:bg-[#FFD23F]/90"
               >
@@ -385,6 +430,23 @@ export function Analysis({ isShared = false }: AnalysisProps) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Auth modal */}
+      {showAuthModal && (
+        <AuthModal 
+          onClose={() => {
+            setShowAuthModal(false);
+            setPendingAction(null);
+          }}
+          onSuccess={() => {
+            setShowAuthModal(false);
+            if (pendingAction === 'share') handleShare();
+            else if (pendingAction === 'save') handleSave();
+            else if (pendingAction === 'export') handleExport();
+            setPendingAction(null);
+          }}
+        />
       )}
 
       {/* Header with navigation */}
@@ -626,7 +688,7 @@ export function Analysis({ isShared = false }: AnalysisProps) {
         <div className="flex justify-between items-center">
           <div className="flex space-x-2">
             <button
-              onClick={() => window.print()}
+              onClick={handleExport}
               className="flex items-center px-4 py-2 rounded-lg bg-[#1C1C1C] text-white hover:bg-[#333333]"
             >
               <Download className="w-4 h-4 mr-2" />
@@ -634,7 +696,7 @@ export function Analysis({ isShared = false }: AnalysisProps) {
             </button>
             {shareUrl ? (
               <button
-                onClick={() => navigator.clipboard.writeText(shareUrl)}
+                onClick={handleCopyToClipboard}
                 className="flex items-center px-4 py-2 rounded-lg bg-[#1C1C1C] text-[#FFD23F] hover:bg-[#333333]"
               >
                 <LinkIcon className="w-4 h-4 mr-2" />
@@ -668,21 +730,6 @@ export function Analysis({ isShared = false }: AnalysisProps) {
         }`}>
           {error}
         </div>
-      )}
-
-      {showAuthModal && (
-        <AuthModal 
-          onClose={() => {
-            setShowAuthModal(false);
-            setPendingAction(null);
-          }}
-          onSuccess={() => {
-            setShowAuthModal(false);
-            if (pendingAction === 'share') handleShare();
-            else if (pendingAction === 'save') handleSave();
-            setPendingAction(null);
-          }}
-        />
       )}
 
       {showVoiceChat && (
