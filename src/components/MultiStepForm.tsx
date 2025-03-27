@@ -312,29 +312,55 @@ export function MultiStepForm({ readOnly = false }: MultiStepFormProps) {
           </div>
         </div>
       )}
+      
+      {error && (
+        <div className="mb-4 p-3 bg-red-500 bg-opacity-20 border border-red-500 rounded-md text-red-300">
+          {error}
+        </div>
+      )}
 
-      {/* Form header with steps navigation */}
-      <div className="bg-[#2A2A2A] rounded-lg p-6">
-        <div className="flex flex-wrap gap-2">
-          {steps.map((step, index) => (
-            <button
-              key={index}
-              onClick={() => isStepUnlocked(index) && goToStep(index)}
-              disabled={!isStepUnlocked(index) && !readOnly}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors
-                ${currentStep === index ? 'bg-[#FFD23F] text-[#1C1C1C]' : ''}
-                ${
-                  isStepUnlocked(index) || readOnly
-                    ? isStepCompleted(index)
-                      ? 'bg-[#1C1C1C] text-green-400 border border-green-400'
-                      : 'bg-[#1C1C1C] text-gray-300 hover:bg-[#333333]'
-                    : 'bg-[#1C1C1C] text-gray-600 cursor-not-allowed'
-                }
-              `}
-            >
-              {step.title}
-            </button>
-          ))}
+      {/* Navigation */}
+      <div className="mb-8">
+        <div className="flex justify-center mb-2">
+          <nav className="bg-[#1C1C1C] rounded-lg p-1 inline-flex">
+            {steps.map((step, index) => {
+              const isActive = index === currentStep;
+              const isCompleted = 
+                index !== currentStep && 
+                (index < currentStep || step.isComplete(formStore, packageStore));
+              
+              const isUnlocked = step.isUnlocked(formStore, packageStore);
+              
+              const isClickable = index <= currentStep || (index > currentStep && isUnlocked);
+              
+              return (
+                <button
+                  key={index}
+                  onClick={() => isClickable ? setCurrentStep(index) : null}
+                  disabled={!isClickable}
+                  className={`
+                    px-4 py-2 text-sm rounded-md transition-colors duration-200
+                    focus:outline-none
+                    ${isActive 
+                      ? 'bg-[#2A2A2A] text-white font-medium shadow-sm' 
+                      : isCompleted
+                        ? 'text-gray-300 hover:text-white'
+                        : 'text-gray-500 cursor-not-allowed'
+                    }
+                  `}
+                >
+                  {step.title}
+                </button>
+              );
+            })}
+          </nav>
+        </div>
+        
+        <div className="w-full bg-[#2A2A2A] h-1 rounded-full overflow-hidden">
+          <div 
+            className="bg-[#FFD23F] h-full transition-all duration-300 ease-in-out" 
+            style={{ width: `${((currentStep) / (steps.length - 1)) * 100}%` }}
+          />
         </div>
       </div>
 
@@ -393,12 +419,6 @@ export function MultiStepForm({ readOnly = false }: MultiStepFormProps) {
           </button>
         ) : null}
       </div>
-
-      {error && (
-        <div className="bg-red-500 text-white p-4 rounded-lg">
-          {error}
-        </div>
-      )}
 
       {/* Auth modal for non-authenticated users */}
       {showAuthModal && (

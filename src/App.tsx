@@ -42,7 +42,7 @@ function App() {
         <div className="min-h-screen bg-[#1C1C1C]">
           <Header />
 
-          <main className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
+          <main className="max-w-5xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
             <ErrorBoundary>
               <Routes>
                 <Route path="/auth/callback" element={<AuthCallback />} />
