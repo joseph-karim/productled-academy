@@ -13,6 +13,8 @@ import { useFormStore } from '../store/formStore';
 import { usePackageStore } from '../store/packageStore';
 import { getAnalysis, saveAnalysis, updateAnalysis } from '../services/supabase';
 import { ErrorBoundary } from 'react-error-boundary';
+import { supabase } from '../services/supabase';
+import { AuthModal } from './auth/AuthModal';
 
 interface MultiStepFormProps {
   readOnly?: boolean;
@@ -126,6 +128,8 @@ export function MultiStepForm({ readOnly = false }: MultiStepFormProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showTitlePrompt, setShowTitlePrompt] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [pendingAction, setPendingAction] = useState<string | null>(null);
   const formStore = useFormStore();
   const packageStore = usePackageStore();
   const { id } = useParams();
@@ -188,6 +192,16 @@ export function MultiStepForm({ readOnly = false }: MultiStepFormProps) {
     if (readOnly) return;
 
     try {
+      // Check if user is authenticated
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      // If not authenticated, show auth modal
+      if (!user) {
+        setShowAuthModal(true);
+        setPendingAction('save');
+        return;
+      }
+      
       setIsSaving(true);
       setError(null);
 
@@ -201,35 +215,29 @@ export function MultiStepForm({ readOnly = false }: MultiStepFormProps) {
         selectedModel: formStore.selectedModel,
         features: packageStore.features,
         userJourney: formStore.userJourney,
-        analysisResults: formStore.analysis
+        analysisResults: formStore.analysis,
+        pricingStrategy: packageStore.pricingStrategy
       };
 
-      if (formStore.analysis?.id) {
-        await updateAnalysis(formStore.analysis.id, {
+      if (id) {
+        await updateAnalysis(id, {
           ...analysisData,
           pricingStrategy: packageStore.pricingStrategy
         });
       } else {
-        const savedAnalysis = await saveAnalysis({
-          ...analysisData,
-          pricingStrategy: packageStore.pricingStrategy
-        });
-        formStore.setAnalysis({ ...formStore.analysis!, id: savedAnalysis.id });
-
-        // Update URL with the new analysis ID
-        navigate(`/analysis/${savedAnalysis.id}`, { replace: true });
+        setShowTitlePrompt(true);
       }
 
-      // Show a success message
+      // Show success message
       const successMessage = document.createElement('div');
-      successMessage.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg';
-      successMessage.textContent = 'Analysis saved successfully';
+      successMessage.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+      successMessage.textContent = 'Progress saved successfully';
       document.body.appendChild(successMessage);
-      
       setTimeout(() => successMessage.remove(), 3000);
+
     } catch (error) {
       console.error('Error saving analysis:', error);
-      setError(error instanceof Error ? error.message : 'Failed to save analysis');
+      setError(error instanceof Error ? error.message : 'Failed to save progress');
     } finally {
       setIsSaving(false);
     }
@@ -390,6 +398,21 @@ export function MultiStepForm({ readOnly = false }: MultiStepFormProps) {
         <div className="bg-red-500 text-white p-4 rounded-lg">
           {error}
         </div>
+      )}
+
+      {/* Auth modal for non-authenticated users */}
+      {showAuthModal && (
+        <AuthModal 
+          onClose={() => {
+            setShowAuthModal(false);
+            setPendingAction(null);
+          }}
+          onSuccess={() => {
+            setShowAuthModal(false);
+            if (pendingAction === 'save') handleSave();
+            setPendingAction(null);
+          }}
+        />
       )}
     </div>
   );
