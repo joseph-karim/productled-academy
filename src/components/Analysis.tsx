@@ -27,7 +27,7 @@ import { Chart as ChartJS, RadialLinearScale, PointElement, LineElement, Filler,
 import { Radar, Bar } from 'react-chartjs-2';
 import { analyzeFormData } from '../services/ai/analysis';
 import { ComponentCard } from './analysis/ComponentCard';
-import { shareAnalysis, saveAnalysis, updateAnalysis } from '../services/supabase';
+import { shareAnalysis, saveAnalysis, updateAnalysis, getAnalyses } from '../services/supabase';
 import { AuthModal } from './auth/AuthModal';
 import { supabase } from '../services/supabase';
 import { useAuthStore } from '../store/authStore';
@@ -61,10 +61,23 @@ export function Analysis({ isShared = false }: AnalysisProps) {
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [showCopiedMessage, setShowCopiedMessage] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const [pendingAction, setPendingAction] = useState<'share' | 'export' | 'save' | null>(null);
+  const [pendingAction, setPendingAction] = useState<'share' | 'export' | 'save' | 'corner-save' | null>(null);
   const [showTitlePrompt, setShowTitlePrompt] = useState(false);
   const [showVoiceChat, setShowVoiceChat] = useState(false);
+  const [existingAnalyses, setExistingAnalyses] = useState<any[]>([]);
+  const [showOverwriteConfirm, setShowOverwriteConfirm] = useState(false);
   const { user } = useAuthStore();
+
+  // Load existing analyses to check for duplicates
+  useEffect(() => {
+    if (user) {
+      getAnalyses().then(data => {
+        setExistingAnalyses(data || []);
+      }).catch(err => {
+        console.error('Error loading existing analyses:', err);
+      });
+    }
+  }, [user]);
 
   useEffect(() => {
     const analyzeData = async () => {
@@ -99,8 +112,16 @@ export function Analysis({ isShared = false }: AnalysisProps) {
         
         // If user is authenticated, save to database
         if (user) {
+          // Use a default title or the first line of product description
+          const defaultTitle = store.productDescription?.split('.')[0].trim() || 'Untitled Analysis';
+          
+          // Make sure we have a title
+          if (!store.title) {
+            store.setTitle(defaultTitle);
+          }
+          
           const analysisData = {
-            title: store.title || 'Untitled Analysis',
+            title: store.title || defaultTitle,
             productDescription: store.productDescription,
             idealUser: store.idealUser,
             outcomes: store.outcomes,
@@ -142,11 +163,24 @@ export function Analysis({ isShared = false }: AnalysisProps) {
       return;
     }
     
-    if (!store.title) {
+    // Always prompt for a title when saving
+    if (!store.title || store.title === 'Untitled Analysis') {
       setShowTitlePrompt(true);
+      setPendingAction('save');
       return;
     }
 
+    // Check if an analysis with this title already exists
+    const existingAnalysis = existingAnalyses.find(a => a.title === store.title && a.id !== store.analysis?.id);
+    if (existingAnalysis) {
+      setShowOverwriteConfirm(true);
+      return;
+    }
+
+    await performSave();
+  };
+
+  const performSave = async () => {
     try {
       setIsSaving(true);
       setError(null);
@@ -177,6 +211,11 @@ export function Analysis({ isShared = false }: AnalysisProps) {
         store.setAnalysis({ ...store.analysis!, id: savedAnalysis.id });
       }
 
+      // Update the existingAnalyses list
+      getAnalyses().then(data => {
+        setExistingAnalyses(data || []);
+      });
+
       const successMessage = document.createElement('div');
       successMessage.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg';
       successMessage.textContent = 'Analysis saved successfully';
@@ -191,6 +230,19 @@ export function Analysis({ isShared = false }: AnalysisProps) {
     }
   };
 
+  const handleCornerSave = async () => {
+    // Check if user is logged in
+    if (!user) {
+      setPendingAction('corner-save');
+      setShowAuthModal(true);
+      return;
+    }
+    
+    // Always prompt for a title for the corner save button
+    setShowTitlePrompt(true);
+    setPendingAction('corner-save');
+  };
+
   const handleShare = async () => {
     // Check if user is logged in
     if (!user) {
@@ -199,7 +251,7 @@ export function Analysis({ isShared = false }: AnalysisProps) {
       return;
     }
     
-    if (!store.title) {
+    if (!store.title || store.title === 'Untitled Analysis') {
       setShowTitlePrompt(true);
       setPendingAction('share');
       return;
@@ -208,7 +260,7 @@ export function Analysis({ isShared = false }: AnalysisProps) {
     if (!store.analysis?.id) {
       try {
         const savedAnalysis = await saveAnalysis({
-          title: store.title || 'Untitled Analysis',
+          title: store.title,
           productDescription: store.productDescription,
           idealUser: store.idealUser,
           outcomes: store.outcomes,
@@ -398,11 +450,16 @@ export function Analysis({ isShared = false }: AnalysisProps) {
             <h3 className="text-lg font-medium text-white mb-4">Name your analysis</h3>
             <input
               type="text"
-              value={store.title}
+              value={store.title || ''}
               onChange={(e) => store.setTitle(e.target.value)}
               placeholder="Enter a title..."
               className="w-full p-2 bg-[#1C1C1C] text-white border border-[#333333] rounded-lg mb-4"
             />
+            {existingAnalyses.some(a => a.title === store.title && a.id !== store.analysis?.id) && (
+              <p className="text-yellow-400 text-sm mb-4">
+                An analysis with this title already exists. Saving will update the existing analysis.
+              </p>
+            )}
             <div className="flex justify-end space-x-4">
               <button
                 onClick={() => {
@@ -415,17 +472,55 @@ export function Analysis({ isShared = false }: AnalysisProps) {
               </button>
               <button
                 onClick={() => {
+                  if (!store.title || store.title.trim() === '') {
+                    store.setTitle('My Analysis');
+                  }
                   setShowTitlePrompt(false);
+                  
                   if (pendingAction === 'share') {
                     handleShare();
+                  } else if (pendingAction === 'corner-save') {
+                    performSave();
                   } else {
                     handleSave();
                   }
+                  
                   setPendingAction(null);
                 }}
                 className="px-4 py-2 bg-[#FFD23F] text-[#1C1C1C] rounded-lg hover:bg-[#FFD23F]/90"
               >
                 Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Overwrite confirmation modal */}
+      {showOverwriteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-[#2A2A2A] p-6 rounded-lg shadow-lg w-full max-w-md">
+            <h3 className="text-lg font-medium text-white mb-4">Overwrite existing analysis?</h3>
+            <p className="text-gray-300 mb-6">
+              An analysis with the title "{store.title}" already exists. Do you want to overwrite it with your current changes?
+            </p>
+            <div className="flex justify-end space-x-4">
+              <button
+                onClick={() => {
+                  setShowOverwriteConfirm(false);
+                }}
+                className="px-4 py-2 text-gray-400 hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setShowOverwriteConfirm(false);
+                  performSave();
+                }}
+                className="px-4 py-2 bg-[#FFD23F] text-[#1C1C1C] rounded-lg hover:bg-[#FFD23F]/90"
+              >
+                Overwrite
               </button>
             </div>
           </div>
@@ -443,6 +538,7 @@ export function Analysis({ isShared = false }: AnalysisProps) {
             setShowAuthModal(false);
             if (pendingAction === 'share') handleShare();
             else if (pendingAction === 'save') handleSave();
+            else if (pendingAction === 'corner-save') handleCornerSave();
             else if (pendingAction === 'export') handleExport();
             setPendingAction(null);
           }}
@@ -713,6 +809,15 @@ export function Analysis({ isShared = false }: AnalysisProps) {
               </button>
             )}
           </div>
+          
+          {/* Save button in the corner */}
+          <button
+            onClick={handleCornerSave}
+            className="flex items-center px-4 py-2 rounded-lg bg-green-500 text-white hover:bg-green-600"
+          >
+            <Save className="w-4 h-4 mr-2" />
+            Save Analysis
+          </button>
         </div>
       )}
 
@@ -749,6 +854,7 @@ export function Analysis({ isShared = false }: AnalysisProps) {
         />
       )}
 
+      {/* Voice chat button - only keeping this one and removing the duplicate */}
       <button
         onClick={() => setShowVoiceChat(true)}
         className="fixed bottom-4 right-4 p-4 bg-[#FFD23F] text-[#1C1C1C] rounded-full shadow-lg hover:bg-[#FFD23F]/90"
