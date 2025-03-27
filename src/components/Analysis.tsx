@@ -538,8 +538,8 @@ export function Analysis({ isShared = false }: AnalysisProps) {
             setShowAuthModal(false);
             if (pendingAction === 'share') handleShare();
             else if (pendingAction === 'save') handleSave();
-            else if (pendingAction === 'corner-save') handleCornerSave();
             else if (pendingAction === 'export') handleExport();
+            else if (pendingAction === 'corner-save') handleCornerSave();
             setPendingAction(null);
           }}
         />
@@ -852,16 +852,6 @@ export function Analysis({ isShared = false }: AnalysisProps) {
             analysis: store.analysis
           }}
         />
-      )}
-      
-      {/* Restore the floating Bot button */}
-      {!isShared && (
-        <button
-          onClick={() => setShowVoiceChat(true)}
-          className="fixed bottom-4 right-4 p-4 bg-[#FFD23F] text-[#1C1C1C] rounded-full shadow-lg hover:bg-[#FFD23F]/90"
-        >
-          <Bot className="w-6 h-6" />
-        </button>
       )}
     </div>
   );
