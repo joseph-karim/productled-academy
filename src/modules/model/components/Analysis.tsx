@@ -18,6 +18,8 @@ import { Radar, Bar } from 'react-chartjs-2';
 import { analyzeFormData } from '../services/ai/analysis';
 import { AuthModal } from '@/core/auth/AuthModal';
 import { useAuth } from '@/hooks/useAuth';
+import { getModuleData, saveModuleData } from '@/core/services/supabase';
+import type { StoredAnalysis } from '../services/ai/analysis/types';
 
 ChartJS.register(
   RadialLinearScale,
@@ -38,7 +40,7 @@ interface AnalysisProps {
 export function Analysis({ isShared = false }: AnalysisProps) {
   const store = useModelInputsStore();
   const packageStore = useModelPackagesStore();
-  const { user, getModuleData, saveModuleData } = useAuth();
+  const { user } = useAuth();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('overview');
@@ -63,9 +65,7 @@ export function Analysis({ isShared = false }: AnalysisProps) {
     const analyzeData = async () => {
       if (isAnalyzing || store.analysis || isShared) return;
       
-      // TODO: Define or find Outcome type definition
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const beginnerOutcome = store.outcomes.find((o: any) => o.level === 'beginner'); // Used any for Outcome
+      const beginnerOutcome = store.outcomes.find((o) => o.level === 'beginner');
       
       if (!store.productDescription || !beginnerOutcome?.text || !store.selectedModel || !store.idealUser) {
         setError("Please complete all previous sections before viewing the analysis.");
@@ -75,7 +75,6 @@ export function Analysis({ isShared = false }: AnalysisProps) {
       setIsAnalyzing(true);
       
       try {
-        // Analyze data first regardless of auth status
         const result = await analyzeFormData({
           productDescription: store.productDescription,
           idealUser: store.idealUser,
@@ -89,11 +88,9 @@ export function Analysis({ isShared = false }: AnalysisProps) {
           }
         });
         
-        // Set local analysis with a temp id
         let analysisId = undefined;
         const analysisTitle = store.title || store.productDescription?.split('\\n')[0].trim() || 'Untitled Analysis';
         
-        // Combine data for saving
         const combinedData = {
           title: analysisTitle,
           productDescription: store.productDescription,
@@ -108,7 +105,6 @@ export function Analysis({ isShared = false }: AnalysisProps) {
           analysisResults: result
         };
 
-        // If user is authenticated, save to database using new service
         if (user) {
           try {
             const savedData = await saveModuleData('model', combinedData);
@@ -138,22 +134,17 @@ export function Analysis({ isShared = false }: AnalysisProps) {
   }, [store, packageStore, isAnalyzing, isShared, user]);
 
   const handleSave = async () => {
-    // Check if user is logged in
     if (!user) {
       setPendingAction('save');
       setShowAuthModal(true);
       return;
     }
     
-    // Always prompt for a title when saving
     if (!store.title || store.title === 'Untitled Analysis') {
       setShowTitlePrompt(true);
       setPendingAction('save');
       return;
     }
-
-    // Check if an analysis with this title already exists
-    console.warn("Overwrite check not implemented with getModuleData yet.");
 
     await performSave();
   };
@@ -163,7 +154,6 @@ export function Analysis({ isShared = false }: AnalysisProps) {
       setIsSaving(true);
       setError(null);
 
-      // Combine data for saving
       const analysisData = {
         title: store.title,
         productDescription: store.productDescription,
@@ -178,19 +168,18 @@ export function Analysis({ isShared = false }: AnalysisProps) {
         analysisResults: store.analysis
       };
 
-      // Use new saveModuleData function
       const savedData = await saveModuleData('model', analysisData);
 
       if (savedData) {
-         store.setAnalysis({ ...store.analysis!, id: savedData.id });
+        store.setAnalysis(store.analysis ? { ...store.analysis, id: savedData.id } : null);
 
-         const successMessage = document.createElement('div');
-         successMessage.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg';
-         successMessage.textContent = 'Analysis saved successfully';
-         document.body.appendChild(successMessage);
-         setTimeout(() => successMessage.remove(), 3000);
+        const successMessage = document.createElement('div');
+        successMessage.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg';
+        successMessage.textContent = 'Analysis saved successfully';
+        document.body.appendChild(successMessage);
+        setTimeout(() => successMessage.remove(), 3000);
       } else {
-         throw new Error("Save operation did not return confirmation.");
+        throw new Error("Save operation did not return confirmation.");
       }
 
     } catch (error) {
@@ -671,6 +660,7 @@ export function Analysis({ isShared = false }: AnalysisProps) {
 
       {activeTab === 'action' && (
         <div className="space-y-6">
+          {/* ComponentCard to be restored
           <ComponentCard
             title="Implementation Timeline"
             score={100}
@@ -687,6 +677,7 @@ export function Analysis({ isShared = false }: AnalysisProps) {
             strengths={testing.metrics.map(m => `Metric: ${m}`)}
             recommendations={testing.abTests.map(t => `A/B Test: ${t}`)}
           />
+          */}
         </div>
       )}
 

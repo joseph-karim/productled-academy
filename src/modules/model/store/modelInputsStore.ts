@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Challenge, Solution, ModelType, Analysis } from '../services/ai/analysis/types';
+import type { Challenge, Solution, ModelType, StoredAnalysis } from '../services/ai/analysis/types';
 import type { PackageFeature as Feature } from '../types/package';
 
 interface UserOutcome { level: string; text: string; /* Add other properties if needed */ }
@@ -12,7 +12,8 @@ interface IdealUser {
   traits: string[];
   impact: string;
 }
-interface FormState { // Define basic FormState structure if not importable
+
+export interface FormState { // Define basic FormState structure if not importable
   title: string;
   productDescription: string;
   idealUser?: IdealUser;
@@ -23,9 +24,35 @@ interface FormState { // Define basic FormState structure if not importable
   freeFeatures: Feature[];
   userJourney?: UserJourney;
   callToAction?: string;
-  analysis?: Analysis | null;
+  analysis?: StoredAnalysis | null;
   processingState: { [key: string]: boolean };
 }
+
+export interface FormActions {
+  setTitle: (title: string) => void;
+  setProductDescription: (description: string) => void;
+  setIdealUser: (user: IdealUser | undefined) => void;
+  addOutcome: (outcome: UserOutcome) => void;
+  updateOutcome: (level: string, text: string) => void;
+  addChallenge: (challenge: Challenge) => void;
+  updateChallenge: (id: string, challenge: Partial<Challenge>) => void;
+  removeChallenge: (id: string) => void;
+  addSolution: (solution: Solution) => void;
+  updateSolution: (id: string, solution: Partial<Solution>) => void;
+  removeSolution: (id: string) => void;
+  addCoreSolution: (solution: Solution) => void;
+  setSelectedModel: (model: ModelType | null) => void;
+  addFeature: (feature: Feature) => void;
+  updateFeature: (id: string, feature: Partial<Feature>) => void;
+  removeFeature: (id: string) => void;
+  setUserJourney: (journey: UserJourney) => void;
+  setCallToAction: (text: string) => void;
+  setAnalysis: (analysis: StoredAnalysis | null) => void;
+  setProcessingState: (state: { [key: string]: boolean }) => void;
+  resetState: () => void;
+}
+
+export type FormStore = FormState & FormActions;
 
 import { devtools } from 'zustand/middleware';
 
@@ -44,7 +71,7 @@ const initialState: FormState = {
   processingState: {},
 };
 
-export const useModelInputsStore = create<FormState>()(
+export const useModelInputsStore = create<FormStore>()(
   devtools(
     (set) => ({
       ...initialState,
@@ -136,7 +163,7 @@ export const useModelInputsStore = create<FormState>()(
       setCallToAction: (text: string) => 
         set({ callToAction: text }),
 
-      setAnalysis: (analysis: Analysis | null) => 
+      setAnalysis: (analysis: StoredAnalysis | null) => 
         set({ analysis }),
 
       setProcessingState: (state: { [key: string]: boolean }) => 

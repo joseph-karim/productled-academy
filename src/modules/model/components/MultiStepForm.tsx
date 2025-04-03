@@ -1,53 +1,58 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, Save, Loader2 } from 'lucide-react';
-import { ProductDescription } from '@/modules/model/components/steps/ProductDescription';
-import { IdealUserIdentifier } from '@/modules/model/components/steps/IdealUserIdentifier';
-import { UserEndgame } from '@/modules/model/components/steps/UserEndgame';
-import { ChallengeCollector } from '@/modules/model/components/steps/ChallengeCollector';
-import { SolutionInput } from '@/modules/model/components/steps/SolutionInput';
-import { ModelSelector } from '@/modules/model/components/steps/ModelSelector';
+import { ProductDescription } from '@/modules/model/components/ProductDescription';
+import { IdealUserIdentifier } from '@/modules/model/components/IdealUserIdentifier';
+import { UserEndgame } from '@/modules/model/components/UserEndgame';
+import { ChallengeCollector } from '@/modules/model/components/ChallengeCollector';
+import { SolutionInput } from '@/modules/model/components/SolutionInput';
+import { ModelSelector } from '@/modules/model/components/ModelSelector';
 import { FreeModelCanvas } from '@/modules/model/components/FreeModelCanvas';
 import { Analysis } from '@/modules/model/components/Analysis';
-import { useModelInputsStore } from '@/modules/model/store/modelInputsStore';
-import { useModelPackagesStore } from '@/modules/model/store/modelPackagesStore';
+import { useModelInputsStore, type FormState } from '@/modules/model/store/modelInputsStore';
+import { useModelPackagesStore, type PackageState } from '@/modules/model/store/modelPackagesStore';
 import { getModuleData, saveModuleData } from '@/core/services/supabase';
 import { useAuth } from '@/hooks/useAuth';
 import { AuthModal } from '@/core/auth/AuthModal';
 import { ErrorBoundary } from 'react-error-boundary';
-import { useStepsStore } from '@/modules/model/store/stepsStore';
+import type { PackageFeature } from '@/modules/model/types/package';
 
 interface MultiStepFormProps {
   readOnly?: boolean;
+}
+
+interface UserOutcome {
+  level: string;
+  text: string;
 }
 
 const steps = [
   { 
     title: 'Product Description', 
     component: ProductDescription,
-    isUnlocked: (state: ReturnType<typeof useModelInputsStore.getState>) => true,
-    isComplete: (state: ReturnType<typeof useModelInputsStore.getState>) => 
+    isUnlocked: (state: FormState) => true,
+    isComplete: (state: FormState) => 
       state.productDescription.length >= 10 && !state.processingState.productDescription
   },
   {
     title: 'Ideal User',
     component: IdealUserIdentifier,
-    isUnlocked: (state: ReturnType<typeof useModelInputsStore.getState>) => 
+    isUnlocked: (state: FormState) => 
       state.productDescription.length >= 10,
-    isComplete: (state: ReturnType<typeof useModelInputsStore.getState>) => 
+    isComplete: (state: FormState) => 
       !!state.idealUser && !state.processingState.idealUser
   },
   { 
     title: 'User Endgame', 
     component: UserEndgame,
-    isUnlocked: (state: ReturnType<typeof useModelInputsStore.getState>) => 
+    isUnlocked: (state: FormState) => 
       !!state.idealUser,
-    isComplete: (state: ReturnType<typeof useModelInputsStore.getState>) => {
-      const beginnerOutcome = state.outcomes.find(o => o.level === 'beginner');
-      const intermediateOutcome = state.outcomes.find(o => o.level === 'intermediate');
+    isComplete: (state: FormState) => {
+      const beginnerOutcome = state.outcomes.find((o: UserOutcome) => o.level === 'beginner');
+      const intermediateOutcome = state.outcomes.find((o: UserOutcome) => o.level === 'intermediate');
       return (
-        beginnerOutcome?.text.length >= 10 &&
-        intermediateOutcome?.text.length >= 10 &&
+        (beginnerOutcome?.text?.length ?? 0) >= 10 &&
+        (intermediateOutcome?.text?.length ?? 0) >= 10 &&
         !state.processingState.userEndgame
       );
     }
@@ -55,50 +60,50 @@ const steps = [
   { 
     title: 'Challenges', 
     component: ChallengeCollector,
-    isUnlocked: (state: ReturnType<typeof useModelInputsStore.getState>) => {
-      const beginnerOutcome = state.outcomes.find(o => o.level === 'beginner');
-      const intermediateOutcome = state.outcomes.find(o => o.level === 'intermediate');
+    isUnlocked: (state: FormState) => {
+      const beginnerOutcome = state.outcomes.find((o: UserOutcome) => o.level === 'beginner');
+      const intermediateOutcome = state.outcomes.find((o: UserOutcome) => o.level === 'intermediate');
       return (
-        beginnerOutcome?.text.length >= 10 &&
-        intermediateOutcome?.text.length >= 10
+        (beginnerOutcome?.text?.length ?? 0) >= 10 &&
+        (intermediateOutcome?.text?.length ?? 0) >= 10
       );
     },
-    isComplete: (state: ReturnType<typeof useModelInputsStore.getState>) => 
+    isComplete: (state: FormState) => 
       state.challenges.length > 0 && !state.processingState.challenges
   },
   { 
     title: 'Solutions', 
     component: SolutionInput,
-    isUnlocked: (state: ReturnType<typeof useModelInputsStore.getState>) => 
+    isUnlocked: (state: FormState) => 
       state.challenges.length > 0,
-    isComplete: (state: ReturnType<typeof useModelInputsStore.getState>) => 
+    isComplete: (state: FormState) => 
       state.solutions.length > 0 && !state.processingState.solutions
   },
   { 
     title: 'Model Selection', 
     component: ModelSelector,
-    isUnlocked: (state: ReturnType<typeof useModelInputsStore.getState>) => 
+    isUnlocked: (state: FormState) => 
       state.solutions.length > 0,
-    isComplete: (state: ReturnType<typeof useModelInputsStore.getState>) => 
+    isComplete: (state: FormState) => 
       state.selectedModel !== null && !state.processingState.modelSelection
   },
   { 
     title: 'Free Model Canvas', 
     component: FreeModelCanvas,
-    isUnlocked: (state: ReturnType<typeof useModelPackagesStore.getState>, packageState: ReturnType<typeof useModelPackagesStore.getState>) => 
+    isUnlocked: (state: FormState, packageState: PackageState) => 
       state.selectedModel !== null,
-    isComplete: (state: ReturnType<typeof useModelPackagesStore.getState>, packageState: ReturnType<typeof useModelPackagesStore.getState>) => {
-      const hasFreeTier = packageState.features.some(f => f.tier === 'free');
-      const hasPaidTier = packageState.features.some(f => f.tier === 'paid');
+    isComplete: (state: FormState, packageState: PackageState) => {
+      const hasFreeTier = packageState.features.some((f: PackageFeature) => f.tier === 'free');
+      const hasPaidTier = packageState.features.some((f: PackageFeature) => f.tier === 'paid');
       const strategy = packageState.pricingStrategy;
       
       return (
         hasFreeTier && 
         hasPaidTier && 
-        strategy?.freePackage.limitations.length > 0 &&
-        strategy?.freePackage.conversionGoals.length > 0 &&
-        strategy?.paidPackage.valueMetrics.length > 0 &&
-        strategy?.paidPackage.targetConversion > 0 &&
+        (strategy?.freePackage?.limitations?.length ?? 0) > 0 &&
+        (strategy?.freePackage?.conversionGoals?.length ?? 0) > 0 &&
+        (strategy?.paidPackage?.valueMetrics?.length ?? 0) > 0 &&
+        (strategy?.paidPackage?.targetConversion ?? 0) > 0 &&
         !packageState.processingState.freeModelCanvas
       );
     }
@@ -106,23 +111,38 @@ const steps = [
   { 
     title: 'Analysis', 
     component: Analysis,
-    isUnlocked: (state: ReturnType<typeof useModelPackagesStore.getState>, packageState: ReturnType<typeof useModelPackagesStore.getState>) => {
-      const hasFreeTier = packageState.features.some(f => f.tier === 'free');
-      const hasPaidTier = packageState.features.some(f => f.tier === 'paid');
+    isUnlocked: (state: FormState, packageState: PackageState) => {
+      const hasFreeTier = packageState.features.some((f: PackageFeature) => f.tier === 'free');
+      const hasPaidTier = packageState.features.some((f: PackageFeature) => f.tier === 'paid');
       const strategy = packageState.pricingStrategy;
       
       return (
         hasFreeTier && 
         hasPaidTier && 
-        strategy?.freePackage.limitations.length > 0 &&
-        strategy?.freePackage.conversionGoals.length > 0 &&
-        strategy?.paidPackage.valueMetrics.length > 0 &&
-        strategy?.paidPackage.targetConversion > 0
+        (strategy?.freePackage?.limitations?.length ?? 0) > 0 &&
+        (strategy?.freePackage?.conversionGoals?.length ?? 0) > 0 &&
+        (strategy?.paidPackage?.valueMetrics?.length ?? 0) > 0 &&
+        (strategy?.paidPackage?.targetConversion ?? 0) > 0
       );
     },
     isComplete: () => true
   },
 ];
+
+const ErrorFallback = ({ error, resetErrorBoundary }: { error: Error; resetErrorBoundary: () => void }) => {
+  return (
+    <div className="p-4 bg-red-500 bg-opacity-20 border border-red-500 rounded-md text-red-300">
+      <p>Something went wrong:</p>
+      <pre>{error.message}</pre>
+      <button
+        onClick={resetErrorBoundary}
+        className="mt-4 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
+      >
+        Try again
+      </button>
+    </div>
+  );
+};
 
 export function MultiStepForm({ readOnly = false }: MultiStepFormProps) {
   const [currentStep, setCurrentStep] = useState(0);
@@ -133,8 +153,8 @@ export function MultiStepForm({ readOnly = false }: MultiStepFormProps) {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   
-  const modelInputsStore = useModelInputsStore();
-  const modelPackagesStore = useModelPackagesStore();
+  const store = useModelInputsStore();
+  const packageStore = useModelPackagesStore();
   const { user } = useAuth();
   const { id: routeId } = useParams();
   const navigate = useNavigate();
@@ -145,8 +165,8 @@ export function MultiStepForm({ readOnly = false }: MultiStepFormProps) {
     if (idToLoad && !readOnly) {
       loadAnalysisData(idToLoad);
     } else if (!idToLoad && !readOnly) {
-      modelInputsStore.resetState();
-      modelPackagesStore.reset();
+      store.resetState();
+      packageStore.reset();
     }
     if (routeId && !analysisId) {
         setAnalysisId(routeId);
@@ -161,29 +181,32 @@ export function MultiStepForm({ readOnly = false }: MultiStepFormProps) {
           return;
       }
 
-      modelInputsStore.setTitle(moduleData.title || 'Untitled Analysis');
-      modelInputsStore.setProductDescription(moduleData.productDescription || '');
-      if (moduleData.idealUser) modelInputsStore.setIdealUser(moduleData.idealUser);
+      store.setTitle(moduleData.title || 'Untitled Analysis');
+      store.setProductDescription(moduleData.productDescription || '');
+      if (moduleData.idealUser) store.setIdealUser(moduleData.idealUser);
       if (moduleData.outcomes) {
-          modelInputsStore.getState().setOutcomes([]);
-          moduleData.outcomes.forEach((o: any) => modelInputsStore.updateOutcome(o.level, o.text));
+          store.setProcessingState({ outcomes: true });
+          moduleData.outcomes.forEach((o: any) => store.updateOutcome(o.level, o.text));
+          store.setProcessingState({ outcomes: false });
       }
       if (moduleData.challenges) {
-          modelInputsStore.getState().setChallenges([]);
-          moduleData.challenges.forEach((c: any) => modelInputsStore.addChallenge(c));
+          store.setProcessingState({ challenges: true });
+          moduleData.challenges.forEach((c: any) => store.addChallenge(c));
+          store.setProcessingState({ challenges: false });
       }
       if (moduleData.solutions) {
-          modelInputsStore.getState().setSolutions([]);
-          moduleData.solutions.forEach((s: any) => modelInputsStore.addSolution(s));
+          store.setProcessingState({ solutions: true });
+          moduleData.solutions.forEach((s: any) => store.addSolution(s));
+          store.setProcessingState({ solutions: false });
       }
-      if (moduleData.selectedModel) modelInputsStore.setSelectedModel(moduleData.selectedModel);
+      if (moduleData.selectedModel) store.setSelectedModel(moduleData.selectedModel);
       
-      modelPackagesStore.reset();
+      packageStore.reset();
       if (moduleData.features) {
-        moduleData.features.forEach((feature: any) => modelPackagesStore.addFeature(feature));
+        moduleData.features.forEach((feature: any) => packageStore.addFeature(feature));
       }
       if (moduleData.pricingStrategy) {
-        modelPackagesStore.setPricingStrategy(moduleData.pricingStrategy);
+        packageStore.setPricingStrategy(moduleData.pricingStrategy);
       }
       
       setAnalysisId(idToLoad);
@@ -204,15 +227,15 @@ export function MultiStepForm({ readOnly = false }: MultiStepFormProps) {
     }
 
     const moduleDataToSave = {
-      title: modelInputsStore.title,
-      productDescription: modelInputsStore.productDescription,
-      idealUser: modelInputsStore.idealUser,
-      outcomes: modelInputsStore.outcomes,
-      challenges: modelInputsStore.challenges,
-      solutions: modelInputsStore.solutions,
-      selectedModel: modelInputsStore.selectedModel,
-      features: modelPackagesStore.features,
-      pricingStrategy: modelPackagesStore.pricingStrategy,
+      title: store.title,
+      productDescription: store.productDescription,
+      idealUser: store.idealUser,
+      outcomes: store.outcomes,
+      challenges: store.challenges,
+      solutions: store.solutions,
+      selectedModel: store.selectedModel,
+      features: packageStore.features,
+      pricingStrategy: packageStore.pricingStrategy,
     };
 
     if (!moduleDataToSave.title?.trim()) {
@@ -266,12 +289,16 @@ export function MultiStepForm({ readOnly = false }: MultiStepFormProps) {
     }
     
     const step = steps[index];
-    return step.isUnlocked(modelInputsStore, modelPackagesStore);
+    const state = store;
+    const packageState = packageStore;
+    return step.isUnlocked(state, packageState);
   };
 
   const isStepCompleted = (index: number) => {
     const step = steps[index];
-    return step.isComplete(modelInputsStore, modelPackagesStore);
+    const state = store;
+    const packageState = packageStore;
+    return step.isComplete(state, packageState);
   };
 
   return (
@@ -282,8 +309,8 @@ export function MultiStepForm({ readOnly = false }: MultiStepFormProps) {
             <h3 className="text-lg font-medium text-white mb-4">Name your analysis</h3>
             <input
               type="text"
-              value={modelInputsStore.title}
-              onChange={(e) => modelInputsStore.setTitle(e.target.value)}
+              value={store.title}
+              onChange={(e) => store.setTitle(e.target.value)}
               placeholder="Enter a title..."
               className="w-full p-2 bg-[#1C1C1C] text-white border border-[#333333] rounded-lg mb-4"
             />
@@ -319,11 +346,13 @@ export function MultiStepForm({ readOnly = false }: MultiStepFormProps) {
           <nav className="bg-[#1C1C1C] rounded-lg p-1 inline-flex">
             {steps.map((step, index) => {
               const isActive = index === currentStep;
+              const state = store;
+              const packageState = packageStore;
               const isCompleted = 
                 index !== currentStep && 
-                (index < currentStep || step.isComplete(modelInputsStore, modelPackagesStore));
+                (index < currentStep || step.isComplete(state, packageState));
               
-              const isUnlocked = step.isUnlocked(modelInputsStore, modelPackagesStore);
+              const isUnlocked = step.isUnlocked(state, packageState);
               
               const isClickable = index <= currentStep || (index > currentStep && isUnlocked);
               
@@ -359,7 +388,7 @@ export function MultiStepForm({ readOnly = false }: MultiStepFormProps) {
       </div>
 
       <div className="bg-[#2A2A2A] rounded-lg p-6">
-        <ErrorBoundary>
+        <ErrorBoundary FallbackComponent={ErrorFallback}>
           <CurrentStepComponent readOnly={readOnly} />
         </ErrorBoundary>
       </div>
