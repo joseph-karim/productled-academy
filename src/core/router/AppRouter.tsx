@@ -1,13 +1,13 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AcademyLayout } from '../components/layout/AcademyLayout';
-import { LoginPage } from '@/pages/LoginPage';
-import { SignupPage } from '@/pages/SignupPage';
-import { LandingPage } from '@/pages/LandingPage';
-import { AcademyDashboard } from '@/pages/AcademyDashboard';
-import { NotFoundPage } from '@/pages/NotFoundPage';
+import { LoginPage } from '@/pages/LoginPage.tsx';
+import { SignupPage } from '@/pages/SignupPage.tsx';
+import { LandingPage } from '@/pages/LandingPage.tsx';
+import { AcademyDashboard } from '@/pages/AcademyDashboard.tsx';
+import { NotFoundPage } from '@/pages/NotFoundPage.tsx';
 import { ProtectedRoute } from './ProtectedRoute';
-import { ModelModulePage } from '@/modules/model/ModelModulePage'; // Placeholder - needs creation
+import { ModelModulePage } from '@/modules/model/ModelModulePage.tsx'; // Placeholder - needs creation
 import { AuthCallback } from '../auth/AuthCallback';
 import { ResetPassword } from '../auth/ResetPassword';
 import { ForgotPassword } from '../auth/ForgotPassword';
