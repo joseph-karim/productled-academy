@@ -2,32 +2,9 @@ import React, { useState } from 'react';
 import { useOfferStore } from '../../store/offerStore';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../../components/ui/tabs';
 import { CheckCircle2 } from 'lucide-react';
-
-// Placeholder components to be replaced with actual implementations
-const IdentifyRisks = ({ modelData, readOnly = false }: { modelData?: any; readOnly?: boolean }) => (
-  <div className="p-4 bg-[#2A2A2A] rounded-lg">
-    <h2 className="text-2xl font-bold text-white mb-4">Identify Risks</h2>
-    <p className="text-gray-300">This component is under development and will allow users to identify potential risks and objections.</p>
-    {readOnly && <p className="text-yellow-500 mt-2">This view is read-only</p>}
-  </div>
-);
-
-const DefineAssurances = ({ modelData, readOnly = false }: { modelData?: any; readOnly?: boolean }) => (
-  <div className="p-4 bg-[#2A2A2A] rounded-lg">
-    <h2 className="text-2xl font-bold text-white mb-4">Define Assurances</h2>
-    <p className="text-gray-300">This component is under development and will allow users to define assurances that address each risk.</p>
-    {readOnly && <p className="text-yellow-500 mt-2">This view is read-only</p>}
-  </div>
-);
-
-const OfferCanvasDisplay = ({ modelData, readOnly = false }: { modelData?: any; readOnly?: boolean }) => (
-  <div className="p-4 bg-[#2A2A2A] rounded-lg">
-    <h2 className="text-2xl font-bold text-white mb-4">Offer Canvas</h2>
-    <p className="text-gray-300">This component will provide a visual canvas of your complete offer, showing how all elements work together.</p>
-    {modelData && <p className="text-blue-400 mt-2">Canvas will use data from your model analysis</p>}
-    {readOnly && <p className="text-yellow-500 mt-2">This view is read-only</p>}
-  </div>
-);
+import { IdentifyRisks } from '../IdentifyRisks';
+import { DefineAssurances } from '../DefineAssurances';
+import { OfferCanvasDisplay } from '../OfferCanvasDisplay';
 
 interface RiskManagementProps {
   modelData?: any;
