@@ -39,84 +39,61 @@ export async function analyzeOffer(inputData: OfferAnalysisInput): Promise<Offer
     ...inputData.socialProof.numbers.map(n => `- Social Proof Metric: ${n}`)
   ].join('\n');
 
-  return handleOpenAIRequest(
+  // Step 1: Generate the scorecard
+  const scorecard = await handleOpenAIRequest(
     openai.chat.completions.create({
       model: "gpt-4o",
       messages: [
         {
           role: "system",
-          content: `You are an expert in product marketing, sales, and offer optimization. You will analyze the provided offer details and provide a comprehensive assessment with actionable feedback.
-
-Your analysis should evaluate:
-1. Overall offer effectiveness and compelling nature
-2. Clarity of value proposition and user success
-3. Strength of risk mitigation strategies
-4. Landing page effectiveness (hero, features, problem, solution sections)
-5. Social proof integration and credibility
-6. Call-to-action effectiveness
-
-Provide your analysis in a specific format:
-1. A scorecard (9 items) rating different aspects as Poor, Fair, Good, or Excellent with justification
-2. Detailed feedback highlighting strengths and areas for improvement (formatted as markdown)
-3. A list of specific next steps the user can take to improve their offer (5-10 actionable items)`
+          content: `You are evaluating a user's draft offer based on the ProductLed Irresistible Offer checklist. Analyze the provided inputs and assign ratings.`
         },
         {
           role: "user",
           content: `
-# Offer Analysis Request
-
-## Offer Details
-Title: ${inputData.title}
-
-## User Success
-Success Statement: ${inputData.userSuccess.statement}
-
-## Top Results
-- Tangible: ${inputData.topResults.tangible}
-- Intangible: ${inputData.topResults.intangible}
-- Improvement: ${inputData.topResults.improvement}
-
-## Advantages
-${formattedAdvantages || "No advantages provided"}
-
-## Risks and Assurances
-${risksWithAssurances || "No risks provided"}
-
-## Hero Section
-- Tagline: ${inputData.heroSection.tagline}
-- Sub Copy: ${inputData.heroSection.subCopy}
-- CTA Text: ${inputData.heroSection.ctaText}
-${inputData.heroSection.visualDesc ? `- Visual Description: ${inputData.heroSection.visualDesc}` : ''}
-${inputData.heroSection.socialProofExample ? `- Social Proof Example: ${inputData.heroSection.socialProofExample}` : ''}
-
-## Features Section
-- Title: ${inputData.featuresSection.title}
-- Description: ${inputData.featuresSection.description}
-- Features:
-${formattedFeatures || "No features provided"}
-
-## Problem Section
-- Alternatives Problems: ${inputData.problemSection.alternativesProblems}
-- Underlying Problem: ${inputData.problemSection.underlyingProblem}
-
-## Solution Section
-- Steps:
-${formattedSolutionSteps || "No solution steps provided"}
-
-## Social Proof
+You are evaluating a user's draft offer based on the ProductLed Irresistible Offer checklist. Analyze the following inputs:
+- User Success: '${inputData.userSuccess.statement}'
+- Top Results: Tangible: '${inputData.topResults.tangible}', Intangible: '${inputData.topResults.intangible}', Improvement: '${inputData.topResults.improvement}'
+- Advantages: 
+${formattedAdvantages}
+- Risks and Assurances: 
+${risksWithAssurances}
+- Hero Section: 
+  Tagline: '${inputData.heroSection.tagline}'
+  Sub-copy: '${inputData.heroSection.subCopy}'
+  CTA Text: '${inputData.heroSection.ctaText}'
+- Problem Section:
+  Alternatives Problems: '${inputData.problemSection.alternativesProblems}'
+  Underlying Problem: '${inputData.problemSection.underlyingProblem}'
+- Solution Section:
+  Steps: 
+${formattedSolutionSteps}
+- Social Proof: 
 ${formattedSocialProof || "No social proof provided"}
+- CTA Section:
+  Main CTA Text: '${inputData.ctaSection.mainCtaText}'
+  ${inputData.ctaSection.surroundingCopy ? `Surrounding Copy: '${inputData.ctaSection.surroundingCopy}'` : ''}
 
-## CTA Section
-- Main CTA Text: ${inputData.ctaSection.mainCtaText}
-${inputData.ctaSection.surroundingCopy ? `- Surrounding Copy: ${inputData.ctaSection.surroundingCopy}` : ''}
+For each checklist item below, evaluate how well the inputs meet the criteria and assign ONE rating (Poor, Fair, Good, Excellent). Provide a brief justification (1 concise sentence) for each rating.
 
-Please analyze this offer and provide a comprehensive assessment with actionable feedback.`
+Checklist Items:
+1. Result clarity?
+2. Advantage/differentiation clarity?
+3. Risk reduction/assurance clarity & sufficiency?
+4. Hero section communication effectiveness?
+5. Problem section resonance?
+6. Solution section clarity?
+7. Social proof compelling & authentic?
+8. Call to action clarity and effectiveness?
+9. Visual design likely to amplify message? (Evaluate based on content structure/clarity if visuals unknown)
+
+Output ONLY a valid JSON array of objects. Do not include any other text before or after.`
         }
       ],
       functions: [
         {
-          name: "provide_offer_analysis",
-          description: "Provide structured analysis of the offer with scorecard, feedback and next steps",
+          name: "provide_analysis_scorecard",
+          description: "Provide structured analysis scorecard for the offer",
           parameters: {
             type: "object",
             properties: {
@@ -131,27 +108,90 @@ Please analyze this offer and provide a comprehensive assessment with actionable
                   },
                   required: ["item", "rating", "justification"]
                 }
-              },
-              feedback: {
-                type: "string",
-                description: "Detailed feedback in markdown format with strengths and areas for improvement"
-              },
-              nextSteps: {
-                type: "array",
-                items: { type: "string" },
-                description: "List of specific actionable next steps to improve the offer"
               }
             },
-            required: ["scorecard", "feedback", "nextSteps"]
+            required: ["scorecard"]
           }
         }
       ],
-      function_call: { name: "provide_offer_analysis" }
+      function_call: { name: "provide_analysis_scorecard" }
     }).then(completion => {
       const result = completion.choices[0].message.function_call?.arguments;
-      if (!result) throw new Error("No analysis received");
-      return JSON.parse(result);
+      if (!result) throw new Error("No scorecard received");
+      return JSON.parse(result).scorecard;
     }),
-    'analyzing offer'
+    'generating offer scorecard'
   );
+  
+  // Step 2: Generate feedback & next steps
+  const feedbackAndNextSteps = await handleOpenAIRequest(
+    openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: `You are a ProductLed coach AI. Based on user inputs for an offer and the scorecard, provide actionable feedback and next steps.`
+        },
+        {
+          role: "user",
+          content: `
+You are a ProductLed coach AI. Based ONLY on the user inputs previously provided and the scorecard ratings, perform the following:
+
+User Inputs:
+- User Success: '${inputData.userSuccess.statement}'
+- Top Results: Tangible: '${inputData.topResults.tangible}', Intangible: '${inputData.topResults.intangible}', Improvement: '${inputData.topResults.improvement}'
+- Advantages: 
+${formattedAdvantages}
+- Risks and Assurances: 
+${risksWithAssurances}
+- Hero Section: 
+  Tagline: '${inputData.heroSection.tagline}'
+  Sub-copy: '${inputData.heroSection.subCopy}'
+  CTA Text: '${inputData.heroSection.ctaText}'
+- Problem Section:
+  Alternatives Problems: '${inputData.problemSection.alternativesProblems}'
+  Underlying Problem: '${inputData.problemSection.underlyingProblem}'
+- Solution Section:
+  Steps: 
+${formattedSolutionSteps}
+- Social Proof: 
+${formattedSocialProof || "No social proof provided"}
+- CTA Section:
+  Main CTA Text: '${inputData.ctaSection.mainCtaText}'
+  ${inputData.ctaSection.surroundingCopy ? `Surrounding Copy: '${inputData.ctaSection.surroundingCopy}'` : ''}
+
+Scorecard:
+${JSON.stringify(scorecard)}
+
+1. **Overall Feedback:** Write 2-3 bullet points summarizing key strengths of the defined offer components. Write 2-3 bullet points summarizing key areas needing improvement or refinement. Be constructive.
+
+2. **Suggested Next Steps:** Generate a list of 3-5 concrete, actionable next steps the user should take in the next 1-2 weeks to validate or refine this offer concept further. Focus on actions like testing specific messages, conducting targeted customer interviews, or creating minimal assets for testing.
+
+Output this feedback and the next steps list using Markdown formatting. Start with "### Key Strengths" followed by "### Areas for Improvement" and "### Suggested Next Steps".`
+        }
+      ]
+    }).then(completion => {
+      return completion.choices[0].message.content || '';
+    }),
+    'generating offer feedback and next steps'
+  );
+
+  // Return the combined analysis
+  return {
+    scorecard,
+    feedback: feedbackAndNextSteps,
+    nextSteps: extractNextSteps(feedbackAndNextSteps)
+  };
+}
+
+/**
+ * Helper function to extract next steps from the feedback markdown
+ */
+function extractNextSteps(feedbackMarkdown: string): string[] {
+  const nextStepsSection = feedbackMarkdown.split('### Suggested Next Steps')[1];
+  if (!nextStepsSection) return [];
+  
+  // Extract bullet points following the heading
+  const bulletPoints = nextStepsSection.match(/[-*]\s+(.+?)(?=\n[-*]|\n\n|$)/g) || [];
+  return bulletPoints.map(bullet => bullet.replace(/^[-*]\s+/, '').trim());
 } 
