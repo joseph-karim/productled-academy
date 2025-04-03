@@ -10,7 +10,7 @@ export async function generateFromChat(
 }> {
   return handleOpenAIRequest(
     openai.chat.completions.create({
-      model: "gpt-4o",
+      model: "gpt-4-turbo-preview",
       messages: [
         {
           role: "system",
