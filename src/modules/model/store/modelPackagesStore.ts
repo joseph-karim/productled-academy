@@ -42,7 +42,7 @@ const initialState = {
   error: null
 };
 
-export const usePackageStore = create<PackageState>()(
+export const useModelPackagesStore = create<PackageState>()(
   devtools(
     (set) => ({
       ...initialState,
@@ -102,6 +102,6 @@ export const usePackageStore = create<PackageState>()(
 
       reset: () => set(initialState)
     }),
-    { name: 'package-store' }
+    { name: 'model-packages-store' }
   )
 );
