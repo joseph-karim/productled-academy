@@ -49,7 +49,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     };
   }, []);
 
-  // Basic email sign-in example (replace with your desired method if different)
   const signIn = async (email: string) => {
     setError(null);
     try {
@@ -83,7 +82,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     error,
   };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+    </AuthContext.Provider>
+  );
 };
 
 export const useAuth = (): AuthContextType => {
