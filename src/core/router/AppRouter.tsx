@@ -15,7 +15,7 @@ import { AuthProvider } from '../auth/AuthProvider';
 import { ToolsPage } from '@/pages/ToolsPage';
 import { Header } from '../components/layout/Header';
 // Import other module pages here later
-// import { OfferModulePage } from '../../modules/offer/OfferModulePage';
+import { OfferModulePage } from '@/modules/offer/OfferModulePage';
 
 export function AppRouter() {
   return (
@@ -25,6 +25,7 @@ export function AppRouter() {
         {/* Public Routes - No Auth Required */}
         <Route path="/" element={<LandingPage />} />
         <Route path="/model" element={<ModelModulePage />} /> {/* Free access */}
+        <Route path="/offer" element={<OfferModulePage />} /> {/* Free access to Offer module */}
         <Route path="/tools" element={<ToolsPage />} />
         
         {/* Auth Routes - Wrapped in AuthProvider */}
@@ -50,8 +51,8 @@ export function AppRouter() {
           <Route index element={<Navigate to="/app/dashboard" replace />} />
           <Route path="dashboard" element={<AcademyDashboard />} />
           <Route path="model/:id" element={<ModelModulePage />} /> {/* Protected route for saved analyses */}
+          <Route path="offer/:id" element={<OfferModulePage />} /> {/* Protected route for saved offers */}
           <Route path="tools" element={<ToolsPage />} />
-          {/* <Route path="offer" element={<OfferModulePage />} /> */}
           {/* Add other module routes here */}
           <Route path="*" element={<Navigate to="/app" replace />} /> {/* Redirect invalid /app routes */}
         </Route>

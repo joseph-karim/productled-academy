@@ -56,14 +56,16 @@ export function CircularStageIndicator({
   // Helper to get all components from all stages in a flat array
   const allComponents = stages.flatMap(stage => stage.components);
   
-  // Only Model component (ID 3) is unlocked for now
-  const isUnlocked = (componentId: number) => componentId === 3;
+  // Only Model component (ID 3) and Offer component (ID 4) are unlocked for now
+  const isUnlocked = (componentId: number) => componentId === 3 || componentId === 4;
   
   // Get route for a component
   const getRouteForComponent = (componentId: number) => {
     switch(componentId) {
       case 3: // Model
         return '/model';
+      case 4: // Offer
+        return '/offer';
       default:
         return '#'; // No route for locked components
     }
@@ -80,9 +82,9 @@ export function CircularStageIndicator({
     return parts[parts.length - 1]; // Usually the last word is most descriptive
   };
 
-  // Improve the glow effect for the Model component
+  // Improve the glow effect for the Model and Offer components
   const getStrokeWidth = (component: StageComponent) => {
-    if (component.id === 3) return 3; // Make Model component stroke thicker
+    if (component.id === 3 || component.id === 4) return 3; // Make Model and Offer component strokes thicker
     return 1;
   };
 
@@ -144,7 +146,7 @@ export function CircularStageIndicator({
           
           // Determine if this component is unlocked
           const unlocked = isUnlocked(component.id);
-          const isModel = component.id === 3; // Check if it's the Model component
+          const isModelOrOffer = component.id === 3 || component.id === 4; // Check if it's Model or Offer component
           
           // Define colors and styles based on unlock status
           const fillColor = unlocked ? '#FFD23F' : '#1F2937';
@@ -173,8 +175,8 @@ export function CircularStageIndicator({
             <g key={component.id} className={animateClass} id={hoverGroupId}>
               {/* Interactive Area */}
               <Link to={unlocked ? getRouteForComponent(component.id) : '#'}>
-                {/* Add filter for glow effect on Model component */}
-                {isModel && (
+                {/* Add filter for glow effect on Model and Offer components */}
+                {isModelOrOffer && (
                   <defs>
                     <filter id={`glow-${component.id}`}>
                       <feGaussianBlur stdDeviation="5" result="blur" />
@@ -187,9 +189,9 @@ export function CircularStageIndicator({
                 <path 
                   d={pathData} 
                   fill={fillColor} 
-                  stroke={isModel ? "#FFFFFF" : "#2D3748"} 
+                  stroke={isModelOrOffer ? "#FFFFFF" : "#2D3748"} 
                   strokeWidth={getStrokeWidth(component)}
-                  filter={isModel ? `url(#glow-${component.id})` : ""}
+                  filter={isModelOrOffer ? `url(#glow-${component.id})` : ""}
                   className={`transition-all duration-200 ${unlocked ? 'cursor-pointer hover:brightness-110 hover:stroke-white' : 'opacity-80 hover:opacity-95'}`}
                   onMouseOver={() => {
                     // Show "Coming Soon" text on hover using direct DOM manipulation since SVG doesn't work well with CSS hover
