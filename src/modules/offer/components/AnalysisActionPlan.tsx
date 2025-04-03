@@ -111,7 +111,7 @@ export function AnalysisActionPlan({ modelData, readOnly = false }: { modelData?
     }
   }, [offerScorecard, isAnalyzingOffer, readOnly, runFinalAnalysis]);
   
-  // Initialize chat when analysis is complete
+  // Effect to initialize chat when analysis is complete
   useEffect(() => {
     if (offerScorecard && offerAnalysisFeedback && suggestedNextSteps && chatMessages.length === 0) {
       // Start with a system message that includes context
@@ -138,43 +138,79 @@ export function AnalysisActionPlan({ modelData, readOnly = false }: { modelData?
   }, [offerScorecard, offerAnalysisFeedback, suggestedNextSteps, chatMessages]);
   
   // Handle sending a chat message
-  const sendMessage = () => {
+  const sendMessage = async () => {
     if (!currentMessage.trim()) return;
     
-    // Add user message
-    const userMessage: {role: MessageRole, content: string} = { 
-      role: 'user', 
-      content: currentMessage 
-    };
-    
-    const newMessages = [
-      ...chatMessages,
-      userMessage
-    ];
-    setChatMessages(newMessages);
-    setCurrentMessage('');
-    
-    // Simulate AI response (in real implementation, would call the API)
-    setTimeout(() => {
-      // In production, this would be a real API call using the full chat history
-      const simulatedResponse = "That's a great question! Based on your offer details, I'd recommend focusing on clarifying your value proposition in the hero section first. The advantage statements are strong, but they could be more directly tied to your user success statement. Would you like me to help you refine a specific element of your offer?";
-      
-      const assistantResponse: {role: MessageRole, content: string} = { 
-        role: 'assistant', 
-        content: simulatedResponse 
+    try {
+      // Add user message
+      const userMessage: {role: MessageRole, content: string} = { 
+        role: 'user', 
+        content: currentMessage 
       };
       
-      setChatMessages([
-        ...newMessages,
-        assistantResponse
-      ]);
+      const newMessages = [
+        ...chatMessages,
+        userMessage
+      ];
+      setChatMessages(newMessages);
+      setCurrentMessage('');
       
-      // If voice output is active, would trigger text-to-speech here
+      // In a production implementation, this would integrate with the AI service
+      const analysisContext = {
+        scorecard: offerScorecard || [],
+        feedback: offerAnalysisFeedback || "",
+        nextSteps: suggestedNextSteps || []
+      };
+      
+      setTimeout(() => {
+        // Simulated response - would use getAnalysisCoachResponse from AI service in production
+        const simulatedResponse = "That's a great question! Based on your offer details, I'd recommend focusing on clarifying your value proposition in the hero section first. The advantage statements are strong, but they could be more directly tied to your user success statement. Would you like me to help you refine a specific element of your offer?";
+        
+        const assistantResponse: {role: MessageRole, content: string} = { 
+          role: 'assistant', 
+          content: simulatedResponse 
+        };
+        
+        setChatMessages([
+          ...newMessages,
+          assistantResponse
+        ]);
+        
+        // If voice output is active, would trigger text-to-speech here
+        if (isVoiceOutputActive) {
+          // voiceService.speak(simulatedResponse);
+          console.log('Voice output would speak:', simulatedResponse);
+        }
+      }, 1000);
+      
+      // In production, this would be:
+      /*
+      import { getAnalysisCoachResponse } from '../services/ai';
+      
+      const response = await getAnalysisCoachResponse(
+        newMessages, 
+        {
+          scorecard: offerScorecard || [],
+          feedback: offerAnalysisFeedback || "",
+          nextSteps: suggestedNextSteps || []
+        }
+      );
+      
+      const assistantResponse = { 
+        role: 'assistant' as MessageRole, 
+        content: response 
+      };
+      
+      setChatMessages([...newMessages, assistantResponse]);
+      
       if (isVoiceOutputActive) {
-        // voiceService.speak(simulatedResponse);
-        console.log('Voice output would speak:', simulatedResponse);
+        // Voice service implementation
       }
-    }, 1000);
+      */
+    } catch (error) {
+      console.error('Error sending message:', error);
+      // Handle error appropriately in UI
+    }
   };
   
   // Toggle voice input

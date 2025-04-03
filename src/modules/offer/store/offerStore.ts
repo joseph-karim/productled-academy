@@ -475,7 +475,45 @@ export const useOfferStore = create<OfferState>()(
         // Set analyzing state to true
         set({ isAnalyzingOffer: true, analysisError: null });
         
-        // Simulate API call with setTimeout
+        // In production, this would call the AI service:
+        /*
+        import { analyzeOffer } from '../services/ai';
+        
+        // Get current state data
+        const analysisData = {
+          title: state.title,
+          userSuccess: state.userSuccess,
+          topResults: state.topResults,
+          advantages: state.advantages,
+          risks: state.risks,
+          assurances: state.assurances,
+          heroSection: state.heroSection,
+          featuresSection: state.featuresSection,
+          problemSection: state.problemSection, 
+          solutionSection: state.solutionSection,
+          socialProof: state.socialProof,
+          ctaSection: state.ctaSection
+        };
+        
+        // Call API
+        analyzeOffer(analysisData)
+          .then(response => {
+            set({ 
+              offerScorecard: response.scorecard,
+              offerAnalysisFeedback: response.feedback,
+              suggestedNextSteps: response.nextSteps,
+              isAnalyzingOffer: false
+            });
+          })
+          .catch(error => {
+            set({ 
+              isAnalyzingOffer: false, 
+              analysisError: error instanceof Error ? error.message : 'An error occurred during analysis' 
+            });
+          });
+        */
+        
+        // For demo: Simulate API call with setTimeout
         setTimeout(() => {
           try {
             // Mock scorecard data (in production, this would come from API)
