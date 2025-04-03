@@ -1,16 +1,27 @@
 import React from 'react';
-import { useFormStore } from '../../store/formStore';
+import { useModelInputsStore } from '../store/modelInputsStore';
 import { HelpCircle, Loader2, MessageSquarePlus } from 'lucide-react';
-import { analyzeText } from '../../services/ai';
-import { ErrorMessage } from '../shared/ErrorMessage';
-import { ProductDescriptionLauncher } from '../wizard/ProductDescriptionLauncher';
+import { analyzeText } from '../services/ai/feedback';
+import { ErrorMessage } from '@/components/shared/ErrorMessage';
+import { ProductDescriptionLauncher } from '@/components/wizard/ProductDescriptionLauncher';
 
 interface ProductDescriptionProps {
   readOnly?: boolean;
 }
 
+interface Feedback {
+  category?: string;
+  suggestion: string;
+  type: 'improvement' | 'warning' | 'positive';
+}
+
+interface MissingElement {
+  category: string;
+  description: string;
+}
+
 export function ProductDescription({ readOnly = false }: ProductDescriptionProps) {
-  const { productDescription, setProductDescription } = useFormStore();
+  const { productDescription, setProductDescription } = useModelInputsStore();
   const [showGuidance, setShowGuidance] = React.useState(true);
   const [isAnalyzing, setIsAnalyzing] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -40,12 +51,12 @@ export function ProductDescription({ readOnly = false }: ProductDescriptionProps
       const result = await analyzeText(productDescription, 'Product Description');
       
       const groupedSuggestions = [
-        ...result.feedbacks.map(f => ({
+        ...result.feedbacks.map((f: Feedback) => ({
           category: f.category || 'General',
           text: f.suggestion,
           type: f.type
         })),
-        ...result.missingElements.map(e => ({
+        ...result.missingElements.map((e: MissingElement) => ({
           category: e.category,
           text: e.description,
           type: 'warning' as const
