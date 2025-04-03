@@ -12,9 +12,10 @@ import { Analysis } from '@/modules/model/components/Analysis';
 import { useModelInputsStore } from '@/modules/model/store/modelInputsStore';
 import { useModelPackagesStore } from '@/modules/model/store/modelPackagesStore';
 import { getModuleData, saveModuleData } from '@/core/services/supabase';
-import { useAuth } from '@/core/auth/useAuth';
+import { useAuth } from '@/hooks/useAuth';
 import { AuthModal } from '@/core/auth/AuthModal';
 import { ErrorBoundary } from 'react-error-boundary';
+import { useStepsStore } from '@/modules/model/store/stepsStore';
 
 interface MultiStepFormProps {
   readOnly?: boolean;
