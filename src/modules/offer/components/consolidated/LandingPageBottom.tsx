@@ -2,28 +2,14 @@ import React, { useState } from 'react';
 import { useOfferStore } from '../../store/offerStore';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../../components/ui/tabs';
 import { CheckCircle2 } from 'lucide-react';
+import { TestimonialsBuilder } from '../TestimonialsBuilder';
+import { CtaSectionBuilder } from '../CtaSectionBuilder';
 
-// Placeholder components to be replaced with actual implementations
+// Placeholder component to be replaced with actual implementation
 const RiskReversalBuilder = ({ modelData, readOnly = false }: { modelData?: any; readOnly?: boolean }) => (
   <div className="p-4 bg-[#2A2A2A] rounded-lg">
     <h2 className="text-2xl font-bold text-white mb-4">Risk Reversal Builder</h2>
     <p className="text-gray-300">This component will help you create effective risk reversals that address user concerns.</p>
-    {readOnly && <p className="text-yellow-500 mt-2">This view is read-only</p>}
-  </div>
-);
-
-const SocialProofInput = ({ modelData, readOnly = false }: { modelData?: any; readOnly?: boolean }) => (
-  <div className="p-4 bg-[#2A2A2A] rounded-lg">
-    <h2 className="text-2xl font-bold text-white mb-4">Social Proof Input</h2>
-    <p className="text-gray-300">This component will help you add testimonials, case studies, and other social proof elements.</p>
-    {readOnly && <p className="text-yellow-500 mt-2">This view is read-only</p>}
-  </div>
-);
-
-const CtaSectionBuilder = ({ modelData, readOnly = false }: { modelData?: any; readOnly?: boolean }) => (
-  <div className="p-4 bg-[#2A2A2A] rounded-lg">
-    <h2 className="text-2xl font-bold text-white mb-4">CTA Section Builder</h2>
-    <p className="text-gray-300">This component will help you create compelling call-to-action elements to drive conversions.</p>
     {readOnly && <p className="text-yellow-500 mt-2">This view is read-only</p>}
   </div>
 );
@@ -58,19 +44,19 @@ export function LandingPageBottom({ modelData, readOnly = false }: LandingPageBo
         className="w-full"
       >
         <TabsList className="grid grid-cols-3 mb-6">
-          <TabsTrigger value="riskReversal" activeValue={activeTab} className="relative">
+          <TabsTrigger value="riskReversal" className="relative">
             Risk Reversal
             {riskReversalCompleted && (
               <CheckCircle2 className="w-4 h-4 text-green-500 absolute -top-1 -right-1" />
             )}
           </TabsTrigger>
-          <TabsTrigger value="socialProof" activeValue={activeTab} disabled={!riskReversalCompleted && !readOnly} className="relative">
+          <TabsTrigger value="socialProof" disabled={!riskReversalCompleted && !readOnly} className="relative">
             Social Proof
             {socialProofCompleted && (
               <CheckCircle2 className="w-4 h-4 text-green-500 absolute -top-1 -right-1" />
             )}
           </TabsTrigger>
-          <TabsTrigger value="cta" activeValue={activeTab} disabled={!socialProofCompleted && !readOnly} className="relative">
+          <TabsTrigger value="cta" disabled={!socialProofCompleted && !readOnly} className="relative">
             Call to Action
             {ctaCompleted && (
               <CheckCircle2 className="w-4 h-4 text-green-500 absolute -top-1 -right-1" />
@@ -78,15 +64,15 @@ export function LandingPageBottom({ modelData, readOnly = false }: LandingPageBo
           </TabsTrigger>
         </TabsList>
         
-        <TabsContent value="riskReversal" activeValue={activeTab} className="mt-0">
+        <TabsContent value="riskReversal" className="mt-0">
           <RiskReversalBuilder modelData={modelData} readOnly={readOnly} />
         </TabsContent>
         
-        <TabsContent value="socialProof" activeValue={activeTab} className="mt-0">
-          <SocialProofInput modelData={modelData} readOnly={readOnly} />
+        <TabsContent value="socialProof" className="mt-0">
+          <TestimonialsBuilder modelData={modelData} readOnly={readOnly} />
         </TabsContent>
         
-        <TabsContent value="cta" activeValue={activeTab} className="mt-0">
+        <TabsContent value="cta" className="mt-0">
           <CtaSectionBuilder modelData={modelData} readOnly={readOnly} />
         </TabsContent>
       </Tabs>

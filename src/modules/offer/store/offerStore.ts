@@ -38,6 +38,19 @@ interface HeroSection {
   socialProofExample?: string;
 }
 
+interface Feature {
+  id: string;
+  title: string;
+  description: string;
+  icon?: string;
+}
+
+interface FeaturesSection {
+  title: string;
+  description: string;
+  features: Feature[];
+}
+
 interface ProblemSection {
   alternativesProblems: string;
   underlyingProblem: string;
@@ -90,12 +103,14 @@ interface ProcessingState {
   risks: boolean;
   assurances: boolean;
   heroSection: boolean;
+  featuresSection: boolean;
   problemSection: boolean;
   solutionSection: boolean;
   riskReversals: boolean;
   ctaSection: boolean;
   headlinesSection: boolean;
   bodyCopySection: boolean;
+  socialProof: boolean;
 }
 
 interface OfferState {
@@ -107,6 +122,7 @@ interface OfferState {
   risks: Risk[];
   assurances: Assurance[];
   heroSection: HeroSection;
+  featuresSection: FeaturesSection;
   problemSection: ProblemSection;
   solutionSection: SolutionSection;
   riskReversals: RiskReversal[];
@@ -140,6 +156,9 @@ interface OfferState {
   
   // Hero Section
   setHeroSection: (heroSection: Partial<HeroSection>) => void;
+  
+  // Features Section
+  setFeaturesSection: (featuresSection: Partial<FeaturesSection>) => void;
   
   // Problem Section
   setProblemSection: (problemSection: Partial<ProblemSection>) => void;
@@ -196,6 +215,11 @@ const initialState = {
     subCopy: '',
     ctaText: '',
   },
+  featuresSection: {
+    title: 'Why Choose Our Solution',
+    description: 'Our platform is designed to help you achieve better results with less effort.',
+    features: [],
+  },
   problemSection: {
     alternativesProblems: '',
     underlyingProblem: '',
@@ -231,12 +255,14 @@ const initialState = {
     risks: false,
     assurances: false,
     heroSection: false,
+    featuresSection: false,
     problemSection: false,
     solutionSection: false,
     riskReversals: false,
     ctaSection: false,
     headlinesSection: false,
     bodyCopySection: false,
+    socialProof: false,
   }
 };
 
@@ -310,6 +336,11 @@ export const useOfferStore = create<OfferState>()(
       // Hero Section
       setHeroSection: (heroSection) => set((state) => ({
         heroSection: { ...state.heroSection, ...heroSection }
+      })),
+      
+      // Features Section
+      setFeaturesSection: (featuresSection) => set((state) => ({
+        featuresSection: { ...state.featuresSection, ...featuresSection }
       })),
       
       // Problem Section
