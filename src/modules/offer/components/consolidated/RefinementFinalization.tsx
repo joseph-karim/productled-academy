@@ -5,6 +5,7 @@ import { CheckCircle2 } from 'lucide-react';
 import { HeadlineRefinementTool } from '../HeadlineRefinementTool';
 import { BodyCopyImprovement } from '../BodyCopyImprovement';
 import { AestheticsChecklist } from '../AestheticsChecklist';
+import { AnalysisActionPlan } from '../AnalysisActionPlan';
 
 interface RefinementFinalizationProps {
   modelData?: any;
@@ -27,6 +28,8 @@ export function RefinementFinalization({ modelData, readOnly = false }: Refineme
      store.refinedBodyCopy.solution.length > 0);
   
   const aestheticsCompleted = store.aestheticsChecklistCompleted;
+  
+  const analysisCompleted = store.offerScorecard !== null;
 
   return (
     <div className="space-y-6">
@@ -37,7 +40,7 @@ export function RefinementFinalization({ modelData, readOnly = false }: Refineme
         onValueChange={setActiveTab}
         className="w-full"
       >
-        <TabsList className="grid grid-cols-3 mb-6">
+        <TabsList className="grid grid-cols-4 mb-6">
           <TabsTrigger value="headlines" className="relative">
             Headline Refinement
             {headlinesCompleted && (
@@ -56,6 +59,12 @@ export function RefinementFinalization({ modelData, readOnly = false }: Refineme
               <CheckCircle2 className="w-4 h-4 text-green-500 absolute -top-1 -right-1" />
             )}
           </TabsTrigger>
+          <TabsTrigger value="analysis" disabled={!aestheticsCompleted && !readOnly} className="relative">
+            Analysis & Next Steps
+            {analysisCompleted && (
+              <CheckCircle2 className="w-4 h-4 text-green-500 absolute -top-1 -right-1" />
+            )}
+          </TabsTrigger>
         </TabsList>
         
         <TabsContent value="headlines" className="mt-0">
@@ -69,11 +78,15 @@ export function RefinementFinalization({ modelData, readOnly = false }: Refineme
         <TabsContent value="aesthetics" className="mt-0">
           <AestheticsChecklist modelData={modelData} readOnly={readOnly} />
         </TabsContent>
+        
+        <TabsContent value="analysis" className="mt-0">
+          <AnalysisActionPlan modelData={modelData} readOnly={readOnly} />
+        </TabsContent>
       </Tabs>
       
       <div className="flex justify-between mt-8">
         <div className="text-sm text-gray-400">
-          {headlinesCompleted && bodyCopyCompleted && aestheticsCompleted ? (
+          {headlinesCompleted && bodyCopyCompleted && aestheticsCompleted && analysisCompleted ? (
             <span className="text-green-500">All sections complete!</span>
           ) : (
             <span>Complete all sections to finish your offer</span>
@@ -84,7 +97,7 @@ export function RefinementFinalization({ modelData, readOnly = false }: Refineme
           {activeTab !== 'headlines' && (
             <button
               onClick={() => {
-                const tabs = ['headlines', 'bodyCopy', 'aesthetics'];
+                const tabs = ['headlines', 'bodyCopy', 'aesthetics', 'analysis'];
                 const currentIndex = tabs.indexOf(activeTab);
                 setActiveTab(tabs[currentIndex - 1]);
               }}
@@ -94,16 +107,17 @@ export function RefinementFinalization({ modelData, readOnly = false }: Refineme
             </button>
           )}
           
-          {activeTab !== 'aesthetics' && (
+          {activeTab !== 'analysis' && (
             <button
               onClick={() => {
-                const tabs = ['headlines', 'bodyCopy', 'aesthetics'];
+                const tabs = ['headlines', 'bodyCopy', 'aesthetics', 'analysis'];
                 const currentIndex = tabs.indexOf(activeTab);
                 setActiveTab(tabs[currentIndex + 1]);
               }}
               className="px-4 py-2 bg-[#FFD23F] text-[#1C1C1C] rounded-lg hover:bg-opacity-90"
               disabled={(activeTab === 'headlines' && !headlinesCompleted) || 
-                       (activeTab === 'bodyCopy' && !bodyCopyCompleted)}
+                       (activeTab === 'bodyCopy' && !bodyCopyCompleted) ||
+                       (activeTab === 'aesthetics' && !aestheticsCompleted)}
             >
               Next
             </button>
