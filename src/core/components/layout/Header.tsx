@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { useAuth } from '@/core/auth/AuthProvider';
+import { useAuth } from '@/hooks/useAuth';
 import { LogOut } from 'lucide-react';
 
 export function Header() {

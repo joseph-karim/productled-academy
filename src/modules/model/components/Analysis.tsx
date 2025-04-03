@@ -17,7 +17,7 @@ import { Chart as ChartJS, RadialLinearScale, PointElement, LineElement, Filler,
 import { Radar, Bar } from 'react-chartjs-2';
 import { analyzeFormData } from '../services/ai/analysis';
 import { AuthModal } from '@/core/auth/AuthModal';
-import { useAuth } from '@/core/auth/AuthProvider';
+import { useAuth } from '@/hooks/useAuth';
 
 ChartJS.register(
   RadialLinearScale,
