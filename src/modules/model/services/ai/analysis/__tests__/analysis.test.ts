@@ -1,7 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { analyzeFormData } from '../index';
 import { openai } from '../../client';
-import type { AnalysisInput } from '../types';
+import type { AnalysisInput as BaseAnalysisInput, Challenge, Solution } from '../types';
+import type { PackageFeature, PricingStrategy } from '../../../../types/package';
+
+interface AnalysisInput extends BaseAnalysisInput {
+  packages: {
+    features: PackageFeature[];
+    pricingStrategy: PricingStrategy;
+  };
+}
 
 describe('analyzeFormData', () => {
   beforeEach(() => {
@@ -27,7 +35,7 @@ describe('analyzeFormData', () => {
         magnitude: 3,
         level: 'beginner'
       }
-    ],
+    ] as Challenge[],
     solutions: [
       {
         id: 's1',
@@ -37,8 +45,17 @@ describe('analyzeFormData', () => {
         impact: 'high',
         category: 'core'
       }
-    ],
-    selectedModel: 'freemium'
+    ] as any[],
+    selectedModel: 'freemium',
+    packages: { 
+        features: [], 
+        pricingStrategy: { 
+            model: 'freemium', 
+            basis: 'flat-rate', 
+            freePackage: { features: [], limitations: [], conversionGoals: [] },
+            paidPackage: { features: [], valueMetrics: [], targetConversion: 0 }
+        }
+    }
   };
 
   it('validates required fields', async () => {
@@ -58,7 +75,7 @@ describe('analyzeFormData', () => {
           }
         }
       }]
-    } as any);
+    } as unknown as Awaited<ReturnType<typeof openai.chat.completions.create>>);
 
     await expect(analyzeFormData(mockValidInput))
       .rejects
@@ -87,7 +104,7 @@ describe('analyzeFormData', () => {
           }
         }
       }]
-    } as any);
+    } as unknown as Awaited<ReturnType<typeof openai.chat.completions.create>>);
 
     await expect(analyzeFormData(mockValidInput))
       .rejects

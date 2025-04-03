@@ -1,10 +1,28 @@
 import React from 'react';
-import { useFormStore } from '../../store/formStore';
-import type { Solution, SolutionType, SolutionCost, SolutionImpact } from '../../types';
+import { useModelInputsStore } from '../store/modelInputsStore';
+import type { Solution as BaseSolution, Challenge } from '../services/ai/analysis/types';
 import { MessageSquarePlus, HelpCircle, Loader2, PlusCircle, Sparkles } from 'lucide-react';
-import { FloatingFeedback, type Feedback } from '../shared/FloatingFeedback';
-import { analyzeText } from '../../services/ai/feedback';
-import { suggestSolutions, suggestCoreSolutions } from '../../services/ai/suggestions';
+import { analyzeText } from '../services/ai/feedback';
+import { suggestSolutions, suggestCoreSolutions } from '../services/ai/suggestions';
+
+type SolutionType = 'product' | 'resource' | 'content';
+type SolutionCost = 'low' | 'medium' | 'high';
+type SolutionImpact = 'low' | 'medium' | 'high';
+
+interface Solution extends BaseSolution {
+  impact: SolutionImpact;
+  category?: 'core' | string;
+}
+
+interface Feedback {
+  id: string;
+  text: string;
+  suggestion: string;
+  type: 'improvement' | 'warning' | 'positive';
+  category: string;
+  startIndex: number;
+  endIndex: number;
+}
 
 interface SolutionInputProps {
   readOnly?: boolean;
@@ -21,7 +39,7 @@ export function SolutionInput({ readOnly = false }: SolutionInputProps) {
     removeSolution, 
     addCoreSolution,
     setProcessingState 
-  } = useFormStore();
+  } = useModelInputsStore();
   
   const [showGuidance, setShowGuidance] = React.useState(true);
   const [feedbacks, setFeedbacks] = React.useState<Record<string, Feedback[]>>({});
@@ -65,9 +83,9 @@ export function SolutionInput({ readOnly = false }: SolutionInputProps) {
         const newSolution: Solution = {
           id: crypto.randomUUID(),
           text: suggestion.text,
-          type: suggestion.type,
-          cost: suggestion.cost,
-          impact: suggestion.impact,
+          type: suggestion.type as SolutionType,
+          cost: suggestion.cost as SolutionCost,
+          impact: suggestion.impact as SolutionImpact,
           category: 'core'
         };
         addCoreSolution(newSolution);
@@ -97,9 +115,9 @@ export function SolutionInput({ readOnly = false }: SolutionInputProps) {
   const handleGetSuggestions = async (challengeId: string) => {
     if (readOnly) return;
     
-    const challenge = challenges.find(c => c.id === challengeId);
-    const outcome = outcomes.find(o => o.level === challenge?.level);
-    if (!challenge || !productDescription || !outcome) return;
+    const challenge = challenges.find((c: Challenge) => c.id === challengeId);
+    const outcome = outcomes.find((o: any) => o.level === challenge?.level);
+    if (!challenge || !productDescription || !outcome || !challenge.title) return;
     
     setIsGenerating(prev => ({ ...prev, [challengeId]: true }));
     setProcessingState({ solutions: true });
@@ -116,9 +134,9 @@ export function SolutionInput({ readOnly = false }: SolutionInputProps) {
         const newSolution: Solution = {
           id: crypto.randomUUID(),
           text: suggestion.text,
-          type: suggestion.type,
-          cost: suggestion.cost,
-          impact: suggestion.impact,
+          type: suggestion.type as SolutionType,
+          cost: suggestion.cost as SolutionCost,
+          impact: suggestion.impact as SolutionImpact,
           challengeId,
         };
         addSolution(newSolution);
@@ -140,27 +158,31 @@ export function SolutionInput({ readOnly = false }: SolutionInputProps) {
     
     try {
       for (const challenge of challenges) {
-        const outcome = outcomes.find(o => o.level === challenge.level);
-        if (!outcome) continue;
+        const outcome = outcomes.find((o: any) => o.level === challenge.level);
+        if (!outcome || !challenge.id || !challenge.title) continue;
         
-        const result = await suggestSolutions(
-          challenge.title,
-          challenge.description,
-          productDescription,
-          outcome.text
-        );
-        
-        result.suggestions.forEach(suggestion => {
-          const newSolution: Solution = {
-            id: crypto.randomUUID(),
-            text: suggestion.text,
-            type: suggestion.type,
-            cost: suggestion.cost,
-            impact: suggestion.impact,
-            challengeId: challenge.id,
-          };
-          addSolution(newSolution);
-        });
+        try {
+          const result = await suggestSolutions(
+            challenge.title,
+            challenge.description,
+            productDescription,
+            outcome.text
+          );
+          
+          result.suggestions.forEach(suggestion => {
+            const newSolution: Solution = {
+              id: crypto.randomUUID(),
+              text: suggestion.text,
+              type: suggestion.type as SolutionType,
+              cost: suggestion.cost as SolutionCost,
+              impact: suggestion.impact as SolutionImpact,
+              challengeId: challenge.id,
+            };
+            addSolution(newSolution);
+          });
+        } catch (err) {
+          console.error(`Error generating solutions for challenge ${challenge.id}:`, err);
+        }
       }
     } catch (error) {
       console.error('Error generating all solutions:', error);
@@ -179,7 +201,12 @@ export function SolutionInput({ readOnly = false }: SolutionInputProps) {
     
     try {
       const result = await analyzeText(text, 'Solution');
-      setFeedbacks(prev => ({ ...prev, [solutionId]: result.feedbacks }));
+      if (Array.isArray(result?.feedbacks)) {
+        setFeedbacks(prev => ({ ...prev, [solutionId]: result.feedbacks }));
+      } else {
+        console.warn('Received non-array feedbacks:', result?.feedbacks);
+        setFeedbacks(prev => ({ ...prev, [solutionId]: [] }));
+      }
     } catch (error) {
       console.error('Error getting feedback:', error);
     } finally {
@@ -208,24 +235,19 @@ export function SolutionInput({ readOnly = false }: SolutionInputProps) {
     const solutionFeedbacks = feedbacks[solutionId] || [];
     if (solutionFeedbacks.length === 0) return null;
 
-    let result = [];
+    let result: React.ReactNode[] = [];
     let lastIndex = 0;
 
     const sortedFeedbacks = [...solutionFeedbacks].sort((a, b) => a.startIndex - b.startIndex);
 
     sortedFeedbacks.forEach((feedback) => {
       if (feedback.startIndex > lastIndex) {
-        result.push(text.slice(lastIndex, feedback.startIndex));
+        const textSlice = text.slice(lastIndex, feedback.startIndex);
+        result.push(textSlice);
       }
 
-      result.push(
-        <FloatingFeedback
-          key={feedback.id}
-          feedback={feedback}
-          onAccept={() => handleAcceptFeedback(solutionId, feedback.id)}
-          onDismiss={() => handleDismissFeedback(solutionId, feedback.id)}
-        />
-      );
+      const highlightedText = text.slice(feedback.startIndex, feedback.endIndex);
+      result.push(<span key={`${feedback.id}-text`} style={{ backgroundColor: 'yellow', color: 'black' }}>{highlightedText}</span>);
 
       lastIndex = feedback.endIndex;
     });
@@ -330,110 +352,113 @@ export function SolutionInput({ readOnly = false }: SolutionInputProps) {
 
         <div className="space-y-4">
           {solutions
-            .filter(s => s.category === 'core')
-            .map((solution) => (
-              <div key={solution.id} className="bg-[#2A2A2A] rounded-lg border border-[#333333] p-4 space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <div className="md:col-span-2">
-                    <input
-                      type="text"
-                      value={solution.text}
-                      onChange={(e) => updateSolution(solution.id, { text: e.target.value })}
-                      className="w-full p-2 bg-[#1C1C1C] text-white border border-[#333333] rounded-lg focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent"
-                      placeholder="Describe your solution..."
-                      disabled={readOnly}
-                    />
+            .filter((s: Solution) => s.category === 'core')
+            .map((solution: Solution) => {
+              if (!solution.id) return null;
+              return (
+                <div key={solution.id} className="bg-[#2A2A2A] rounded-lg border border-[#333333] p-4 space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="md:col-span-2">
+                      <input
+                        type="text"
+                        value={solution.text}
+                        onChange={(e) => updateSolution(solution.id, { text: e.target.value })}
+                        className="w-full p-2 bg-[#1C1C1C] text-white border border-[#333333] rounded-lg focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent"
+                        placeholder="Describe your solution..."
+                        disabled={readOnly}
+                      />
+                    </div>
+                    <div>
+                      <select
+                        value={solution.type}
+                        onChange={(e) =>
+                          updateSolution(solution.id, {
+                            type: e.target.value as SolutionType,
+                          })
+                        }
+                        className="w-full p-2 bg-[#1C1C1C] text-white border border-[#333333] rounded-lg focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent"
+                        disabled={readOnly}
+                      >
+                        {Object.entries(solutionTypes).map(([value, label]) => (
+                          <option key={value} value={value}>{label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <select
+                        value={solution.cost}
+                        onChange={(e) =>
+                          updateSolution(solution.id, {
+                            cost: e.target.value as SolutionCost,
+                          })
+                        }
+                        className="w-full p-2 bg-[#1C1C1C] text-white border border-[#333333] rounded-lg focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent"
+                        disabled={readOnly}
+                      >
+                        <option value="low">Low Cost</option>
+                        <option value="medium">Medium Cost</option>
+                        <option value="high">High Cost</option>
+                      </select>
+                      <select
+                        value={solution.impact}
+                        onChange={(e) =>
+                          updateSolution(solution.id, {
+                            impact: e.target.value as SolutionImpact,
+                          })
+                        }
+                        className="w-full p-2 bg-[#1C1C1C] text-white border border-[#333333] rounded-lg focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent"
+                        disabled={readOnly}
+                      >
+                        <option value="low">Low Impact</option>
+                        <option value="medium">Medium Impact</option>
+                        <option value="high">High Impact</option>
+                      </select>
+                    </div>
                   </div>
-                  <div>
-                    <select
-                      value={solution.type}
-                      onChange={(e) =>
-                        updateSolution(solution.id, {
-                          type: e.target.value as SolutionType,
-                        })
-                      }
-                      className="w-full p-2 bg-[#1C1C1C] text-white border border-[#333333] rounded-lg focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent"
-                      disabled={readOnly}
-                    >
-                      {Object.entries(solutionTypes).map(([value, label]) => (
-                        <option key={value} value={value}>{label}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <select
-                      value={solution.cost}
-                      onChange={(e) =>
-                        updateSolution(solution.id, {
-                          cost: e.target.value as SolutionCost,
-                        })
-                      }
-                      className="w-full p-2 bg-[#1C1C1C] text-white border border-[#333333] rounded-lg focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent"
-                      disabled={readOnly}
-                    >
-                      <option value="low">Low Cost</option>
-                      <option value="medium">Medium Cost</option>
-                      <option value="high">High Cost</option>
-                    </select>
-                    <select
-                      value={solution.impact}
-                      onChange={(e) =>
-                        updateSolution(solution.id, {
-                          impact: e.target.value as SolutionImpact,
-                        })
-                      }
-                      className="w-full p-2 bg-[#1C1C1C] text-white border border-[#333333] rounded-lg focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent"
-                      disabled={readOnly}
-                    >
-                      <option value="low">Low Impact</option>
-                      <option value="medium">Medium Impact</option>
-                      <option value="high">High Impact</option>
-                    </select>
-                  </div>
+
+                  {!readOnly && (
+                    <div className="flex justify-between items-center">
+                      <button
+                        onClick={() => removeSolution(solution.id!)}
+                        className="text-red-400 hover:text-red-300"
+                      >
+                        Remove
+                      </button>
+
+                      <button
+                        onClick={() => handleGetFeedback(solution.id!, solution.text)}
+                        onMouseEnter={() => setShowTooltip(prev => ({ ...prev, [solution.id!]: true }))}
+                        onMouseLeave={() => setShowTooltip(prev => ({ ...prev, [solution.id!]: false }))}
+                        disabled={isAnalyzing[solution.id!] || solution.text.length < 10}
+                        className={`flex items-center px-4 py-2 rounded-lg ${
+                          isAnalyzing[solution.id!] || solution.text.length < 10
+                            ? 'bg-[#333333] text-gray-500 cursor-not-allowed'
+                            : 'bg-[#FFD23F] text-[#1C1C1C] hover:bg-[#FFD23F]/90'
+                        }`}
+                      >
+                        {isAnalyzing[solution.id!] ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Analyzing...
+                          </>
+                        ) : (
+                          <>
+                            <MessageSquarePlus className="w-4 h-4 mr-2" />
+                            Get Feedback
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
+
+                  {!isAnalyzing[solution.id!] && feedbacks[solution.id!]?.length > 0 && (
+                    <div className="prose prose-sm max-w-none p-4 bg-[#1C1C1C] rounded-lg">
+                      {renderTextWithFeedback(solution.id!, solution.text)}
+                    </div>
+                  )}
                 </div>
-
-                {!readOnly && (
-                  <div className="flex justify-between items-center">
-                    <button
-                      onClick={() => removeSolution(solution.id)}
-                      className="text-red-400 hover:text-red-300"
-                    >
-                      Remove
-                    </button>
-
-                    <button
-                      onClick={() => handleGetFeedback(solution.id, solution.text)}
-                      onMouseEnter={() => setShowTooltip(prev => ({ ...prev, [solution.id]: true }))}
-                      onMouseLeave={() => setShowTooltip(prev => ({ ...prev, [solution.id]: false }))}
-                      disabled={isAnalyzing[solution.id] || solution.text.length < 10}
-                      className={`flex items-center px-4 py-2 rounded-lg ${
-                        isAnalyzing[solution.id] || solution.text.length < 10
-                          ? 'bg-[#333333] text-gray-500 cursor-not-allowed'
-                          : 'bg-[#FFD23F] text-[#1C1C1C] hover:bg-[#FFD23F]/90'
-                      }`}
-                    >
-                      {isAnalyzing[solution.id] ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Analyzing...
-                        </>
-                      ) : (
-                        <>
-                          <MessageSquarePlus className="w-4 h-4 mr-2" />
-                          Get Feedback
-                        </>
-                      )}
-                    </button>
-                  </div>
-                )}
-
-                {!isAnalyzing[solution.id] && feedbacks[solution.id]?.length > 0 && (
-                  <div className="prose prose-sm max-w-none p-4 bg-[#1C1C1C] rounded-lg">
-                    {renderTextWithFeedback(solution.id, solution.text)}
-                  </div>
-                )}
-              </div>
-            ))}
+              );
+            })}
 
           {!readOnly && (
             <button
@@ -476,9 +501,11 @@ export function SolutionInput({ readOnly = false }: SolutionInputProps) {
           )}
         </div>
 
-        {challenges.map((challenge) => {
-          const challengeSolutions = solutions.filter(s => s.challengeId === challenge.id);
+        {challenges.map((challenge: Challenge) => {
+          const challengeSolutions = solutions.filter((s: Solution) => s.challengeId === challenge.id);
           
+          if (!challenge.id) return null;
+
           return (
             <div key={challenge.id} className="space-y-4">
               <div className="bg-[#2A2A2A] p-4 rounded-lg">
@@ -497,15 +524,15 @@ export function SolutionInput({ readOnly = false }: SolutionInputProps) {
               {!readOnly && (
                 <div className="flex items-center justify-between space-x-2">
                   <button
-                    onClick={() => handleGetSuggestions(challenge.id)}
-                    disabled={isGenerating[challenge.id] || !productDescription}
+                    onClick={() => handleGetSuggestions(challenge.id!)}
+                    disabled={isGenerating[challenge.id!] || !productDescription}
                     className={`flex items-center px-4 py-2 text-sm font-medium rounded-lg ${
-                      isGenerating[challenge.id] || !productDescription
+                      isGenerating[challenge.id!] || !productDescription
                         ? 'bg-[#333333] text-gray-500 cursor-not-allowed'
                         : 'bg-[#FFD23F] text-[#1C1C1C] hover:bg-[#FFD23F]/90'
                     }`}
                   >
-                    {isGenerating[challenge.id] ? (
+                    {isGenerating[challenge.id!] ? (
                       <>
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                         Generating...
@@ -518,7 +545,7 @@ export function SolutionInput({ readOnly = false }: SolutionInputProps) {
                     )}
                   </button>
                   <button
-                    onClick={() => handleAddSolution(challenge.id)}
+                    onClick={() => handleAddSolution(challenge.id!)}
                     className="flex items-center px-4 py-2 text-sm font-medium rounded-lg bg-[#FFD23F] text-[#1C1C1C] hover:bg-[#FFD23F]/90"
                   >
                     <PlusCircle className="w-4 h-4 mr-2" />
@@ -528,124 +555,127 @@ export function SolutionInput({ readOnly = false }: SolutionInputProps) {
               )}
 
               <div className="space-y-4">
-                {challengeSolutions.map((solution) => (
-                  <div key={solution.id} className="bg-[#2A2A2A] rounded-lg border border-[#333333] p-4 space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                      <div className="md:col-span-2">
-                        <input
-                          type="text"
-                          value={solution.text}
-                          onChange={(e) => updateSolution(solution.id, { text: e.target.value })}
-                          className="w-full p-2 bg-[#1C1C1C] text-white border border-[#333333] rounded-lg focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent"
-                          placeholder="Describe your solution..."
-                          disabled={readOnly}
-                        />
-                      </div>
-                      <div>
-                        <select
-                          value={solution.type}
-                          onChange={(e) =>
-                            updateSolution(solution.id, {
-                              type: e.target.value as SolutionType,
-                            })
-                          }
-                          className="w-full p-2 bg-[#1C1C1C] text-white border border-[#333333] rounded-lg focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent"
-                          disabled={readOnly}
-                        >
-                          {Object.entries(solutionTypes).map(([value, label]) => (
-                            <option key={value} value={value}>{label}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        <select
-                          value={solution.cost}
-                          onChange={(e) =>
-                            updateSolution(solution.id, {
-                              cost: e.target.value as SolutionCost,
-                            })
-                          }
-                          className="w-full p-2 bg-[#1C1C1C] text-white border border-[#333333] rounded-lg focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent"
-                          disabled={readOnly}
-                        >
-                          <option value="low">Low Cost</option>
-                          <option value="medium">Medium Cost</option>
-                          <option value="high">High Cost</option>
-                        </select>
-                        <select
-                          value={solution.impact}
-                          onChange={(e) =>
-                            updateSolution(solution.id, {
-                              impact: e.target.value as SolutionImpact,
-                            })
-                          }
-                          className="w-full p-2 bg-[#1C1C1C] text-white border border-[#333333] rounded-lg focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent"
-                          disabled={readOnly}
-                        >
-                          <option value="low">Low Impact</option>
-                          <option value="medium">Medium Impact</option>
-                          <option value="high">High Impact</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    {!readOnly && (
-                      <div className="flex justify-between items-center">
-                        <button
-                          onClick={() => removeSolution(solution.id)}
-                          className="text-red-400 hover:text-red-300"
-                        >
-                          Remove
-                        </button>
-
-                        <div className="relative">
-                          <button
-                            onClick={() => handleGetFeedback(solution.id, solution.text)}
-                            onMouseEnter={() => setShowTooltip(prev => ({ ...prev, [solution.id]: true }))}
-                            onMouseLeave={() => setShowTooltip(prev => ({ ...prev, [solution.id]: false }))}
-                            disabled={isAnalyzing[solution.id] || solution.text.length < 10}
-                            className={`flex items-center px-4 py-2 rounded-lg ${
-                              isAnalyzing[solution.id] || solution.text.length < 10
-                                ? 'bg-[#333333] text-gray-500 cursor-not-allowed'
-                                : 'bg-[#FFD23F] text-[#1C1C1C] hover:bg-[#FFD23F]/90'
-                            }`}
+                {challengeSolutions.map((solution: Solution) => {
+                  if (!solution.id) return null;
+                  return (
+                    <div key={solution.id} className="bg-[#2A2A2A] rounded-lg border border-[#333333] p-4 space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div className="md:col-span-2">
+                          <input
+                            type="text"
+                            value={solution.text}
+                            onChange={(e) => updateSolution(solution.id, { text: e.target.value })}
+                            className="w-full p-2 bg-[#1C1C1C] text-white border border-[#333333] rounded-lg focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent"
+                            placeholder="Describe your solution..."
+                            disabled={readOnly}
+                          />
+                        </div>
+                        <div>
+                          <select
+                            value={solution.type}
+                            onChange={(e) =>
+                              updateSolution(solution.id, {
+                                type: e.target.value as SolutionType,
+                              })
+                            }
+                            className="w-full p-2 bg-[#1C1C1C] text-white border border-[#333333] rounded-lg focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent"
+                            disabled={readOnly}
                           >
-                            {isAnalyzing[solution.id] ? (
-                              <>
-                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                Analyzing...
-                              </>
-                            ) : (
-                              <>
-                                <MessageSquarePlus className="w-4 h-4 mr-2" />
-                                Get Feedback
-                              </>
-                            )}
-                          </button>
-                          
-                          {showTooltip[solution.id] && !isAnalyzing[solution.id] && (
-                            <div className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2">
-                              <div className="bg-[#1C1C1C] text-white text-sm rounded-lg py-1 px-3 whitespace-nowrap">
-                                Get AI feedback on your solution
-                                <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-[#1C1C1C]"></div>
-                              </div>
-                            </div>
-                          )}
+                            {Object.entries(solutionTypes).map(([value, label]) => (
+                              <option key={value} value={value}>{label}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                          <select
+                            value={solution.cost}
+                            onChange={(e) =>
+                              updateSolution(solution.id, {
+                                cost: e.target.value as SolutionCost,
+                              })
+                            }
+                            className="w-full p-2 bg-[#1C1C1C] text-white border border-[#333333] rounded-lg focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent"
+                            disabled={readOnly}
+                          >
+                            <option value="low">Low Cost</option>
+                            <option value="medium">Medium Cost</option>
+                            <option value="high">High Cost</option>
+                          </select>
+                          <select
+                            value={solution.impact}
+                            onChange={(e) =>
+                              updateSolution(solution.id, {
+                                impact: e.target.value as SolutionImpact,
+                              })
+                            }
+                            className="w-full p-2 bg-[#1C1C1C] text-white border border-[#333333] rounded-lg focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent"
+                            disabled={readOnly}
+                          >
+                            <option value="low">Low Impact</option>
+                            <option value="medium">Medium Impact</option>
+                            <option value="high">High Impact</option>
+                          </select>
                         </div>
                       </div>
-                    )}
 
-                    {!isAnalyzing[solution.id] && feedbacks[solution.id]?.length > 0 && (
-                      <div className="prose prose-sm max-w-none p-4 bg-[#1C1C1C] rounded-lg">
-                        {renderTextWithFeedback(solution.id, solution.text)}
-                      </div>
-                    )}
-                  </div>
-                ))}
+                      {!readOnly && (
+                        <div className="flex justify-between items-center">
+                          <button
+                            onClick={() => removeSolution(solution.id!)}
+                            className="text-red-400 hover:text-red-300"
+                          >
+                            Remove
+                          </button>
+
+                          <div className="relative">
+                            <button
+                              onClick={() => handleGetFeedback(solution.id!, solution.text)}
+                              onMouseEnter={() => setShowTooltip(prev => ({ ...prev, [solution.id!]: true }))}
+                              onMouseLeave={() => setShowTooltip(prev => ({ ...prev, [solution.id!]: false }))}
+                              disabled={isAnalyzing[solution.id!] || solution.text.length < 10}
+                              className={`flex items-center px-4 py-2 rounded-lg ${
+                                isAnalyzing[solution.id!] || solution.text.length < 10
+                                  ? 'bg-[#333333] text-gray-500 cursor-not-allowed'
+                                  : 'bg-[#FFD23F] text-[#1C1C1C] hover:bg-[#FFD23F]/90'
+                              }`}
+                            >
+                              {isAnalyzing[solution.id!] ? (
+                                <>
+                                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                  Analyzing...
+                                </>
+                              ) : (
+                                <>
+                                  <MessageSquarePlus className="w-4 h-4 mr-2" />
+                                  Get Feedback
+                                </>
+                              )}
+                            </button>
+                            
+                            {showTooltip[solution.id!] && !isAnalyzing[solution.id!] && (
+                              <div className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2">
+                                <div className="bg-[#1C1C1C] text-white text-sm rounded-lg py-1 px-3 whitespace-nowrap">
+                                  Get AI feedback on your solution
+                                  <div className="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-[#1C1C1C]"></div>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {!isAnalyzing[solution.id!] && feedbacks[solution.id!]?.length > 0 && (
+                        <div className="prose prose-sm max-w-none p-4 bg-[#1C1C1C] rounded-lg">
+                          {renderTextWithFeedback(solution.id!, solution.text)}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
 
                 {!readOnly && challengeSolutions.length > 0 && (
                   <button
-                    onClick={() => handleAddSolution(challenge.id)}
+                    onClick={() => handleAddSolution(challenge.id!)}
                     className="w-full flex items-center justify-center px-4 py-3 rounded-lg border-2 border-dashed border-[#FFD23F] text-[#FFD23F] hover:bg-[#FFD23F]/10"
                   >
                     <PlusCircle className="w-5 h-5 mr-2" />

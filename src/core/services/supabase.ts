@@ -1,4 +1,4 @@
-import { createClient, User, Session } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
@@ -100,27 +100,31 @@ export async function getModuleData(moduleKey: string): Promise<any | null> {
   return data ? data.data : null;
 }
 
-export async function saveModuleData(moduleKey: string, dataToSave: any): Promise<void> {
+export async function saveModuleData(moduleKey: string, dataToSave: any): Promise<any | null> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     throw new Error('Cannot save module data: user not logged in.');
   }
 
-  const { error } = await supabase
+  const recordToUpsert = {
+    user_id: user.id,
+    module_key: moduleKey,
+    data: dataToSave,
+    updated_at: new Date().toISOString(),
+  };
+
+  const { data, error } = await supabase
     .from('user_module_data')
-    .upsert({
-      user_id: user.id,
-      module_key: moduleKey,
-      data: dataToSave,
-      updated_at: new Date().toISOString(),
-    })
-    .select();
+    .upsert(recordToUpsert)
+    .select()
+    .single();
 
   if (error) {
     console.error(`Error saving data for module ${moduleKey}:`, error);
     throw error;
   }
   console.log(`Saved data for module: ${moduleKey}`);
+  return data;
 }
 
 // --- OLD/REMOVED Analysis Functions ---

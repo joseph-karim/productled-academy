@@ -1,27 +1,29 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useFormStore } from '../../store/formStore';
+import React from 'react';
+import { useModelInputsStore } from '../store/modelInputsStore';
 import { HelpCircle, Loader2, MessageSquarePlus } from 'lucide-react';
-import { analyzeText } from '../../services/ai/feedback';
-import { suggestUserEndgame } from '../../services/ai/users';
-import type { UserLevel } from '../../types';
-import { ErrorMessage } from '../shared/ErrorMessage';
-import { ChatAssistantButton } from '../shared/ChatAssistantButton';
+import { analyzeText } from '../services/ai/feedback';
+import { suggestUserEndgame } from '../services/ai/users';
+
+// Define UserLevel inline
+type UserLevel = 'beginner' | 'intermediate' | 'advanced';
+// Define UserOutcome inline temporarily
+interface UserOutcome { level: UserLevel; text: string; }
+// Define Feedback types inline temporarily
+interface FeedbackBase { id: string; category: string; text: string; type: 'improvement' | 'warning' | 'positive'; }
+interface FeedbackFromAnalysis extends FeedbackBase { suggestion: string; startIndex: number; endIndex: number; }
+interface FeedbackFromMissing extends FeedbackBase { description: string; examples?: string[]; }
 
 interface UserEndgameProps {
   readOnly?: boolean;
 }
 
 export function UserEndgame({ readOnly = false }: UserEndgameProps) {
-  const { outcomes, updateOutcome, idealUser } = useFormStore();
+  const { outcomes, updateOutcome, idealUser } = useModelInputsStore();
   const [showGuidance, setShowGuidance] = React.useState(true);
   const [isAnalyzing, setIsAnalyzing] = React.useState<Record<string, boolean>>({});
   const [error, setError] = React.useState<Record<string, string>>({});
   const [activeTab, setActiveTab] = React.useState<UserLevel>('beginner');
-  const [suggestions, setSuggestions] = React.useState<Record<string, Array<{
-    category: 'How' | 'Who' | 'Why' | 'Results';
-    text: string;
-    type: 'improvement' | 'warning' | 'positive';
-  }>>>({});
+  const [suggestions, setSuggestions] = React.useState<Record<string, FeedbackBase[]>>({});
   const [suggestedOutcomes, setSuggestedOutcomes] = React.useState<Record<string, string>>({});
 
   const examples = {
@@ -71,7 +73,7 @@ export function UserEndgame({ readOnly = false }: UserEndgameProps) {
   };
 
   const handleGetFeedback = async (level: UserLevel) => {
-    const outcome = outcomes.find(o => o.level === level);
+    const outcome = outcomes.find((o: UserOutcome) => o.level === level);
     if (!outcome?.text || outcome.text.length < 10) return;
     
     setIsAnalyzing(prev => ({ ...prev, [level]: true }));
@@ -80,17 +82,19 @@ export function UserEndgame({ readOnly = false }: UserEndgameProps) {
     try {
       const result = await analyzeText(outcome.text, 'User Endgame');
       
-      const groupedSuggestions = [
-        ...result.feedbacks.map(f => ({
+      const groupedSuggestions: FeedbackBase[] = [
+        ...(Array.isArray(result?.feedbacks) ? result.feedbacks.map((f: FeedbackFromAnalysis) => ({
+          id: f.id,
           category: f.category as 'How' | 'Who' | 'Why' | 'Results',
           text: f.suggestion,
           type: f.type
-        })),
-        ...result.missingElements.map(e => ({
+        })) : []),
+        ...(Array.isArray(result?.missingElements) ? result.missingElements.map(e => ({ 
+          id: e.category + '-missing',
           category: e.category as 'How' | 'Who' | 'Why' | 'Results',
           text: e.description,
           type: 'warning' as const
-        }))
+        })) : []),
       ];
 
       setSuggestions(prev => ({
@@ -128,21 +132,25 @@ export function UserEndgame({ readOnly = false }: UserEndgameProps) {
         ...prev,
         [level]: [
           {
+            id: level + '-how',
             category: 'How',
             text: result.breakdown.how,
             type: 'positive'
           },
           {
+            id: level + '-who',
             category: 'Who',
             text: result.breakdown.who,
             type: 'positive'
           },
           {
+            id: level + '-why',
             category: 'Why',
             text: result.breakdown.why,
             type: 'positive'
           },
           {
+            id: level + '-results',
             category: 'Results',
             text: result.breakdown.results,
             type: 'positive'
@@ -228,15 +236,15 @@ export function UserEndgame({ readOnly = false }: UserEndgameProps) {
               <div>
                 <h4 className="text-white font-medium mb-2">How & Who</h4>
                 <div className="space-y-2 text-gray-300">
-                  <p><span className="text-[#FFD23F]">How:</span> {examples[activeTab].how}</p>
-                  <p><span className="text-[#FFD23F]">Who:</span> {examples[activeTab].who}</p>
+                  <p><span className="text-[#FFD23F]">How:</span> {examples[activeTab as keyof typeof examples].how}</p>
+                  <p><span className="text-[#FFD23F]">Who:</span> {examples[activeTab as keyof typeof examples].who}</p>
                 </div>
               </div>
               <div>
                 <h4 className="text-white font-medium mb-2">Why & Results</h4>
                 <div className="space-y-2 text-gray-300">
-                  <p><span className="text-[#FFD23F]">Why:</span> {examples[activeTab].why}</p>
-                  <p><span className="text-[#FFD23F]">Results:</span> {examples[activeTab].results}</p>
+                  <p><span className="text-[#FFD23F]">Why:</span> {examples[activeTab as keyof typeof examples].why}</p>
+                  <p><span className="text-[#FFD23F]">Results:</span> {examples[activeTab as keyof typeof examples].results}</p>
                 </div>
               </div>
             </div>
@@ -246,7 +254,7 @@ export function UserEndgame({ readOnly = false }: UserEndgameProps) {
 
       <div className="space-y-8">
         {(['beginner', 'intermediate', 'advanced'] as const).map((level) => {
-          const outcome = outcomes.find(o => o.level === level);
+          const outcome = outcomes.find((o: UserOutcome) => o.level === level);
           const context = levelContexts[level];
           const isRequired = level === 'beginner' || level === 'intermediate';
           
@@ -289,7 +297,6 @@ export function UserEndgame({ readOnly = false }: UserEndgameProps) {
                         </>
                       )}
                     </button>
-                    <ChatAssistantButton label="Use Chat Assistant" />
                     <button
                       onClick={() => handleGetFeedback(level)}
                       disabled={isAnalyzing[level] || !outcome?.text || outcome.text.length < 10}
@@ -324,10 +331,7 @@ export function UserEndgame({ readOnly = false }: UserEndgameProps) {
               </div>
 
               {error[level] && (
-                <ErrorMessage
-                  message={error[level]}
-                  onRetry={() => handleGetFeedback(level)}
-                />
+                <div className="text-red-400 p-2 border border-red-400 rounded">Error: {error[level]}</div>
               )}
 
               {!isAnalyzing[level] && suggestedOutcomes[level] && (
@@ -339,7 +343,7 @@ export function UserEndgame({ readOnly = false }: UserEndgameProps) {
               {!isAnalyzing[level] && suggestions[level]?.length > 0 && (
                 <div className="space-y-4">
                   {(['How', 'Who', 'Why', 'Results'] as const).map(category => {
-                    const categorySuggestions = suggestions[level].filter(s => s.category === category);
+                    const categorySuggestions = suggestions[level]?.filter((s: FeedbackBase) => s.category === category) || [];
                     if (categorySuggestions.length === 0) return null;
 
                     return (

@@ -1,5 +1,7 @@
 import { openai, handleOpenAIRequest } from './client';
-import type { IdealUser, UserLevel } from '../../types';
+
+// Define UserLevel inline
+type UserLevel = 'beginner' | 'intermediate' | 'advanced';
 
 export async function identifyIdealUser(
   productDescription: string

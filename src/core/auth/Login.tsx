@@ -29,9 +29,11 @@ export function Login({ onLoginSuccess }: LoginProps) {
       onLoginSuccess?.(); 
       
       navigate(from, { replace: true }); // Redirect to intended destination
-    } catch (error: any) { // Catch specific Supabase errors if needed
-      console.error("Login error:", error);
-      setError(error.message || 'Invalid login credentials');
+    } catch (err) { // Catch specific Supabase errors if needed
+      console.error("Login error:", err);
+      // Check if err is an instance of AuthError or has a message property
+      const message = (err instanceof Error) ? err.message : 'Invalid login credentials';
+      setError(message);
     } finally {
       setLoading(false);
     }

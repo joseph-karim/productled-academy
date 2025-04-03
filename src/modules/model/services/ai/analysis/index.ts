@@ -1,8 +1,8 @@
-import { openai, handleOpenAIRequest } from '../client';
+import { openai } from '../client';
 import { systemPrompt, generateUserPrompt } from './prompts';
 import { analysisFunction } from './functions';
-import type { AnalysisInput } from './types';
-import type { Analysis } from '../../../types';
+import type { AnalysisInput, Analysis } from './types';
+import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 
 function createDefaultJourneyStage() {
   return {
@@ -57,12 +57,15 @@ export async function analyzeFormData(input: AnalysisInput): Promise<Analysis> {
   };
 
   try {
+    // Explicitly type the messages array
+    const messages: ChatCompletionMessageParam[] = [
+        systemPrompt as ChatCompletionMessageParam,
+        generateUserPrompt(validatedInput) as ChatCompletionMessageParam
+      ];
+
     const completion = await openai.chat.completions.create({
       model: "o3-mini",
-      messages: [
-        systemPrompt,
-        generateUserPrompt(validatedInput)
-      ],
+      messages: messages,
       functions: [analysisFunction],
       function_call: { name: "provide_analysis" }
     });
