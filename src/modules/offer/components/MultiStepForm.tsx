@@ -7,193 +7,12 @@ import { useAuth } from '@/core/auth/AuthProvider';
 import { AuthModal } from '@/core/auth/AuthModal';
 import { ErrorBoundary } from 'react-error-boundary';
 
-// Import our implemented components
-import { OfferIntro } from './OfferIntro';
-import { DefineUserSuccess } from './DefineUserSuccess';
-import { DefineTopResults } from './DefineTopResults';
-import { DefineAdvantages } from './DefineAdvantages';
-
-// Temporary placeholder component while we implement the actual step components
-const Placeholder = ({ title, modelData, readOnly }: { title: string; modelData?: any; readOnly?: boolean }) => (
-  <div className="p-4 bg-[#2A2A2A] rounded-lg">
-    <h2 className="text-2xl font-bold text-white mb-4">{title}</h2>
-    <p className="text-gray-300">This component is under development.</p>
-  </div>
-);
-
-// Step components (remaining placeholders will be replaced with actual implementations)
-const IdentifyRisks = ({ modelData, readOnly }: { modelData?: any; readOnly?: boolean }) => <Placeholder title="Identify Risks" modelData={modelData} readOnly={readOnly} />;
-const DefineAssurances = ({ modelData, readOnly }: { modelData?: any; readOnly?: boolean }) => <Placeholder title="Define Assurances" modelData={modelData} readOnly={readOnly} />;
-const OfferCanvasDisplay = ({ modelData, readOnly }: { modelData?: any; readOnly?: boolean }) => <Placeholder title="Offer Canvas Display" modelData={modelData} readOnly={readOnly} />;
-const HeroSectionBuilder = ({ modelData, readOnly }: { modelData?: any; readOnly?: boolean }) => <Placeholder title="Hero Section Builder" modelData={modelData} readOnly={readOnly} />;
-const ProblemSectionBuilder = ({ modelData, readOnly }: { modelData?: any; readOnly?: boolean }) => <Placeholder title="Problem Section Builder" modelData={modelData} readOnly={readOnly} />;
-const SolutionSectionBuilder = ({ modelData, readOnly }: { modelData?: any; readOnly?: boolean }) => <Placeholder title="Solution Section Builder" modelData={modelData} readOnly={readOnly} />;
-const RiskReversalBuilder = ({ modelData, readOnly }: { modelData?: any; readOnly?: boolean }) => <Placeholder title="Risk Reversal Builder" modelData={modelData} readOnly={readOnly} />;
-const SocialProofInput = ({ modelData, readOnly }: { modelData?: any; readOnly?: boolean }) => <Placeholder title="Social Proof Input" modelData={modelData} readOnly={readOnly} />;
-const CtaSectionBuilder = ({ modelData, readOnly }: { modelData?: any; readOnly?: boolean }) => <Placeholder title="CTA Section Builder" modelData={modelData} readOnly={readOnly} />;
-const RefineHeadlines = ({ modelData, readOnly }: { modelData?: any; readOnly?: boolean }) => <Placeholder title="Refine Headlines" modelData={modelData} readOnly={readOnly} />;
-const RefineBodyCopy = ({ modelData, readOnly }: { modelData?: any; readOnly?: boolean }) => <Placeholder title="Refine Body Copy" modelData={modelData} readOnly={readOnly} />;
-const AestheticsChecklist = ({ modelData, readOnly }: { modelData?: any; readOnly?: boolean }) => <Placeholder title="Aesthetics Checklist" modelData={modelData} readOnly={readOnly} />;
-const FinalChecklistSummary = ({ modelData, readOnly }: { modelData?: any; readOnly?: boolean }) => <Placeholder title="Final Checklist Summary" modelData={modelData} readOnly={readOnly} />;
-
-interface MultiStepFormProps {
-  readOnly?: boolean;
-  analysisId?: string;
-}
-
-const steps = [
-  { 
-    title: 'Offer Introduction',
-    component: OfferIntro,
-    isUnlocked: (state: ReturnType<typeof useOfferStore.getState>) => true,
-    isComplete: (state: ReturnType<typeof useOfferStore.getState>) => 
-      state.offerRating !== null
-  },
-  {
-    title: 'Define User Success',
-    component: DefineUserSuccess,
-    isUnlocked: (state: ReturnType<typeof useOfferStore.getState>) => true,
-    isComplete: (state: ReturnType<typeof useOfferStore.getState>) => 
-      state.userSuccess.statement.length >= 10
-  },
-  {
-    title: 'Define Top Results',
-    component: DefineTopResults,
-    isUnlocked: (state: ReturnType<typeof useOfferStore.getState>) => 
-      state.userSuccess.statement.length >= 10,
-    isComplete: (state: ReturnType<typeof useOfferStore.getState>) => 
-      state.topResults.tangible.length > 0 && 
-      state.topResults.intangible.length > 0 && 
-      state.topResults.improvement.length > 0
-  },
-  {
-    title: 'Define Advantages',
-    component: DefineAdvantages,
-    isUnlocked: (state: ReturnType<typeof useOfferStore.getState>) => 
-      state.topResults.tangible.length > 0,
-    isComplete: (state: ReturnType<typeof useOfferStore.getState>) => 
-      state.advantages.length >= 1
-  },
-  {
-    title: 'Identify Risks',
-    component: IdentifyRisks,
-    isUnlocked: (state: ReturnType<typeof useOfferStore.getState>) => 
-      state.advantages.length >= 1,
-    isComplete: (state: ReturnType<typeof useOfferStore.getState>) => 
-      state.risks.length >= 1
-  },
-  {
-    title: 'Define Assurances',
-    component: DefineAssurances,
-    isUnlocked: (state: ReturnType<typeof useOfferStore.getState>) => 
-      state.risks.length >= 1,
-    isComplete: (state: ReturnType<typeof useOfferStore.getState>) => 
-      state.assurances.length >= 1
-  },
-  {
-    title: 'Offer Canvas Display',
-    component: OfferCanvasDisplay,
-    isUnlocked: (state: ReturnType<typeof useOfferStore.getState>) => 
-      state.assurances.length >= 1,
-    isComplete: () => true // Always completable as it's a display
-  },
-  {
-    title: 'Hero Section Builder',
-    component: HeroSectionBuilder,
-    isUnlocked: (state: ReturnType<typeof useOfferStore.getState>) => 
-      state.assurances.length >= 1,
-    isComplete: (state: ReturnType<typeof useOfferStore.getState>) => 
-      state.heroSection.tagline.length > 0 && 
-      state.heroSection.subCopy.length > 0 && 
-      state.heroSection.ctaText.length > 0
-  },
-  {
-    title: 'Problem Section Builder',
-    component: ProblemSectionBuilder,
-    isUnlocked: (state: ReturnType<typeof useOfferStore.getState>) => 
-      state.heroSection.tagline.length > 0,
-    isComplete: (state: ReturnType<typeof useOfferStore.getState>) => 
-      state.problemSection.alternativesProblems.length > 0 && 
-      state.problemSection.underlyingProblem.length > 0
-  },
-  {
-    title: 'Solution Section Builder',
-    component: SolutionSectionBuilder,
-    isUnlocked: (state: ReturnType<typeof useOfferStore.getState>) => 
-      state.problemSection.underlyingProblem.length > 0,
-    isComplete: (state: ReturnType<typeof useOfferStore.getState>) => 
-      state.solutionSection.steps.length > 0
-  },
-  {
-    title: 'Risk Reversal Builder',
-    component: RiskReversalBuilder,
-    isUnlocked: (state: ReturnType<typeof useOfferStore.getState>) => 
-      state.solutionSection.steps.length > 0,
-    isComplete: (state: ReturnType<typeof useOfferStore.getState>) => 
-      state.riskReversals.length >= 1
-  },
-  {
-    title: 'Social Proof Input',
-    component: SocialProofInput,
-    isUnlocked: (state: ReturnType<typeof useOfferStore.getState>) => 
-      state.riskReversals.length >= 1,
-    isComplete: (state: ReturnType<typeof useOfferStore.getState>) => 
-      state.socialProof.testimonials.length > 0 || 
-      state.socialProof.caseStudies.length > 0 || 
-      state.socialProof.logos.length > 0 || 
-      state.socialProof.numbers.length > 0
-  },
-  {
-    title: 'CTA Section Builder',
-    component: CtaSectionBuilder,
-    isUnlocked: (state: ReturnType<typeof useOfferStore.getState>) => 
-      state.socialProof.testimonials.length > 0 || 
-      state.socialProof.caseStudies.length > 0 || 
-      state.socialProof.logos.length > 0 || 
-      state.socialProof.numbers.length > 0,
-    isComplete: (state: ReturnType<typeof useOfferStore.getState>) => 
-      state.ctaSection.mainCtaText.length > 0
-  },
-  {
-    title: 'Refine Headlines',
-    component: RefineHeadlines,
-    isUnlocked: (state: ReturnType<typeof useOfferStore.getState>) => 
-      state.ctaSection.mainCtaText.length > 0,
-    isComplete: (state: ReturnType<typeof useOfferStore.getState>) => 
-      state.refinedHeadlines.hero.length > 0 || 
-      state.refinedHeadlines.problem.length > 0 || 
-      state.refinedHeadlines.solution.length > 0
-  },
-  {
-    title: 'Refine Body Copy',
-    component: RefineBodyCopy,
-    isUnlocked: (state: ReturnType<typeof useOfferStore.getState>) => 
-      state.refinedHeadlines.hero.length > 0 || 
-      state.refinedHeadlines.problem.length > 0 || 
-      state.refinedHeadlines.solution.length > 0,
-    isComplete: (state: ReturnType<typeof useOfferStore.getState>) => 
-      state.refinedBodyCopy.hero.length > 0 || 
-      state.refinedBodyCopy.problem.length > 0 || 
-      state.refinedBodyCopy.solution.length > 0
-  },
-  {
-    title: 'Aesthetics Checklist',
-    component: AestheticsChecklist,
-    isUnlocked: (state: ReturnType<typeof useOfferStore.getState>) => 
-      state.refinedBodyCopy.hero.length > 0 || 
-      state.refinedBodyCopy.problem.length > 0 || 
-      state.refinedBodyCopy.solution.length > 0,
-    isComplete: (state: ReturnType<typeof useOfferStore.getState>) => 
-      state.aestheticsChecklistCompleted
-  },
-  {
-    title: 'Final Checklist',
-    component: FinalChecklistSummary,
-    isUnlocked: (state: ReturnType<typeof useOfferStore.getState>) => 
-      state.aestheticsChecklistCompleted,
-    isComplete: () => true // Last step is always completable
-  }
-];
+// Import our consolidated components
+import { CoreOfferDevelopment } from './consolidated/CoreOfferDevelopment';
+import { RiskManagement } from './consolidated/RiskManagement';
+import { LandingPageTop } from './consolidated/LandingPageTop';
+import { LandingPageBottom } from './consolidated/LandingPageBottom';
+import { RefinementFinalization } from './consolidated/RefinementFinalization';
 
 // ErrorFallback component
 const ErrorFallback = ({ error, resetErrorBoundary }: { error: Error; resetErrorBoundary: () => void }) => {
@@ -210,6 +29,78 @@ const ErrorFallback = ({ error, resetErrorBoundary }: { error: Error; resetError
     </div>
   );
 };
+
+interface MultiStepFormProps {
+  readOnly?: boolean;
+  analysisId?: string;
+}
+
+// New consolidated step definitions
+const steps = [
+  { 
+    title: 'Core Offer Development',
+    component: CoreOfferDevelopment,
+    isUnlocked: (state: ReturnType<typeof useOfferStore.getState>) => true,
+    isComplete: (state: ReturnType<typeof useOfferStore.getState>) => 
+      state.offerRating !== null &&
+      state.userSuccess.statement.length >= 10 &&
+      state.topResults.tangible.length > 0 && 
+      state.topResults.intangible.length > 0 && 
+      state.topResults.improvement.length > 0 &&
+      state.advantages.length >= 1
+  },
+  {
+    title: 'Risk Management & Offer Canvas',
+    component: RiskManagement,
+    isUnlocked: (state: ReturnType<typeof useOfferStore.getState>) => 
+      state.advantages.length >= 1,
+    isComplete: (state: ReturnType<typeof useOfferStore.getState>) => 
+      state.risks.length >= 1 && 
+      state.assurances.length >= 1
+  },
+  {
+    title: 'Landing Page Top Section',
+    component: LandingPageTop,
+    isUnlocked: (state: ReturnType<typeof useOfferStore.getState>) => 
+      state.assurances.length >= 1,
+    isComplete: (state: ReturnType<typeof useOfferStore.getState>) => 
+      state.heroSection.tagline.length > 0 && 
+      state.heroSection.subCopy.length > 0 && 
+      state.heroSection.ctaText.length > 0 &&
+      state.problemSection.alternativesProblems.length > 0 && 
+      state.problemSection.underlyingProblem.length > 0 &&
+      state.solutionSection.steps.length > 0
+  },
+  {
+    title: 'Landing Page Bottom Section',
+    component: LandingPageBottom,
+    isUnlocked: (state: ReturnType<typeof useOfferStore.getState>) => 
+      state.heroSection.tagline.length > 0 && 
+      state.solutionSection.steps.length > 0,
+    isComplete: (state: ReturnType<typeof useOfferStore.getState>) => 
+      state.riskReversals.length >= 1 &&
+      (state.socialProof.testimonials.length > 0 || 
+       state.socialProof.caseStudies.length > 0 || 
+       state.socialProof.logos.length > 0 || 
+       state.socialProof.numbers.length > 0) &&
+      state.ctaSection.mainCtaText.length > 0
+  },
+  {
+    title: 'Refinement & Finalization',
+    component: RefinementFinalization,
+    isUnlocked: (state: ReturnType<typeof useOfferStore.getState>) => 
+      state.riskReversals.length >= 1 && 
+      state.ctaSection.mainCtaText.length > 0,
+    isComplete: (state: ReturnType<typeof useOfferStore.getState>) => 
+      ((state.refinedHeadlines.hero.length > 0 || 
+        state.refinedHeadlines.problem.length > 0 || 
+        state.refinedHeadlines.solution.length > 0) &&
+       (state.refinedBodyCopy.hero.length > 0 || 
+        state.refinedBodyCopy.problem.length > 0 || 
+        state.refinedBodyCopy.solution.length > 0)) &&
+      state.aestheticsChecklistCompleted
+  }
+];
 
 export function MultiStepForm({ readOnly = false, analysisId: propAnalysisId }: MultiStepFormProps) {
   const [currentStep, setCurrentStep] = useState(0);
@@ -477,99 +368,42 @@ export function MultiStepForm({ readOnly = false, analysisId: propAnalysisId }: 
   };
 
   return (
-    <div className="space-y-8">
-      <ErrorBoundary FallbackComponent={ErrorFallback}>
-        <div className="bg-[#2A2A2A] rounded-lg p-6">
-          <CurrentStepComponent modelData={modelData} readOnly={readOnly} />
-        </div>
-
-        <div className="flex flex-col sm:flex-row justify-between items-center sm:items-start gap-4">
-          {/* Step indicators */}
-          <div className="hidden lg:flex flex-col w-48 space-y-2">
-            {steps.map((step, index) => (
-              <button
-                key={index}
-                onClick={() => isStepUnlocked(index) && setCurrentStep(index)}
-                disabled={!isStepUnlocked(index)}
-                className={`text-left p-2 rounded-lg transition-colors ${
-                  currentStep === index
-                    ? 'bg-[#FFD23F] text-[#1C1C1C] font-medium'
-                    : isStepUnlocked(index)
-                    ? 'hover:bg-[#2A2A2A] text-gray-300'
-                    : 'opacity-50 cursor-not-allowed text-gray-500'
-                } ${isStepCompleted(index) ? 'border-l-4 border-green-500 pl-4' : ''}`}
-              >
-                {step.title}
-              </button>
-            ))}
-          </div>
-
-          {/* Navigation buttons */}
-          <div className="flex justify-between w-full">
-            <button
-              onClick={goPrevious}
-              disabled={currentStep === 0}
-              className="flex items-center px-4 py-2 text-gray-300 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <ChevronLeft className="w-5 h-5 mr-1" />
-              Previous
-            </button>
-
-            <div className="flex items-center space-x-4">
-              {!readOnly && currentStep === steps.length - 1 && (
-                <button
-                  onClick={handleSave}
-                  disabled={isSaving}
-                  className="flex items-center px-4 py-2 bg-[#FFD23F] text-[#1C1C1C] rounded-lg hover:bg-opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isSaving ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                  ) : (
-                    <>
-                      <Save className="w-5 h-5 mr-1" />
-                      {user ? 'Save Offer' : 'Sign Up to Save'}
-                    </>
-                  )}
-                </button>
-              )}
-
-              {currentStep < steps.length - 1 && (
-                <button
-                  onClick={goNext}
-                  disabled={!isStepCompleted(currentStep)}
-                  className="flex items-center px-4 py-2 bg-[#FFD23F] text-[#1C1C1C] rounded-lg hover:bg-opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Next
-                  <ChevronRight className="w-5 h-5 ml-1" />
-                </button>
-              )}
-            </div>
+    <div className="min-h-[80vh] flex flex-col">
+      {/* Progress indicator */}
+      <div className="mb-8">
+        <div className="flex justify-between items-center mb-2">
+          <h2 className="text-xl font-bold text-white">
+            {steps[currentStep].title}
+          </h2>
+          <div className="text-sm text-gray-400">
+            Step {currentStep + 1} of {steps.length}
           </div>
         </div>
-      </ErrorBoundary>
+        
+        <div className="w-full bg-[#333333] rounded-full h-2">
+          <div 
+            className="bg-[#FFD23F] h-2 rounded-full" 
+            style={{ width: `${((currentStep + 1) / steps.length) * 100}%` }}
+          />
+        </div>
+      </div>
 
-      {showAuthModal && (
-        <AuthModal
-          onClose={() => {
-            setShowAuthModal(false);
-            setPendingAction(null);
-          }}
-          onSuccess={handleAuthSuccess}
-        />
-      )}
-
+      {/* Title prompt dialog */}
       {showTitlePrompt && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-[#2A2A2A] p-6 rounded-lg max-w-md w-full">
-            <h3 className="text-xl font-bold text-white mb-4">Name Your Offer</h3>
+        <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex items-center justify-center p-4">
+          <div className="bg-[#222222] rounded-lg p-6 max-w-md w-full">
+            <h3 className="text-xl font-semibold text-white mb-4">Name Your Offer</h3>
+            <p className="text-gray-300 mb-4">
+              Give your offer a name to help you identify it later.
+            </p>
             <input
               type="text"
               value={store.title}
               onChange={(e) => store.setTitle(e.target.value)}
-              className="w-full p-2 bg-[#1C1C1C] text-white border border-[#333333] rounded-lg mb-4"
-              placeholder="Enter a title..."
+              placeholder="e.g., SaaS Onboarding Offer"
+              className="w-full p-2 bg-[#1A1A1A] text-white border border-[#333333] rounded-lg mb-4"
             />
-            <div className="flex justify-end space-x-4">
+            <div className="flex justify-end space-x-2">
               <button
                 onClick={() => setShowTitlePrompt(false)}
                 className="px-4 py-2 text-gray-300 hover:text-white"
@@ -578,13 +412,12 @@ export function MultiStepForm({ readOnly = false, analysisId: propAnalysisId }: 
               </button>
               <button
                 onClick={() => {
-                  if (store.title) {
+                  if (store.title.trim()) {
                     setShowTitlePrompt(false);
                     handleSave();
                   }
                 }}
-                disabled={!store.title}
-                className="px-4 py-2 bg-[#FFD23F] text-[#1C1C1C] rounded-lg hover:bg-opacity-90 disabled:opacity-50"
+                className="px-4 py-2 bg-[#FFD23F] text-[#1C1C1C] rounded-lg hover:bg-opacity-90"
               >
                 Save
               </button>
@@ -592,6 +425,87 @@ export function MultiStepForm({ readOnly = false, analysisId: propAnalysisId }: 
           </div>
         </div>
       )}
+
+      {/* Auth modal */}
+      {showAuthModal && (
+        <AuthModal
+          onClose={() => {
+            setShowAuthModal(false);
+            setPendingAction(null);
+          }}
+          onSuccess={() => {
+            setShowAuthModal(false);
+            if (pendingAction === 'save') {
+              handleSave();
+            }
+            setPendingAction(null);
+          }}
+        />
+      )}
+
+      {/* Current step */}
+      <div className="flex-grow">
+        <ErrorBoundary
+          FallbackComponent={ErrorFallback}
+          onReset={() => setError(null)}
+        >
+          <CurrentStepComponent modelData={modelData} readOnly={readOnly} />
+        </ErrorBoundary>
+      </div>
+
+      {/* Error message */}
+      {error && (
+        <div className="mt-4 p-3 bg-red-500 bg-opacity-20 border border-red-500 rounded-md text-red-300">
+          {error}
+        </div>
+      )}
+
+      {/* Navigation and actions */}
+      <div className="mt-8 flex justify-between">
+        <button
+          onClick={() => setCurrentStep(prev => Math.max(0, prev - 1))}
+          disabled={currentStep === 0}
+          className="flex items-center px-4 py-2 bg-[#333333] text-white rounded-lg hover:bg-[#444444] disabled:opacity-50"
+        >
+          <ChevronLeft className="w-5 h-5 mr-1" />
+          Previous Step
+        </button>
+        
+        <div className="flex space-x-2">
+          {!readOnly && (
+            <button
+              onClick={() => handleSave()}
+              disabled={isSaving}
+              className="flex items-center px-4 py-2 bg-[#333333] text-white rounded-lg hover:bg-[#444444] disabled:opacity-50"
+            >
+              {isSaving ? (
+                <>
+                  <Loader2 className="w-5 h-5 mr-1 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="w-5 h-5 mr-1" />
+                  Save
+                </>
+              )}
+            </button>
+          )}
+          
+          <button
+            onClick={() => setCurrentStep(prev => Math.min(steps.length - 1, prev + 1))}
+            disabled={
+              currentStep === steps.length - 1 ||
+              !steps[currentStep].isComplete(store) ||
+              (currentStep + 1 < steps.length && !steps[currentStep + 1].isUnlocked(store))
+            }
+            className="flex items-center px-4 py-2 bg-[#FFD23F] text-[#1C1C1C] rounded-lg hover:bg-opacity-90 disabled:opacity-50"
+          >
+            Next Step
+            <ChevronRight className="w-5 h-5 ml-1" />
+          </button>
+        </div>
+      </div>
     </div>
   );
 } 
