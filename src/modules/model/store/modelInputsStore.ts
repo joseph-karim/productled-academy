@@ -1,9 +1,8 @@
 import { create } from 'zustand';
-import type { Challenge, Solution, ModelType, StoredAnalysis } from '../services/ai/analysis/types';
+import type { Challenge, Solution, ModelType, StoredAnalysis, UserJourney } from '../services/ai/analysis/types';
 import type { PackageFeature as Feature } from '../types/package';
 
 interface UserOutcome { level: string; text: string; /* Add other properties if needed */ }
-interface UserJourney { /* Define properties if known */ }
 interface IdealUser { 
   title: string; 
   description: string; 
