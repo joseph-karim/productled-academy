@@ -1,7 +1,7 @@
 import React from 'react';
-import { useFormStore } from '../../store/formStore';
-import { suggestModel } from '../../services/ai/suggestions';
-import type { ModelType } from '../../types';
+import { useModelInputsStore } from '../store/modelInputsStore';
+import { suggestModel } from '../services/ai/suggestions';
+import type { ModelType } from '../services/ai/analysis/types';
 import { MessageSquarePlus, Loader2, HelpCircle } from 'lucide-react';
 
 interface ModelSelectorProps {
@@ -120,7 +120,7 @@ export function ModelSelector({ readOnly = false }: ModelSelectorProps) {
     outcomes,
     challenges,
     solutions
-  } = useFormStore();
+  } = useModelInputsStore();
 
   const [isGenerating, setIsGenerating] = React.useState(false);
   const [suggestion, setSuggestion] = React.useState<{
