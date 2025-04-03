@@ -1,32 +1,44 @@
 import { openai, handleOpenAIRequest } from './client';
 import type { ChatMessage, OfferAnalysisResult } from './types';
 
+/**
+ * Gets a response from the AI coach based on conversation history and analysis context
+ */
 export async function getAnalysisCoachResponse(
   messages: ChatMessage[],
   analysisContext: OfferAnalysisResult
 ): Promise<string> {
+  // Format scorecard highlights
+  const scorecardHighlights = analysisContext.scorecard
+    .map(item => `${item.item}: ${item.rating}`)
+    .join(', ');
+  
+  // Extract key feedback points
+  const feedback = analysisContext.feedback;
+  const strengthsSection = feedback.split('### Areas for Improvement')[0].replace('### Key Strengths', '').trim();
+  const improvementSection = feedback.split('### Areas for Improvement')[1]?.split('### Suggested Next Steps')[0]?.trim() || '';
+  
+  // Format next steps
+  const nextStepsList = analysisContext.nextSteps.map((step, idx) => `${idx + 1}. ${step}`).join('\n');
+  
   return handleOpenAIRequest(
     openai.chat.completions.create({
       model: "gpt-4o",
       messages: [
         {
           role: "system",
-          content: `You are a ProductLed coach AI assistant. You are helping a user process feedback on their offer and create an action plan based on a detailed analysis.
+          content: `You are a ProductLed coach AI assistant, designed to be helpful, knowledgeable, and action-oriented. The user has just completed the Offer Component tool and received an evaluation of their drafted offer.
 
-Analysis Context:
-- Scorecard: ${JSON.stringify(analysisContext.scorecard)}
-- Feedback: ${analysisContext.feedback}
-- Next Steps: ${analysisContext.nextSteps.join(', ')}
+Here's a summary:
+- Scorecard Highlights: ${scorecardHighlights}
+- Key Feedback - Strengths: ${strengthsSection}
+- Key Feedback - Areas for Improvement: ${improvementSection}
+- Suggested Next Steps: 
+${nextStepsList}
 
-Your goals:
-1. Help the user understand the scorecard and feedback
-2. Prioritize which improvements to focus on first
-3. Provide specific, actionable guidance on implementing the next steps
-4. Be encouraging, supportive, and positive, even when discussing areas for improvement
-5. Keep responses concise (2-4 sentences) and focused on the user's specific questions
-6. If the user asks something outside the scope of the offer analysis, gently guide them back to the topic
+Your goal is to help the user understand these results, process the feedback, and turn the suggested next steps into a concrete, personal action plan for the next 1-2 weeks. Be encouraging but push for clarity and specific actions.
 
-Respond in a conversational, coaching style that's helpful and practical.`
+Start the conversation by asking for their initial reaction to the scorecard and feedback.`
         },
         ...messages
       ]
@@ -37,6 +49,9 @@ Respond in a conversational, coaching style that's helpful and practical.`
   );
 }
 
+/**
+ * Generates additional actionable steps based on analysis results
+ */
 export async function generateActionSteps(analysisContext: OfferAnalysisResult): Promise<string[]> {
   return handleOpenAIRequest(
     openai.chat.completions.create({
@@ -52,7 +67,7 @@ export async function generateActionSteps(analysisContext: OfferAnalysisResult):
             
 Scorecard: ${JSON.stringify(analysisContext.scorecard)}
 Feedback: ${analysisContext.feedback}
-Next Steps: ${analysisContext.nextSteps.join('\n')}
+Next Steps Already Suggested: ${analysisContext.nextSteps.join('\n')}
 
 Please generate 5-7 additional highly specific action steps that would be valuable for implementing these recommendations. 
 Each step should:
@@ -60,8 +75,9 @@ Each step should:
 2. Include clear success criteria
 3. Be actionable within 1-2 weeks
 4. Focus on highest impact improvements first
+5. Include effort required (Low/Medium/High) and impact potential (Low/Medium/High)
 
-Format as simple bullet points.`
+Format as an array of objects with 'text', 'effort', 'impact', and 'timeframe' properties.`
         }
       ],
       functions: [
@@ -73,8 +89,31 @@ Format as simple bullet points.`
             properties: {
               actionSteps: {
                 type: "array",
-                items: { type: "string" },
-                description: "List of specific, concrete action steps"
+                items: {
+                  type: "object",
+                  properties: {
+                    text: { 
+                      type: "string",
+                      description: "The specific action step text"
+                    },
+                    effort: { 
+                      type: "string", 
+                      enum: ["minimal", "moderate", "significant"],
+                      description: "The effort required to complete this step"
+                    },
+                    impact: { 
+                      type: "string", 
+                      enum: ["low", "medium", "high"],
+                      description: "The potential impact of completing this step"
+                    },
+                    timeframe: { 
+                      type: "string", 
+                      enum: ["immediate", "short-term", "long-term"],
+                      description: "The timeframe for implementation"
+                    }
+                  },
+                  required: ["text", "effort", "impact", "timeframe"]
+                }
               }
             },
             required: ["actionSteps"]
@@ -86,8 +125,114 @@ Format as simple bullet points.`
       const result = completion.choices[0].message.function_call?.arguments;
       if (!result) throw new Error("No action steps received");
       const parsed = JSON.parse(result);
-      return parsed.actionSteps;
+      return parsed.actionSteps.map((step: any) => step.text);
     }),
     'generating action steps'
+  );
+}
+
+/**
+ * Analyze specific headlines based on ProductLed principles
+ */
+export async function analyzeHeadlines(
+  userSuccessStatement: string,
+  headlines: {
+    hero: string[];
+    problem: string[];
+    solution: string[];
+  }
+): Promise<string> {
+  const heroHeadlinesList = headlines.hero.map(h => `- ${h}`).join('\n');
+  const problemHeadlinesList = headlines.problem.map(h => `- ${h}`).join('\n');
+  const solutionHeadlinesList = headlines.solution.map(h => `- ${h}`).join('\n');
+  
+  return handleOpenAIRequest(
+    openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: `You are a ProductLed Content Strategist. You provide concise feedback on offer headlines.`
+        },
+        {
+          role: "user",
+          content: `
+You are a ProductLed Content Strategist. Analyze the following headlines drafted for different sections of an offer page aiming for '${userSuccessStatement}':
+
+Hero Headlines:
+${heroHeadlinesList || "None provided"}
+
+Problem Headlines:
+${problemHeadlinesList || "None provided"}
+
+Solution Headlines:
+${solutionHeadlinesList || "None provided"}
+
+Evaluate based on:
+1. **Clarity:** Is the core message of each headline clear?
+2. **Benefit Focus:** Do they emphasize user benefits or outcomes?
+3. **Impact & Intrigue:** Are they attention-grabbing?
+4. **Consistency:** Do they align with the overall offer goal?
+
+Provide concise feedback as a bulleted list (max 3-4 points total), highlighting strengths and suggesting areas for improvement across the sets.`
+        }
+      ]
+    }).then(completion => {
+      return completion.choices[0].message.content || "No content returned from AI";
+    }),
+    'analyzing headlines'
+  );
+}
+
+/**
+ * Analyze body copy based on ProductLed principles
+ */
+export async function analyzeBodyCopy(
+  userSuccessStatement: string,
+  headlines: {
+    hero: string[];
+    problem: string[];
+    solution: string[];
+  },
+  bodyCopy: {
+    hero: string;
+    problem: string;
+    solution: string;
+  }
+): Promise<string> {
+  const heroHeadlinesList = headlines.hero.join(', ');
+  const problemHeadlinesList = headlines.problem.join(', ');
+  const solutionHeadlinesList = headlines.solution.join(', ');
+  
+  return handleOpenAIRequest(
+    openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: `You are a ProductLed Content Strategist. You provide concise feedback on offer body copy.`
+        },
+        {
+          role: "user",
+          content: `
+You are a ProductLed Content Strategist. Analyze the following body copy snippets intended to support the headlines for an offer aiming for '${userSuccessStatement}':
+
+- Hero Support Copy: '${bodyCopy.hero}' (supports headlines: ${heroHeadlinesList})
+- Problem Support Copy: '${bodyCopy.problem}' (supports headlines: ${problemHeadlinesList})
+- Solution Support Copy: '${bodyCopy.solution}' (supports headlines: ${solutionHeadlinesList})
+
+Evaluate based on:
+1. **Reinforcement:** Does the body copy effectively expand on and support the promise made in the corresponding headlines?
+2. **Clarity & Persuasiveness:** Is the copy clear, easy to read, and persuasive?
+3. **Conciseness:** Is there unnecessary jargon or fluff?
+4. **Benefit Detail:** Does it provide sufficient detail about benefits or how the solution works?
+
+Provide concise feedback as a bulleted list (max 3-4 points total), suggesting specific improvements for clarity, impact, or conciseness.`
+        }
+      ]
+    }).then(completion => {
+      return completion.choices[0].message.content || "No content returned from AI";
+    }),
+    'analyzing body copy'
   );
 } 
