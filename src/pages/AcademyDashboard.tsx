@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getModuleData } from '@/core/services/supabase';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/core/auth/AuthProvider';
 import { Loader2, CheckCircle, Lock } from 'lucide-react';
 
 // Define structure for modules

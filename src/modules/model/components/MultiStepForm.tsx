@@ -12,7 +12,7 @@ import { Analysis } from '@/modules/model/components/Analysis';
 import { useModelInputsStore, type FormState } from '@/modules/model/store/modelInputsStore';
 import { useModelPackagesStore, type PackageState } from '@/modules/model/store/modelPackagesStore';
 import { getModuleData, saveModuleData } from '@/core/services/supabase';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/core/auth/AuthProvider';
 import { AuthModal } from '@/core/auth/AuthModal';
 import { ErrorBoundary } from 'react-error-boundary';
 import type { PackageFeature } from '@/modules/model/types/package';
