@@ -1,5 +1,5 @@
 import React from 'react';
-import { useParams, useLocation } from 'react-router-dom';
+import { useParams, useLocation, Link } from 'react-router-dom';
 import { MultiStepForm } from './components/MultiStepForm';
 import { AuthProvider } from '@/core/auth/AuthProvider';
 
@@ -32,12 +32,22 @@ function ModelModuleContent({ id }: { id?: string }) {
           <h1 className="text-3xl font-bold text-white mb-4">
             Free Model Analyzer
           </h1>
-          <p className="text-gray-300">
-            Analyze your product's business model and get actionable insights. 
-            <span className="text-[#FFD23F]">
-              {' '}Create an account to save and share your results.
-            </span>
-          </p>
+          <div className="flex items-center gap-4">
+            <p className="text-gray-300">
+              Analyze your product's business model and get actionable insights.
+            </p>
+            <div className="flex items-center gap-2">
+              <span className="text-gray-300">
+                Create an account to save and share your results.
+              </span>
+              <Link
+                to="/signup"
+                className="inline-flex items-center px-4 py-2 bg-[#FFD23F] text-[#1C1C1C] rounded-lg font-medium hover:bg-opacity-90 transition-colors"
+              >
+                Sign Up
+              </Link>
+            </div>
+          </div>
         </div>
       )}
       
