@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useFormStore } from '../../store/formStore';
+import { useModelInputsStore } from '../../modules/model/store/modelInputsStore';
 import { MessageSquare, Send, X, Loader2 } from 'lucide-react';
 import { generateFromChat } from '../../services/ai';
 
@@ -17,7 +17,7 @@ interface ChatMessage {
 }
 
 export function ProductDescriptionWizard({ onClose }: { onClose: () => void }) {
-  const store = useFormStore();
+  const { setProductDescription } = useModelInputsStore();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [currentInput, setCurrentInput] = useState('');
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -122,19 +122,23 @@ export function ProductDescriptionWizard({ onClose }: { onClose: () => void }) {
     try {
       const result = await generateFromChat(responses);
       
-      store.setProductDescription(result.productDescription);
-      
-      const successMessage: ChatMessage = {
-        id: crypto.randomUUID(),
-        sender: 'system',
-        content: "✅ Done! I've generated your product description. You can now review and edit it in the form."
-      };
-      
-      setMessages(prev => [...prev, successMessage]);
-      
-      setTimeout(() => {
-        onClose();
-      }, 3000);
+      if (result.productDescription) {
+        setProductDescription(result.productDescription);
+        
+        const successMessage: ChatMessage = {
+          id: crypto.randomUUID(),
+          sender: 'system',
+          content: "✅ Done! I've generated your product description. You can now review and edit it in the form."
+        };
+        
+        setMessages(prev => [...prev, successMessage]);
+        
+        setTimeout(() => {
+          onClose();
+        }, 3000);
+      } else {
+        throw new Error('No product description generated');
+      }
     } catch (error) {
       console.error('Error generating content:', error);
       
