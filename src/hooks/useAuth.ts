@@ -1,85 +1,95 @@
-import { useAuth0 } from '@auth0/auth0-react';
-import { useEffect } from 'react';
-import { supabase } from '../services/supabase';
+import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
+import { Session, User } from '@supabase/supabase-js';
+import { supabase } from '@/core/services/supabase'; // Corrected path
 
-export function useAuth() {
-  const { 
-    isAuthenticated, 
-    getAccessTokenSilently, 
-    user: auth0User,
-    loginWithPopup,
-    logout,
-    error: auth0Error
-  } = useAuth0();
+interface AuthContextType {
+  session: Session | null;
+  user: User | null;
+  isLoading: boolean;
+  signIn: (email: string) => Promise<void>; // Basic email example, adjust if needed
+  signOut: () => Promise<void>;
+  error: Error | null;
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+interface AuthProviderProps {
+  children: ReactNode;
+}
+
+export const AuthProvider = ({ children }: AuthProviderProps) => {
+  const [session, setSession] = useState<Session | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    if (isAuthenticated && auth0User) {
-      const setupSupabase = async () => {
-        try {
-          // Get the JWT token from Auth0
-          const accessToken = await getAccessTokenSilently({
-            authorizationParams: {
-              audience: `https://${import.meta.env.VITE_AUTH0_DOMAIN}/api/v2/`,
-              scope: 'openid profile email'
-            }
-          });
+    setIsLoading(true);
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      setIsLoading(false);
+    }).catch(err => {
+      console.error("Error getting session:", err);
+      setError(err);
+      setIsLoading(false);
+    });
 
-          // Get the ID token which contains user claims
-          const { id_token } = await getAccessTokenSilently({
-            detailedResponse: true
-          });
-          
-          // Set up Supabase session using the ID token
-          await supabase.auth.setSession({
-            access_token: id_token,
-            refresh_token: '' // Not needed with Auth0
-          });
-        } catch (error) {
-          console.error('Error setting up Supabase auth:', error);
-        }
-      };
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        setSession(session);
+        setUser(session?.user ?? null);
+        setIsLoading(false); // Ensure loading is false after state change
+        setError(null); // Clear previous errors on state change
+      }
+    );
 
-      setupSupabase();
-    }
-  }, [isAuthenticated, auth0User, getAccessTokenSilently]);
+    return () => {
+      authListener?.subscription.unsubscribe();
+    };
+  }, []);
 
-  const signIn = async () => {
+  // Basic email sign-in example (replace with your desired method if different)
+  const signIn = async (email: string) => {
+    setError(null);
     try {
-      await loginWithPopup({
-        authorizationParams: {
-          prompt: 'login',
-          audience: `https://${import.meta.env.VITE_AUTH0_DOMAIN}/api/v2/`,
-          scope: 'openid profile email'
-        }
-      });
-    } catch (error) {
-      console.error('Auth0 login error:', error);
-      throw error;
+      // Using magic link for this example
+      const { error } = await supabase.auth.signInWithOtp({ email });
+      if (error) throw error;
+      // You might want to show a message to check email here
+    } catch (err) {
+      console.error('Error signing in:', err);
+      setError(err as Error);
     }
   };
 
   const signOut = async () => {
+    setError(null);
     try {
-      // Sign out from both Auth0 and Supabase
-      await Promise.all([
-        logout({ 
-          logoutParams: { 
-            returnTo: window.location.origin 
-          } 
-        }),
-        supabase.auth.signOut()
-      ]);
-    } catch (error) {
-      console.error('Auth0 logout error:', error);
-      throw error;
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+    } catch (err) {
+      console.error('Error signing out:', err);
+      setError(err as Error);
     }
   };
 
-  return {
-    isAuthenticated,
-    user: auth0User,
+  const value = {
+    session,
+    user,
+    isLoading,
     signIn,
     signOut,
-    error: auth0Error
+    error,
   };
-}
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+};
+
+export const useAuth = (): AuthContextType => {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};
