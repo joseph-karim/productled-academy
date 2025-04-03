@@ -7,6 +7,9 @@ import { AcademyDashboard } from '../../pages/AcademyDashboard';
 import { NotFoundPage } from '../../pages/NotFoundPage';
 import { ProtectedRoute } from './ProtectedRoute';
 import { ModelModulePage } from '../../modules/model/ModelModulePage'; // Placeholder - needs creation
+import { AuthCallback } from '../auth/AuthCallback';
+import { ResetPassword } from '../auth/ResetPassword';
+import { ForgotPassword } from '../auth/ForgotPassword';
 // Import other module pages here later
 // import { OfferModulePage } from '../../modules/offer/OfferModulePage';
 
@@ -14,10 +17,12 @@ export function AppRouter() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* Auth Routes */}
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
-        {/* Add route for auth callback if needed by Supabase */}
-        {/* <Route path="/auth/callback" element={<AuthCallback />} /> */}
+        <Route path="/auth/callback" element={<AuthCallback />} />
+        <Route path="/auth/reset-password" element={<ResetPassword />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
 
         {/* Protected Routes */}
         <Route
