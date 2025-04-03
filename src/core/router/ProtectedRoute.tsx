@@ -1,6 +1,6 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { useAuth } from '@/core/auth/useAuth';
+import { useAuth } from '@/hooks/useAuth';
 import { Loader2 } from 'lucide-react'; // For loading state
 
 interface ProtectedRouteProps {
@@ -8,7 +8,8 @@ interface ProtectedRouteProps {
 }
 
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const { user, isLoading, session } = useAuth();
+  // Destructure session and isLoading (user is implicitly included in session)
+  const { session, isLoading } = useAuth(); 
   const location = useLocation();
 
   if (isLoading) {
@@ -20,12 +21,11 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     );
   }
 
-  if (!user && !session) {
-    // User not logged in, redirect to login page
-    // Pass the current location so we can redirect back after login
+  // If there's no active session, redirect to login
+  if (!session) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  // User is logged in, render the requested component
+  // User is logged in (session exists), render the requested component
   return <>{children}</>;
 } 
