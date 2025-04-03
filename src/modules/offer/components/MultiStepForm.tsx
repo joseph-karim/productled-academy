@@ -98,7 +98,8 @@ const steps = [
        (state.refinedBodyCopy.hero.length > 0 || 
         state.refinedBodyCopy.problem.length > 0 || 
         state.refinedBodyCopy.solution.length > 0)) &&
-      state.aestheticsChecklistCompleted
+      state.aestheticsChecklistCompleted &&
+      state.offerScorecard !== null
   }
 ];
 
@@ -262,6 +263,19 @@ export function MultiStepForm({ readOnly = false, analysisId: propAnalysisId }: 
         store.setAestheticsChecklistCompleted(moduleData.aestheticsChecklistCompleted);
       }
       
+      // Analysis data
+      if (moduleData.offerScorecard) {
+        store.setOfferScorecard(moduleData.offerScorecard);
+      }
+      
+      if (moduleData.offerAnalysisFeedback) {
+        store.setOfferAnalysisFeedback(moduleData.offerAnalysisFeedback);
+      }
+      
+      if (moduleData.suggestedNextSteps) {
+        store.setSuggestedNextSteps(moduleData.suggestedNextSteps);
+      }
+      
     } catch (err) {
       console.error('Error loading offer data:', err);
       store.resetState();
@@ -315,7 +329,11 @@ export function MultiStepForm({ readOnly = false, analysisId: propAnalysisId }: 
         ctaSection: storeState.ctaSection,
         refinedHeadlines: storeState.refinedHeadlines,
         refinedBodyCopy: storeState.refinedBodyCopy,
-        aestheticsChecklistCompleted: storeState.aestheticsChecklistCompleted
+        aestheticsChecklistCompleted: storeState.aestheticsChecklistCompleted,
+        // Analysis data
+        offerScorecard: storeState.offerScorecard,
+        offerAnalysisFeedback: storeState.offerAnalysisFeedback,
+        suggestedNextSteps: storeState.suggestedNextSteps
       };
 
       const savedData = await saveModuleData('offer', dataToSave);

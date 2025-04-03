@@ -96,6 +96,13 @@ interface RefinedBodyCopy {
   solution: string;
 }
 
+// Scorecard item for the Analysis component
+interface ScorecardItem {
+  item: string;
+  rating: 'Poor' | 'Fair' | 'Good' | 'Excellent';
+  justification: string;
+}
+
 interface ProcessingState {
   userSuccess: boolean;
   topResults: boolean;
@@ -132,6 +139,13 @@ interface OfferState {
   refinedBodyCopy: RefinedBodyCopy;
   aestheticsChecklistCompleted: boolean;
   processingState: ProcessingState;
+  
+  // Analysis data
+  offerScorecard: ScorecardItem[] | null;
+  offerAnalysisFeedback: string | null;
+  suggestedNextSteps: string[] | null;
+  isAnalyzingOffer: boolean;
+  analysisError: string | null;
   
   // Actions
   setTitle: (title: string) => void;
@@ -193,6 +207,14 @@ interface OfferState {
   // Processing State
   setProcessing: (key: keyof ProcessingState, isProcessing: boolean) => void;
   
+  // Analysis actions
+  runFinalAnalysis: () => void;
+  setOfferScorecard: (scorecard: ScorecardItem[]) => void;
+  setOfferAnalysisFeedback: (feedback: string) => void;
+  setSuggestedNextSteps: (steps: string[]) => void;
+  setIsAnalyzingOffer: (isAnalyzing: boolean) => void;
+  setAnalysisError: (error: string | null) => void;
+  
   // Reset
   resetState: () => void;
 }
@@ -248,6 +270,14 @@ const initialState = {
     solution: '',
   },
   aestheticsChecklistCompleted: false,
+  
+  // Analysis state
+  offerScorecard: null,
+  offerAnalysisFeedback: null,
+  suggestedNextSteps: null,
+  isAnalyzingOffer: false,
+  analysisError: null,
+  
   processingState: {
     userSuccess: false,
     topResults: false,
@@ -439,6 +469,114 @@ export const useOfferStore = create<OfferState>()(
           [key]: isProcessing
         }
       })),
+      
+      // Analysis actions
+      runFinalAnalysis: () => set((state) => {
+        // Set analyzing state to true
+        set({ isAnalyzingOffer: true, analysisError: null });
+        
+        // Simulate API call with setTimeout
+        setTimeout(() => {
+          try {
+            // Mock scorecard data (in production, this would come from API)
+            const scorecard: ScorecardItem[] = [
+              {
+                item: 'Result Clarity',
+                rating: 'Good',
+                justification: 'Main result is clearly articulated but could be more specific with metrics.'
+              },
+              {
+                item: 'Advantage Clarity',
+                rating: 'Fair',
+                justification: 'Advantages are listed but unique differentiation could be stronger.'
+              },
+              {
+                item: 'Risk Reduction',
+                rating: 'Excellent',
+                justification: 'All major objections addressed with compelling assurances.'
+              },
+              {
+                item: 'Hero Communication',
+                rating: 'Good',
+                justification: 'Tagline communicates value but could be more attention-grabbing.'
+              },
+              {
+                item: 'Problem Resonance',
+                rating: 'Good',
+                justification: 'Underlying problem will resonate with target audience.'
+              },
+              {
+                item: 'Solution Completeness',
+                rating: 'Fair',
+                justification: 'Solution steps need more detail on implementation specifics.'
+              },
+              {
+                item: 'Trust Elements',
+                rating: 'Poor',
+                justification: 'More specific social proof needed with quantifiable results.'
+              },
+              {
+                item: 'Call to Action',
+                rating: 'Good',
+                justification: 'CTA is clear but could create more urgency.'
+              },
+              {
+                item: 'Visual Design',
+                rating: 'Excellent',
+                justification: 'Aesthetics checklist completed with attention to all key design principles.'
+              }
+            ];
+            
+            // Mock feedback
+            const feedback = `
+### Key Strengths:
+1. **Strong Risk Mitigation** - Your offer addresses potential objections thoroughly with well-crafted assurances.
+2. **Clear Visual Design** - The attention to aesthetics principles will help the offer appear professional and trustworthy.
+3. **Good Problem Framing** - Your problem statement effectively frames the pain points that will resonate with your audience.
+
+### Areas for Improvement:
+1. **Social Proof Enhancement** - Adding more specific, results-oriented testimonials would significantly strengthen credibility.
+2. **Solution Specificity** - Your solution steps would benefit from more concrete implementation details.
+3. **Advantage Differentiation** - Make your unique advantages more distinct from competitors' offerings.
+            `;
+            
+            // Mock next steps
+            const nextSteps = [
+              "Test your headline with 5-10 target customers to gauge initial reaction and comprehension",
+              "Create two versions of your solution section (one feature-focused, one outcome-focused) to A/B test",
+              "Gather 3-5 specific customer testimonials that include quantifiable results",
+              "Refine your CTA with urgency elements and test response rates",
+              "Conduct a competitive analysis to better articulate your unique advantages"
+            ];
+            
+            // Update state with analysis results
+            set({ 
+              offerScorecard: scorecard,
+              offerAnalysisFeedback: feedback,
+              suggestedNextSteps: nextSteps,
+              isAnalyzingOffer: false
+            });
+          } catch (error) {
+            // Handle errors
+            set({ 
+              isAnalyzingOffer: false, 
+              analysisError: error instanceof Error ? error.message : 'An error occurred during analysis' 
+            });
+          }
+        }, 3000); // 3 second simulated API delay
+        
+        return { processingState: state.processingState };
+      }),
+      
+      setOfferScorecard: (scorecard) => set({ offerScorecard: scorecard }),
+      
+      setOfferAnalysisFeedback: (feedback) => set({ offerAnalysisFeedback: feedback }),
+      
+      setSuggestedNextSteps: (steps) => set({ suggestedNextSteps: steps }),
+      
+      setIsAnalyzingOffer: (isAnalyzing) => set({ isAnalyzingOffer: isAnalyzing }),
+      
+      setAnalysisError: (error) => set({ analysisError: error }),
       
       // Reset
       resetState: () => set(initialState)

@@ -4,16 +4,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../../components
 import { CheckCircle2 } from 'lucide-react';
 import { HeroSectionBuilder } from '../HeroSectionBuilder';
 import { FeaturesSectionBuilder } from '../FeaturesSectionBuilder';
+import { ProblemSectionBuilder } from '../ProblemSectionBuilder';
 
 // Placeholder components to be replaced with actual implementations
-const ProblemSectionBuilder = ({ modelData, readOnly = false }: { modelData?: any; readOnly?: boolean }) => (
-  <div className="p-4 bg-[#2A2A2A] rounded-lg">
-    <h2 className="text-2xl font-bold text-white mb-4">Problem Section Builder</h2>
-    <p className="text-gray-300">This component will help you articulate the problem your product solves in a way that resonates with users.</p>
-    {readOnly && <p className="text-yellow-500 mt-2">This view is read-only</p>}
-  </div>
-);
-
 const SolutionSectionBuilder = ({ modelData, readOnly = false }: { modelData?: any; readOnly?: boolean }) => (
   <div className="p-4 bg-[#2A2A2A] rounded-lg">
     <h2 className="text-2xl font-bold text-white mb-4">Solution Section Builder</h2>
