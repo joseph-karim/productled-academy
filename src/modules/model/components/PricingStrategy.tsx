@@ -1,382 +1,234 @@
-import React, { useState, useEffect } from 'react';
-import { usePackageStore } from '../../store/packageStore';
-import { useFormStore } from '../../store/formStore';
-import { HelpCircle, PlusCircle, Trash2 } from 'lucide-react';
-import type { PricingStrategy as PricingStrategyType } from '../../types/package';
+import React, { useState } from 'react';
+import { useModelPackagesStore } from '../store/modelPackagesStore';
+import { useModelInputsStore } from '../store/modelInputsStore';
+import { suggestPackageFeatures } from '../services/ai/suggestions';
+import { HelpCircle, Loader2 } from 'lucide-react';
+import type { PricingStrategy as PricingStrategyType } from '../types/package';
+import type { Challenge, Solution, ModelType } from '../services/ai/analysis/types';
 
 interface PricingStrategyProps {
   readOnly?: boolean;
 }
 
 export function PricingStrategy({ readOnly = false }: PricingStrategyProps) {
-  const { pricingStrategy, setPricingStrategy, setProcessingState } = usePackageStore();
-  const { selectedModel, outcomes, challenges, solutions } = useFormStore();
+  const { pricingStrategy, setPricingStrategy } = useModelPackagesStore();
+  const { selectedModel, productDescription, challenges, solutions } = useModelInputsStore();
   const [showGuidance, setShowGuidance] = useState(true);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Initialize strategy if not set
-  useEffect(() => {
-    if (!pricingStrategy && !readOnly) {
-      setPricingStrategy({
-        model: selectedModel || 'freemium',
-        basis: 'per-user',
-        freePackage: {
-          limitations: [],
-          conversionGoals: []
-        },
-        paidPackage: {
-          valueMetrics: [],
-          targetConversion: 0
-        }
-      });
+  const handleGetSuggestion = async () => {
+    if (!selectedModel) {
+      setError('Please select a model first');
+      return;
     }
-  }, [pricingStrategy, selectedModel, setPricingStrategy, readOnly]);
 
-  // Check if advanced data is available
-  const hasAdvancedData = Boolean(
-    outcomes.find(o => o.level === 'advanced')?.text &&
-    challenges.some(c => c.level === 'advanced') &&
-    solutions.some(s => challenges.find(c => c.id === s.challengeId)?.level === 'advanced')
-  );
-
-  // Get advanced solutions sorted by impact
-  const advancedSolutions = solutions
-    .filter(s => challenges.find(c => c.id === s.challengeId)?.level === 'advanced')
-    .sort((a, b) => {
-      const impactScore = { low: 1, medium: 2, high: 3 };
-      return impactScore[b.impact] - impactScore[a.impact];
-    });
-
-  const handleStrategyChange = (updates: Partial<PricingStrategyType>) => {
-    if (!pricingStrategy || readOnly) return;
+    setIsGenerating(true);
+    setError(null);
 
     try {
-      setProcessingState({ pricingStrategy: true });
-      setError(null);
-
-      // Create new strategy object with updates
-      const newStrategy = {
-        ...pricingStrategy,
-        ...updates,
-        // Ensure nested objects are properly merged
-        freePackage: {
-          ...pricingStrategy.freePackage,
-          ...(updates.freePackage || {})
-        },
-        paidPackage: {
-          ...pricingStrategy.paidPackage,
-          ...(updates.paidPackage || {})
-        }
-      };
-
-      // Validate the new strategy
-      if (!newStrategy.basis || !newStrategy.model) {
-        throw new Error('Invalid pricing strategy configuration');
-      }
-
-      setPricingStrategy(newStrategy);
+      const result = await suggestPackageFeatures(
+        productDescription || '',
+        selectedModel,
+        challenges,
+        solutions
+      );
+      setPricingStrategy(result.pricingStrategy);
     } catch (err) {
-      console.error('Error updating pricing strategy:', err);
-      setError(err instanceof Error ? err.message : 'Failed to update pricing strategy');
+      setError(err instanceof Error ? err.message : 'Failed to get suggestion');
     } finally {
-      setProcessingState({ pricingStrategy: false });
+      setIsGenerating(false);
     }
   };
 
-  // Array field handlers
-  const addArrayItem = (field: 'limitations' | 'conversionGoals' | 'valueMetrics') => {
-    if (!pricingStrategy || readOnly) return;
+  const handleUpdateLimitation = (limitation: string, index: number) => {
+    if (!pricingStrategy) return;
 
-    const package_ = field === 'valueMetrics' ? 'paidPackage' : 'freePackage';
-    const currentArray = pricingStrategy[package_][field];
+    const newLimitations = [...pricingStrategy.freePackage.limitations];
+    newLimitations[index] = limitation;
 
-    handleStrategyChange({
-      [package_]: {
-        ...pricingStrategy[package_],
-        [field]: [...currentArray, '']
+    setPricingStrategy({
+      ...pricingStrategy,
+      freePackage: {
+        ...pricingStrategy.freePackage,
+        limitations: newLimitations
       }
     });
   };
 
-  const updateArrayItem = (
-    field: 'limitations' | 'conversionGoals' | 'valueMetrics',
-    index: number,
-    value: string
-  ) => {
-    if (!pricingStrategy || readOnly) return;
+  const handleUpdateGoal = (goal: string, index: number) => {
+    if (!pricingStrategy) return;
 
-    const package_ = field === 'valueMetrics' ? 'paidPackage' : 'freePackage';
-    const currentArray = [...pricingStrategy[package_][field]];
-    currentArray[index] = value;
+    const newGoals = [...pricingStrategy.freePackage.conversionGoals];
+    newGoals[index] = goal;
 
-    handleStrategyChange({
-      [package_]: {
-        ...pricingStrategy[package_],
-        [field]: currentArray
+    setPricingStrategy({
+      ...pricingStrategy,
+      freePackage: {
+        ...pricingStrategy.freePackage,
+        conversionGoals: newGoals
       }
     });
   };
-
-  const removeArrayItem = (
-    field: 'limitations' | 'conversionGoals' | 'valueMetrics',
-    index: number
-  ) => {
-    if (!pricingStrategy || readOnly) return;
-
-    const package_ = field === 'valueMetrics' ? 'paidPackage' : 'freePackage';
-    const currentArray = [...pricingStrategy[package_][field]];
-    currentArray.splice(index, 1);
-
-    handleStrategyChange({
-      [package_]: {
-        ...pricingStrategy[package_],
-        [field]: currentArray
-      }
-    });
-  };
-
-  if (!pricingStrategy) {
-    return (
-      <div className="text-center py-8 text-gray-400">
-        No pricing strategy defined yet.
-      </div>
-    );
-  }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-start">
-        <div>
-          <h2 className="text-2xl font-bold text-white">Pricing Strategy</h2>
-          <p className="text-gray-400">
-            Define your pricing approach and conversion goals.
-          </p>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <h2 className="text-lg font-semibold">Pricing Strategy</h2>
+          <button
+            type="button"
+            className="text-gray-500 hover:text-gray-700"
+            onClick={() => setShowGuidance(!showGuidance)}
+          >
+            <HelpCircle className="h-4 w-4" />
+          </button>
         </div>
-        <button
-          onClick={() => setShowGuidance(!showGuidance)}
-          className="text-[#FFD23F] hover:text-[#FFD23F]/80"
-        >
-          <HelpCircle className="w-5 h-5" />
-        </button>
+        {!readOnly && (
+          <button
+            type="button"
+            className="flex items-center gap-2 rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:opacity-50"
+            onClick={handleGetSuggestion}
+            disabled={isGenerating || !selectedModel}
+          >
+            {isGenerating ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>Generating...</span>
+              </>
+            ) : (
+              <span>Get Suggestion</span>
+            )}
+          </button>
+        )}
       </div>
 
       {error && (
-        <div className="bg-red-900/20 border border-red-500 text-red-400 p-4 rounded flex items-start">
-          <p>{error}</p>
+        <div className="rounded-md bg-red-50 p-4">
+          <div className="flex">
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-red-800">Error</h3>
+              <div className="mt-2 text-sm text-red-700">{error}</div>
+            </div>
+          </div>
         </div>
       )}
 
       {showGuidance && (
-        <div className="bg-[#2A2A2A] p-6 rounded-lg space-y-4">
-          <h3 className="text-lg font-medium text-white">Pricing Strategy Guidelines</h3>
-          <div className="grid grid-cols-2 gap-6">
-            <div>
-              <h4 className="text-[#FFD23F] font-medium mb-2">Value Metrics</h4>
-              <ul className="space-y-2 text-gray-300">
-                <li className="flex items-start space-x-2">
-                  <span className="w-1.5 h-1.5 mt-2 rounded-full bg-[#FFD23F]" />
-                  <span>Choose metrics that scale with value</span>
-                </li>
-                <li className="flex items-start space-x-2">
-                  <span className="w-1.5 h-1.5 mt-2 rounded-full bg-[#FFD23F]" />
-                  <span>Align limits with user segments</span>
-                </li>
-                <li className="flex items-start space-x-2">
-                  <span className="w-1.5 h-1.5 mt-2 rounded-full bg-[#FFD23F]" />
-                  <span>Consider implementation costs</span>
-                </li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="text-[#FFD23F] font-medium mb-2">Conversion Goals</h4>
-              <ul className="space-y-2 text-gray-300">
-                <li className="flex items-start space-x-2">
-                  <span className="w-1.5 h-1.5 mt-2 rounded-full bg-[#FFD23F]" />
-                  <span>Set clear upgrade triggers</span>
-                </li>
-                <li className="flex items-start space-x-2">
-                  <span className="w-1.5 h-1.5 mt-2 rounded-full bg-[#FFD23F]" />
-                  <span>Target specific user behaviors</span>
-                </li>
-                <li className="flex items-start space-x-2">
-                  <span className="w-1.5 h-1.5 mt-2 rounded-full bg-[#FFD23F]" />
-                  <span>Measure and optimize conversion</span>
-                </li>
-              </ul>
+        <div className="rounded-md bg-blue-50 p-4">
+          <div className="flex">
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-blue-800">Guidance</h3>
+              <div className="mt-2 text-sm text-blue-700">
+                <p>
+                  Your pricing strategy should align with your product-led growth model and create clear paths to conversion. Consider:
+                </p>
+                <ul className="mt-2 list-inside list-disc">
+                  <li>What limitations will encourage upgrades?</li>
+                  <li>What metrics indicate readiness to convert?</li>
+                  <li>What is a realistic conversion rate target?</li>
+                </ul>
+              </div>
             </div>
           </div>
         </div>
       )}
 
-      <div className="space-y-6">
-        {/* Pricing Basis */}
-        <div className="space-y-4">
-          <h3 className="text-lg font-medium text-white">Pricing Basis</h3>
-          <select
-            value={pricingStrategy.basis}
-            onChange={(e) => handleStrategyChange({ 
-              basis: e.target.value as PricingStrategyType['basis']
-            })}
-            className="w-full bg-[#1C1C1C] text-white p-2 rounded border border-[#333333] focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent"
-            disabled={readOnly}
-          >
-            <option value="per-user">Per User</option>
-            <option value="per-usage">Per Usage</option>
-            <option value="flat-rate">Flat Rate</option>
-          </select>
-        </div>
-
-        {/* Free Package Strategy */}
-        <div className="space-y-4">
-          <h3 className="text-lg font-medium text-white">Free Package Strategy</h3>
-          
-          {/* Limitations */}
-          <div>
-            <div className="flex justify-between items-center mb-2">
-              <label className="block text-sm font-medium text-gray-400">
-                Limitations
-              </label>
-              {!readOnly && (
-                <button
-                  onClick={() => addArrayItem('limitations')}
-                  className="text-[#FFD23F] hover:text-[#FFD23F]/80 text-sm flex items-center"
-                >
-                  <PlusCircle className="w-4 h-4 mr-1" />
-                  Add Limitation
-                </button>
-              )}
+      {pricingStrategy && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Model</label>
+              <div className="mt-1">
+                <input
+                  type="text"
+                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm disabled:bg-gray-100"
+                  value={pricingStrategy.model}
+                  disabled
+                />
+              </div>
             </div>
-            <div className="space-y-2">
-              {pricingStrategy.freePackage.limitations.map((limitation, index) => (
-                <div key={index} className="flex items-center space-x-2">
-                  <input
-                    type="text"
-                    value={limitation}
-                    onChange={(e) => updateArrayItem('limitations', index, e.target.value)}
-                    className="flex-1 bg-[#1C1C1C] text-white p-2 rounded border border-[#333333] focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent"
-                    placeholder="Enter limitation..."
-                    disabled={readOnly}
-                  />
-                  {!readOnly && (
-                    <button
-                      onClick={() => removeArrayItem('limitations', index)}
-                      className="text-red-400 hover:text-red-300 p-1"
-                    >
-                      <Trash2 className="w-5 h-5" />
-                    </button>
-                  )}
-                </div>
-              ))}
+            <div>
+              <label className="block text-sm font-medium text-gray-700">Pricing Basis</label>
+              <div className="mt-1">
+                <input
+                  type="text"
+                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm disabled:bg-gray-100"
+                  value={pricingStrategy.basis}
+                  disabled
+                />
+              </div>
             </div>
           </div>
 
-          {/* Conversion Goals */}
           <div>
-            <div className="flex justify-between items-center mb-2">
-              <label className="block text-sm font-medium text-gray-400">
-                Conversion Goals
-              </label>
-              {!readOnly && (
-                <button
-                  onClick={() => addArrayItem('conversionGoals')}
-                  className="text-[#FFD23F] hover:text-[#FFD23F]/80 text-sm flex items-center"
-                >
-                  <PlusCircle className="w-4 h-4 mr-1" />
-                  Add Goal
-                </button>
-              )}
-            </div>
-            <div className="space-y-2">
-              {pricingStrategy.freePackage.conversionGoals.map((goal, index) => (
-                <div key={index} className="flex items-center space-x-2">
-                  <input
-                    type="text"
-                    value={goal}
-                    onChange={(e) => updateArrayItem('conversionGoals', index, e.target.value)}
-                    className="flex-1 bg-[#1C1C1C] text-white p-2 rounded border border-[#333333] focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent"
-                    placeholder="Enter conversion goal..."
-                    disabled={readOnly}
-                  />
-                  {!readOnly && (
-                    <button
-                      onClick={() => removeArrayItem('conversionGoals', index)}
-                      className="text-red-400 hover:text-red-300 p-1"
-                    >
-                      <Trash2 className="w-5 h-5" />
-                    </button>
-                  )}
+            <h3 className="text-base font-medium text-gray-900">Free Package</h3>
+            <div className="mt-2 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Limitations</label>
+                <div className="mt-1 space-y-2">
+                  {pricingStrategy.freePackage.limitations.map((limitation: string, index: number) => (
+                    <input
+                      key={index}
+                      type="text"
+                      className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm disabled:bg-gray-100"
+                      value={limitation}
+                      onChange={(e) => handleUpdateLimitation(e.target.value, index)}
+                      disabled={readOnly}
+                    />
+                  ))}
                 </div>
-              ))}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Conversion Goals</label>
+                <div className="mt-1 space-y-2">
+                  {pricingStrategy.freePackage.conversionGoals.map((goal: string, index: number) => (
+                    <input
+                      key={index}
+                      type="text"
+                      className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm disabled:bg-gray-100"
+                      value={goal}
+                      onChange={(e) => handleUpdateGoal(e.target.value, index)}
+                      disabled={readOnly}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <h3 className="text-base font-medium text-gray-900">Paid Package</h3>
+            <div className="mt-2 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Value Metrics</label>
+                <div className="mt-1 space-y-2">
+                  {pricingStrategy.paidPackage.valueMetrics.map((metric: string, index: number) => (
+                    <input
+                      key={index}
+                      type="text"
+                      className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm disabled:bg-gray-100"
+                      value={metric}
+                      disabled
+                    />
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Target Conversion Rate (%)</label>
+                <div className="mt-1">
+                  <input
+                    type="number"
+                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm disabled:bg-gray-100"
+                    value={pricingStrategy.paidPackage.targetConversion}
+                    disabled
+                  />
+                </div>
+              </div>
             </div>
           </div>
         </div>
-
-        {/* Paid Package Strategy */}
-        <div className="space-y-4">
-          <h3 className="text-lg font-medium text-white">Paid Package Strategy</h3>
-          
-          {/* Value Metrics */}
-          <div>
-            <div className="flex justify-between items-center mb-2">
-              <label className="block text-sm font-medium text-gray-400">
-                Value Metrics
-              </label>
-              {!readOnly && (
-                <button
-                  onClick={() => addArrayItem('valueMetrics')}
-                  className="text-[#FFD23F] hover:text-[#FFD23F]/80 text-sm flex items-center"
-                >
-                  <PlusCircle className="w-4 h-4 mr-1" />
-                  Add Metric
-                </button>
-              )}
-            </div>
-            <div className="space-y-2">
-              {pricingStrategy.paidPackage.valueMetrics.map((metric, index) => (
-                <div key={index} className="flex items-center space-x-2">
-                  <input
-                    type="text"
-                    value={metric}
-                    onChange={(e) => updateArrayItem('valueMetrics', index, e.target.value)}
-                    className="flex-1 bg-[#1C1C1C] text-white p-2 rounded border border-[#333333] focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent"
-                    placeholder="Enter value metric..."
-                    disabled={readOnly}
-                  />
-                  {!readOnly && (
-                    <button
-                      onClick={() => removeArrayItem('valueMetrics', index)}
-                      className="text-red-400 hover:text-red-300 p-1"
-                    >
-                      <Trash2 className="w-5 h-5" />
-                    </button>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Target Conversion Rate */}
-          <div>
-            <label className="block text-sm font-medium text-gray-400 mb-2">
-              Target Conversion Rate (%)
-            </label>
-            <input
-              type="number"
-              min="0"
-              max="100"
-              value={pricingStrategy.paidPackage.targetConversion}
-              onChange={(e) => handleStrategyChange({
-                paidPackage: {
-                  ...pricingStrategy.paidPackage,
-                  targetConversion: Math.max(0, Math.min(100, parseInt(e.target.value) || 0))
-                }
-              })}
-              className="w-full bg-[#1C1C1C] text-white p-2 rounded border border-[#333333] focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent"
-              disabled={readOnly}
-            />
-          </div>
-        </div>
-      </div>
+      )}
     </div>
   );
 }

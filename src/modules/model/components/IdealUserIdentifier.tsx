@@ -1,24 +1,35 @@
 import React, { useState } from 'react';
-import { useFormStore } from '../../store/formStore';
+import { useModelInputsStore } from '../store/modelInputsStore';
 import { HelpCircle, Loader2, MessageSquarePlus, CheckCircle } from 'lucide-react';
-import { identifyIdealUser } from '../../services/ai/users';
-import { ErrorMessage } from '../shared/ErrorMessage';
-import { IdealUserWizard } from '../wizard/IdealUserWizard';
-import type { IdealUser } from '../../types';
+import { identifyIdealUser } from '../services/ai/users';
+import { ErrorMessage } from '@/components/shared/ErrorMessage';
+import { IdealUserWizard } from '@/components/wizard/IdealUserWizard';
 
 interface IdealUserIdentifierProps {
   readOnly?: boolean;
+}
+
+interface IdealUser {
+  title: string;
+  description: string;
+  motivation: 'Low' | 'Medium' | 'High';
+  ability: 'Low' | 'Medium' | 'High';
+  traits: string[];
+  impact: string;
 }
 
 export function IdealUserIdentifier({ readOnly = false }: IdealUserIdentifierProps) {
   const { 
     productDescription, 
     idealUser, 
-    setIdealUser 
-  } = useFormStore();
+    setIdealUser,
+    outcomes,
+    challenges,
+    solutions
+  } = useModelInputsStore();
   
   const [showGuidance, setShowGuidance] = useState(true);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showWizard, setShowWizard] = useState(false);
   const [formData, setFormData] = useState<IdealUser>({
@@ -26,22 +37,19 @@ export function IdealUserIdentifier({ readOnly = false }: IdealUserIdentifierPro
     description: '',
     motivation: 'Medium',
     ability: 'Medium',
-    traits: ['', '', ''],
+    traits: [],
     impact: ''
   });
 
   const handleGetSuggestion = async () => {
-    if (!productDescription) {
-      setError("Please provide a product description first");
-      return;
-    }
+    if (!productDescription || readOnly) return;
     
-    setIsAnalyzing(true);
+    setIsGenerating(true);
     setError(null);
     
     try {
       const result = await identifyIdealUser(productDescription);
-      setFormData({
+      setIdealUser({
         title: result.idealUser.title,
         description: result.idealUser.description,
         motivation: result.idealUser.motivation,
@@ -52,8 +60,20 @@ export function IdealUserIdentifier({ readOnly = false }: IdealUserIdentifierPro
     } catch (error) {
       setError(error instanceof Error ? error.message : 'An unexpected error occurred');
     } finally {
-      setIsAnalyzing(false);
+      setIsGenerating(false);
     }
+  };
+
+  const handleTraitChange = (trait: string, index: number) => {
+    if (!idealUser || readOnly) return;
+    
+    const updatedTraits = [...(idealUser.traits || [])];
+    updatedTraits[index] = trait;
+    
+    setIdealUser({
+      ...idealUser,
+      traits: updatedTraits
+    });
   };
 
   const handleSubmit = () => {
@@ -134,14 +154,14 @@ export function IdealUserIdentifier({ readOnly = false }: IdealUserIdentifierPro
           </button>
           <button
             onClick={handleGetSuggestion}
-            disabled={isAnalyzing || !productDescription}
+            disabled={isGenerating || !productDescription}
             className={`flex-1 flex items-center justify-center px-6 py-3 rounded-lg ${
-              isAnalyzing || !productDescription
+              isGenerating || !productDescription
                 ? 'bg-[#333333] text-gray-500 cursor-not-allowed'
                 : 'bg-[#2A2A2A] text-[#FFD23F] border border-[#FFD23F] hover:bg-[#FFD23F] hover:text-[#1C1C1C]'
             }`}
           >
-            {isAnalyzing ? (
+            {isGenerating ? (
               <>
                 <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                 Analyzing...
