@@ -1,32 +1,35 @@
 import { create } from 'zustand';
-import type { FormState, Challenge, Solution, ModelType, Feature, UserOutcome, UserJourney, IdealUser, Analysis } from '../types';
-import { devtools } from 'zustand/middleware';
+import type { Challenge, Solution, ModelType, Analysis } from '../services/ai/analysis/types';
+import type { PackageFeature as Feature } from '../types/package';
 
-interface FormStore extends FormState {
-  setProductDescription: (description: string) => void;
-  setIdealUser: (user: IdealUser | undefined) => void;
-  addOutcome: (outcome: UserOutcome) => void;
-  updateOutcome: (level: string, text: string) => void;
-  addChallenge: (challenge: Challenge) => void;
-  updateChallenge: (id: string, challenge: Partial<Challenge>) => void;
-  removeChallenge: (id: string) => void;
-  addSolution: (solution: Solution) => void;
-  updateSolution: (id: string, solution: Partial<Solution>) => void;
-  removeSolution: (id: string) => void;
-  addCoreSolution: (solution: Solution) => void;
-  setSelectedModel: (model: ModelType | null) => void;
-  addFeature: (feature: Feature) => void;
-  updateFeature: (id: string, feature: Partial<Feature>) => void;
-  removeFeature: (id: string) => void;
-  setUserJourney: (journey: UserJourney) => void;
-  setCallToAction: (text: string) => void;
-  setAnalysis: (analysis: Analysis | null) => void;
-  setProcessingState: (state: { [key: string]: boolean }) => void;
-  resetState: () => void;
-  setTitle: (title: string) => void;
+interface UserOutcome { level: string; text: string; /* Add other properties if needed */ }
+interface UserJourney { /* Define properties if known */ }
+interface IdealUser { 
+  title: string; 
+  description: string; 
+  motivation: 'Low' | 'Medium' | 'High'; 
+  ability: 'Low' | 'Medium' | 'High';
+  traits: string[];
+  impact: string;
+}
+interface FormState { // Define basic FormState structure if not importable
+  title: string;
+  productDescription: string;
+  idealUser?: IdealUser;
+  outcomes: UserOutcome[];
+  challenges: Challenge[];
+  solutions: Solution[];
+  selectedModel: ModelType | null;
+  freeFeatures: Feature[];
+  userJourney?: UserJourney;
+  callToAction?: string;
+  analysis?: Analysis | null;
+  processingState: { [key: string]: boolean };
 }
 
-const initialState = {
+import { devtools } from 'zustand/middleware';
+
+const initialState: FormState = {
   title: '',
   productDescription: '',
   idealUser: undefined,
@@ -43,101 +46,101 @@ const initialState = {
 
 export const useModelInputsStore = create<FormState>()(
   devtools(
-    (set, get) => ({
+    (set) => ({
       ...initialState,
 
-      setTitle: (title) => set({ title }),
+      setTitle: (title: string) => set({ title }),
 
-      setProductDescription: (description) =>
+      setProductDescription: (description: string) =>
         set({ productDescription: description }),
 
-      setIdealUser: (user) =>
+      setIdealUser: (user: IdealUser | undefined) =>
         set({ idealUser: user }),
 
-      addOutcome: (outcome) =>
-        set((state) => ({
-          outcomes: [...state.outcomes.filter(o => o.level !== outcome.level), outcome]
+      addOutcome: (outcome: UserOutcome) =>
+        set((state: FormState) => ({
+          outcomes: [...state.outcomes.filter((o: UserOutcome) => o.level !== outcome.level), outcome]
         })),
 
-      updateOutcome: (level, text) =>
-        set((state) => ({
+      updateOutcome: (level: string, text: string) =>
+        set((state: FormState) => ({
           outcomes: [
-            ...state.outcomes.filter(o => o.level !== level),
+            ...state.outcomes.filter((o: UserOutcome) => o.level !== level),
             { level, text }
           ]
         })),
 
-      addChallenge: (challenge) =>
-        set((state) => ({
+      addChallenge: (challenge: Challenge) =>
+        set((state: FormState) => ({
           challenges: [...state.challenges, challenge],
         })),
 
-      updateChallenge: (id, challenge) =>
-        set((state) => ({
-          challenges: state.challenges.map((c) =>
+      updateChallenge: (id: string, challenge: Partial<Challenge>) => 
+        set((state: FormState) => ({ 
+          challenges: state.challenges.map((c: Challenge) => 
             c.id === id ? { ...c, ...challenge } : c
           ),
         })),
 
-      removeChallenge: (id) =>
-        set((state) => ({
-          challenges: state.challenges.filter((c) => c.id !== id),
-          solutions: state.solutions.filter((s) => s.challengeId !== id),
+      removeChallenge: (id: string) => 
+        set((state: FormState) => ({ 
+          challenges: state.challenges.filter((c: Challenge) => c.id !== id), 
+          solutions: state.solutions.filter((s: any) => s.challengeId !== id), 
         })),
 
-      addSolution: (solution) =>
-        set((state) => ({
+      addSolution: (solution: Solution) => 
+        set((state: FormState) => ({ 
           solutions: [...state.solutions, solution],
         })),
 
-      updateSolution: (id, solution) =>
-        set((state) => ({
-          solutions: state.solutions.map((s) =>
+      updateSolution: (id: string, solution: Partial<Solution>) => 
+        set((state: FormState) => ({ 
+          solutions: state.solutions.map((s: Solution) => 
             s.id === id ? { ...s, ...solution } : s
           ),
         })),
 
-      removeSolution: (id) =>
-        set((state) => ({
-          solutions: state.solutions.filter((s) => s.id !== id),
+      removeSolution: (id: string) => 
+        set((state: FormState) => ({ 
+          solutions: state.solutions.filter((s: Solution) => s.id !== id), 
         })),
 
-      addCoreSolution: (solution) =>
-        set((state) => ({
-          solutions: [...state.solutions, { ...solution, category: 'core' }],
+      addCoreSolution: (solution: Solution) => 
+        set((state: FormState) => ({ 
+          solutions: [...state.solutions, { ...(solution as any), category: 'core' }], 
         })),
 
-      setSelectedModel: (model) =>
+      setSelectedModel: (model: ModelType | null) => 
         set({ selectedModel: model }),
 
-      addFeature: (feature) =>
-        set((state) => ({
+      addFeature: (feature: Feature) => 
+        set((state: FormState) => ({ 
           freeFeatures: [...state.freeFeatures, feature],
         })),
 
-      updateFeature: (id, feature) =>
-        set((state) => ({
-          freeFeatures: state.freeFeatures.map((f) =>
+      updateFeature: (id: string, feature: Partial<Feature>) => 
+        set((state: FormState) => ({ 
+          freeFeatures: state.freeFeatures.map((f: Feature) => 
             f.id === id ? { ...f, ...feature } : f
           ),
         })),
 
-      removeFeature: (id) =>
-        set((state) => ({
-          freeFeatures: state.freeFeatures.filter((f) => f.id !== id),
+      removeFeature: (id: string) => 
+        set((state: FormState) => ({ 
+          freeFeatures: state.freeFeatures.filter((f: Feature) => f.id !== id), 
         })),
 
-      setUserJourney: (journey) =>
+      setUserJourney: (journey: UserJourney) => 
         set({ userJourney: journey }),
 
-      setCallToAction: (text) =>
+      setCallToAction: (text: string) => 
         set({ callToAction: text }),
 
-      setAnalysis: (analysis) =>
+      setAnalysis: (analysis: Analysis | null) => 
         set({ analysis }),
 
-      setProcessingState: (state) =>
-        set((prev) => ({ 
+      setProcessingState: (state: { [key: string]: boolean }) => 
+        set((prev: FormState) => ({ 
           processingState: { ...prev.processingState, ...state }
         })),
 

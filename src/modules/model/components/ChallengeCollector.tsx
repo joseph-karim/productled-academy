@@ -1,10 +1,13 @@
 import React from 'react';
-import { useFormStore } from '../../store/formStore';
-import { UserLevel, Challenge } from '../../types';
+import { useModelInputsStore } from '../store/modelInputsStore';
+import { Challenge } from '../services/ai/analysis/types';
 import { MessageSquarePlus, HelpCircle, Loader2, PlusCircle } from 'lucide-react';
-import { FloatingFeedback, type Feedback } from '../shared/FloatingFeedback';
-import { analyzeText } from '../../services/ai/feedback';
-import { suggestChallenges } from '../../services/ai/suggestions';
+import { analyzeText } from '../services/ai/feedback';
+import { suggestChallenges } from '../services/ai/suggestions';
+
+type UserLevel = 'beginner' | 'intermediate' | 'advanced';
+
+interface Feedback { id: string; startIndex: number; endIndex: number; /* ... other props */ }
 
 interface ChallengeCollectorProps {
   readOnly?: boolean;
@@ -18,12 +21,11 @@ export function ChallengeCollector({ readOnly = false }: ChallengeCollectorProps
     addChallenge, 
     updateChallenge, 
     removeChallenge 
-  } = useFormStore();
+  } = useModelInputsStore();
   
   const [showGuidance, setShowGuidance] = React.useState(true);
   const [feedbacks, setFeedbacks] = React.useState<Record<string, Feedback[]>>({});
   const [isAnalyzing, setIsAnalyzing] = React.useState<Record<string, boolean>>({});
-  const [showTooltip, setShowTooltip] = React.useState<Record<string, boolean>>({});
   const [isGenerating, setIsGenerating] = React.useState<Record<string, boolean>>({});
 
   const userLevels: UserLevel[] = ['beginner', 'intermediate', 'advanced'];
@@ -49,7 +51,7 @@ export function ChallengeCollector({ readOnly = false }: ChallengeCollectorProps
   const handleAddChallenge = (level: UserLevel) => {
     if (readOnly) return;
     
-    const outcome = outcomes.find(o => o.level === level);
+    const outcome = outcomes.find((o: any) => o.level === level);
     if (!outcome) {
       alert(`Please define the ${level} user outcome first`);
       return;
@@ -68,7 +70,7 @@ export function ChallengeCollector({ readOnly = false }: ChallengeCollectorProps
   const handleGetSuggestions = async (level: UserLevel) => {
     if (readOnly) return;
     
-    const outcome = outcomes.find(o => o.level === level);
+    const outcome = outcomes.find((o: any) => o.level === level);
     if (!outcome || !productDescription) return;
     
     setIsGenerating(prev => ({ ...prev, [level]: true }));
@@ -102,12 +104,19 @@ export function ChallengeCollector({ readOnly = false }: ChallengeCollectorProps
     if (title.length < 3) return;
     
     setIsAnalyzing(prev => ({ ...prev, [challengeId]: true }));
-    const result = await analyzeText(
-      description ? `${title}\n\n${description}` : title, 
-      'Challenge'
-    );
-    setFeedbacks(prev => ({ ...prev, [challengeId]: result.feedbacks }));
-    setIsAnalyzing(prev => ({ ...prev, [challengeId]: false }));
+    try {
+      const result = await analyzeText(
+        description ? `${title}\n\n${description}` : title, 
+        'Challenge'
+      );
+      if (result?.feedbacks) {
+        setFeedbacks(prev => ({ ...prev, [challengeId]: result.feedbacks }));
+      }
+      setIsAnalyzing(prev => ({ ...prev, [challengeId]: false }));
+    } catch (error) {
+      console.error("Error getting feedback:", error);
+      setIsAnalyzing(prev => ({ ...prev, [challengeId]: false }));
+    }
   };
 
   const handleAcceptFeedback = (challengeId: string, feedbackId: string) => {
@@ -130,24 +139,19 @@ export function ChallengeCollector({ readOnly = false }: ChallengeCollectorProps
     const challengeFeedbacks = feedbacks[challengeId] || [];
     if (challengeFeedbacks.length === 0) return null;
 
-    let result = [];
+    let result: React.ReactNode[] = [];
     let lastIndex = 0;
 
     const sortedFeedbacks = [...challengeFeedbacks].sort((a, b) => a.startIndex - b.startIndex);
 
     sortedFeedbacks.forEach((feedback) => {
       if (feedback.startIndex > lastIndex) {
-        result.push(text.slice(lastIndex, feedback.startIndex));
+        const textSlice = text.slice(lastIndex, feedback.startIndex);
+        result.push(textSlice);
       }
 
-      result.push(
-        <FloatingFeedback
-          key={feedback.id}
-          feedback={feedback}
-          onAccept={() => handleAcceptFeedback(challengeId, feedback.id)}
-          onDismiss={() => handleDismissFeedback(challengeId, feedback.id)}
-        />
-      );
+      const highlightedText = text.slice(feedback.startIndex, feedback.endIndex);
+      result.push(<span key={`${feedback.id}-text`} style={{ backgroundColor: 'yellow', color: 'black' }}>{highlightedText}</span>);
 
       lastIndex = feedback.endIndex;
     });
@@ -209,7 +213,7 @@ export function ChallengeCollector({ readOnly = false }: ChallengeCollectorProps
                 <div key={level} className="text-sm">
                   <h4 className="text-white font-medium capitalize mb-2">{level}</h4>
                   <ul className="space-y-2">
-                    {examples[level].map((example, index) => (
+                    {examples[level as keyof typeof examples].map((example: string, index: number) => (
                       <li key={index} className="framework-list-item">
                         <span className="framework-bullet" />
                         <span>{example}</span>
@@ -224,8 +228,8 @@ export function ChallengeCollector({ readOnly = false }: ChallengeCollectorProps
       )}
 
       {userLevels.map((level) => {
-        const outcome = outcomes.find(o => o.level === level);
-        const levelChallenges = challenges.filter(c => c.level === level);
+        const outcome = outcomes.find((o: any) => o.level === level);
+        const levelChallenges = challenges.filter((c: Challenge) => c.level === level);
         
         return (
           <div key={level} className="space-y-4">
@@ -283,21 +287,21 @@ export function ChallengeCollector({ readOnly = false }: ChallengeCollectorProps
             </div>
             
             <div className="space-y-4">
-              {levelChallenges.map((challenge) => (
-                <div key={challenge.id} className="bg-[#2A2A2A] rounded-lg border border-[#333333] p-4 space-y-4">
+              {levelChallenges.map((challenge: Challenge) => (
+                <div key={challenge.id!} className="bg-[#2A2A2A] rounded-lg border border-[#333333] p-4 space-y-4">
                   <div className="space-y-4">
                     <div>
                       <input
                         type="text"
                         value={challenge.title}
-                        onChange={(e) => updateChallenge(challenge.id, { title: e.target.value })}
+                        onChange={(e) => updateChallenge(challenge.id!, { title: e.target.value })}
                         className="w-full p-2 text-lg font-medium bg-[#1C1C1C] text-white border-none focus:ring-2 focus:ring-[#FFD23F] rounded-lg"
                         placeholder="Challenge title..."
                         disabled={readOnly}
                       />
                       <textarea
                         value={challenge.description}
-                        onChange={(e) => updateChallenge(challenge.id, { description: e.target.value })}
+                        onChange={(e) => updateChallenge(challenge.id!, { description: e.target.value })}
                         className="w-full mt-2 p-2 text-gray-300 bg-[#1C1C1C] border-none focus:ring-2 focus:ring-[#FFD23F] rounded-lg resize-none"
                         placeholder="Optional: Provide more details about this challenge..."
                         rows={2}
@@ -313,7 +317,7 @@ export function ChallengeCollector({ readOnly = false }: ChallengeCollectorProps
                         <select
                           value={challenge.magnitude}
                           onChange={(e) =>
-                            updateChallenge(challenge.id, {
+                            updateChallenge(challenge.id!, {
                               magnitude: parseInt(e.target.value),
                             })
                           }
@@ -333,24 +337,22 @@ export function ChallengeCollector({ readOnly = false }: ChallengeCollectorProps
                   {!readOnly && (
                     <div className="flex justify-between items-center">
                       <button
-                        onClick={() => removeChallenge(challenge.id)}
+                        onClick={() => removeChallenge(challenge.id!)}
                         className="text-red-400 hover:text-red-300"
                       >
                         Remove
                       </button>
 
                       <button
-                        onClick={() => handleGetFeedback(challenge.id, challenge.title, challenge.description)}
-                        onMouseEnter={() => setShowTooltip(prev => ({ ...prev, [challenge.id]: true }))}
-                        onMouseLeave={() => setShowTooltip(prev => ({ ...prev, [challenge.id]: false }))}
-                        disabled={isAnalyzing[challenge.id] || challenge.title.length < 3}
+                        onClick={() => handleGetFeedback(challenge.id!, challenge.title, challenge.description)}
+                        disabled={isAnalyzing[challenge.id!] || challenge.title.length < 3}
                         className={`flex items-center px-4 py-2 rounded-lg ${
-                          isAnalyzing[challenge.id] || challenge.title.length < 3
+                          isAnalyzing[challenge.id!] || challenge.title.length < 3
                             ? 'bg-[#333333] text-gray-500 cursor-not-allowed'
                             : 'bg-[#FFD23F] text-[#1C1C1C] hover:bg-[#FFD23F]/90'
                         }`}
                       >
-                        {isAnalyzing[challenge.id] ? (
+                        {isAnalyzing[challenge.id!] ? (
                           <>
                             <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                             Analyzing...
@@ -365,9 +367,9 @@ export function ChallengeCollector({ readOnly = false }: ChallengeCollectorProps
                     </div>
                   )}
 
-                  {!isAnalyzing[challenge.id] && feedbacks[challenge.id]?.length > 0 && (
+                  {!isAnalyzing[challenge.id!] && feedbacks[challenge.id!]?.length > 0 && (
                     <div className="prose prose-sm max-w-none p-4 bg-[#1C1C1C] rounded-lg">
-                      {renderTextWithFeedback(challenge.id, challenge.description || challenge.title)}
+                      {renderTextWithFeedback(challenge.id!, challenge.description || challenge.title)}
                     </div>
                   )}
                 </div>

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { supabase } from '@/core/services/supabase'; // Assuming supabase client is exported
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 
 interface SignupProps {
@@ -13,7 +13,6 @@ export function Signup({ onSignupSuccess }: SignupProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const navigate = useNavigate();
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,9 +45,10 @@ export function Signup({ onSignupSuccess }: SignupProps) {
          setMessage("Signup successful! Please check your email to confirm your account.");
       }
       
-    } catch (error: any) {
-      console.error("Signup error:", error);
-      setError(error.message || 'Could not sign up user.');
+    } catch (err) {
+      console.error("Signup error:", err);
+      const message = (err instanceof Error) ? err.message : 'Could not sign up user.';
+      setError(message);
     } finally {
       setLoading(false);
     }

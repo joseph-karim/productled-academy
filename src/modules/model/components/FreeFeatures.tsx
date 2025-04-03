@@ -1,31 +1,45 @@
 import { useState } from 'react';
-import { useFormStore } from '../../store/formStore';
+import { useModelInputsStore } from '../store/modelInputsStore';
+import { useModelPackagesStore } from '../store/modelPackagesStore';
 import { MessageSquarePlus, Loader2, HelpCircle, PlusCircle } from 'lucide-react';
-import { FloatingFeedback } from '../shared/FloatingFeedback';
-import { analyzeText, suggestFeatures } from '../../services/ai';
-import type { Feature } from '../../types';
+import { analyzeText } from '../services/ai/feedback';
+import { suggestPackageFeatures } from '../services/ai/suggestions';
+import type { PackageFeature as Feature } from '../types/package';
 
 export function FreeFeatures() {
-  const store = useFormStore();
+  const store = useModelInputsStore();
+  const packageStore = useModelPackagesStore();
   // Extract the beginner outcome text
-  const beginnerOutcome = store.outcomes.find(o => o.level === 'beginner')?.text || '';
+  const beginnerOutcome = store.outcomes.find((o: any) => o.level === 'beginner')?.text || '';
   
   const [newFeatureName, setNewFeatureName] = useState('');
   const [newFeatureDescription, setNewFeatureDescription] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [showTooltip, setShowTooltip] = useState(false);
   const [showGuidance, setShowGuidance] = useState(true);
-  const [feedbacks, setFeedbacks] = useState<Record<string, any[]>>({});
+  // Define Feedback based on analyzeText return type
+  interface Feedback { 
+    id: string; 
+    text: string;
+    suggestion: string; 
+    type: 'improvement' | 'warning' | 'positive';
+    category: string; // Category is string based on feedback.ts
+    startIndex: number;
+    endIndex: number;
+    // No deepScore in feedback
+  }
+  const [feedbacks, setFeedbacks] = useState<Record<string, Feedback[]>>({});
   const [isAnalyzing, setIsAnalyzing] = useState<Record<string, boolean>>({});
 
-  const categoryColors = {
+  const categoryColors: { [key: string]: string } = {
     core: 'bg-blue-100 text-blue-800',
     'value-demo': 'bg-green-100 text-green-800',
     connection: 'bg-purple-100 text-purple-800',
-    educational: 'bg-yellow-100 text-yellow-800'
+    educational: 'bg-yellow-100 text-yellow-800',
+    // Add default or handle other categories if needed
   };
 
-  const categoryLabels = {
+  const categoryLabels: { [key: string]: string } = {
     core: 'Core Functionality',
     'value-demo': 'Value Demonstration',
     connection: 'Connection & Sharing',
@@ -37,7 +51,9 @@ export function FreeFeatures() {
       store.addFeature({
         id: crypto.randomUUID(),
         name: newFeatureName.trim(),
-        description: newFeatureDescription.trim()
+        description: newFeatureDescription.trim(),
+        category: 'core', // Default category or prompt user?
+        tier: 'free' // Explicitly free tier
       });
       setNewFeatureName('');
       setNewFeatureDescription('');
@@ -49,28 +65,34 @@ export function FreeFeatures() {
     
     setIsGenerating(true);
     try {
-      const result = await suggestFeatures(
+      // Use suggestPackageFeatures
+      const result = await suggestPackageFeatures(
         store.productDescription,
-        beginnerOutcome,
-        store.selectedModel,
-        store.challenges,
-        store.solutions
+        store.selectedModel, // Pass selectedModel
+        store.challenges, // Pass challenges
+        store.solutions // Pass solutions
       );
       
-      // Directly add suggested features to the list
-      result.forEach(suggestion => {
+      // Add only the FREE suggested features
+      result.free.forEach((feature: Feature) => {
+        // Ensure feature has necessary fields, add defaults if missing
         store.addFeature({
-          id: crypto.randomUUID(),
-          name: suggestion.feature,
-          description: suggestion.reasoning,
-          category: suggestion.category,
-          deepScore: suggestion.deepScore
+          ...feature, // Spread suggested feature properties
+          id: feature.id || crypto.randomUUID(), // Use suggested ID or generate new one
+          tier: 'free' // Ensure tier is free
         });
       });
+
+      // Save the suggested pricing strategy to the package store
+      if (result.pricingStrategy) {
+        packageStore.setPricingStrategy(result.pricingStrategy);
+      }
+
     } catch (error) {
       console.error('Error getting feature suggestions:', error);
+    } finally {
+       setIsGenerating(false); // Ensure loading state is reset
     }
-    setIsGenerating(false);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -81,28 +103,21 @@ export function FreeFeatures() {
   };
 
   const handleGetFeedback = async (feature: Feature) => {
-    if (feature.name.length < 3 || feature.description.length < 10) return;
+    // Ensure feature.id exists before proceeding
+    if (!feature.id || feature.name.length < 3 || feature.description.length < 10) return;
     
-    setIsAnalyzing(prev => ({ ...prev, [feature.id]: true }));
+    setIsAnalyzing(prev => ({ ...prev, [feature.id!]: true })); // Use non-null assertion for id
     try {
       const result = await analyzeText(`${feature.name}\n\n${feature.description}`, 'Feature');
       
-      // Update the feature with DEEP scores and category if provided
-      if (result.feedbacks.length > 0) {
-        const firstFeedback = result.feedbacks[0];
-        if (firstFeedback.type === 'improvement') {
-          store.updateFeature(feature.id, {
-            category: firstFeedback.category as Feature['category'],
-            deepScore: firstFeedback.deepScore
-          });
-        }
-      }
+      // Remove logic updating deepScore/category from feedback
+      // The feedback is now just for display
       
-      setFeedbacks(prev => ({ ...prev, [feature.id]: result.feedbacks }));
+      setFeedbacks(prev => ({ ...prev, [feature.id!]: result.feedbacks })); // Use non-null assertion for id
     } catch (error) {
       console.error('Error getting feedback:', error);
     } finally {
-      setIsAnalyzing(prev => ({ ...prev, [feature.id]: false }));
+      setIsAnalyzing(prev => ({ ...prev, [feature.id!]: false })); // Use non-null assertion for id
     }
   };
 
@@ -190,7 +205,7 @@ export function FreeFeatures() {
             <h4 className="font-medium text-blue-900">Feature Categories</h4>
             <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-4">
               {Object.entries(categoryLabels).map(([key, label]) => (
-                <div key={key} className={`p-2 rounded ${categoryColors[key as keyof typeof categoryColors]}`}>
+                <div key={key} className={`p-2 rounded ${categoryColors[key] || 'bg-gray-100 text-gray-800'}`}>
                   <div className="font-medium">{label}</div>
                   <div className="text-xs mt-1">
                     {key === 'core' && 'Essential features for basic usage'}
@@ -251,7 +266,13 @@ export function FreeFeatures() {
         </div>
 
         <ul className="space-y-4">
-          {store.freeFeatures.map((feature) => (
+          {store.freeFeatures.map((feature: Feature) => {
+             // Ensure feature.id exists for key and subsequent operations
+             if (!feature.id) {
+                console.warn('Feature missing ID:', feature);
+                return null; // Skip rendering if no ID
+             }
+             return (
             <li
               key={feature.id}
               className="bg-white rounded-lg border border-gray-200 p-4 space-y-4"
@@ -259,8 +280,10 @@ export function FreeFeatures() {
               <div className="space-y-4">
                 <div>
                   {feature.category && (
-                    <span className={`px-2 py-1 rounded text-sm ${categoryColors[feature.category]}`}>
-                      {categoryLabels[feature.category]}
+                    <span 
+                      className={`px-2 py-1 rounded text-sm ${categoryColors[feature.category] || 'bg-gray-100 text-gray-800'}`}
+                    >
+                      {categoryLabels[feature.category] || feature.category}
                     </span>
                   )}
                   <input
@@ -278,27 +301,6 @@ export function FreeFeatures() {
                     rows={2}
                   />
                 </div>
-                
-                {feature.deepScore && (
-                  <div className="grid grid-cols-4 gap-4 mt-4">
-                    {Object.entries(feature.deepScore).map(([metric, score]) => (
-                      <div key={metric} className="text-center">
-                        <div className="text-sm font-medium text-gray-600 capitalize">
-                          {metric}
-                        </div>
-                        <div className="mt-1">
-                          <div className="w-full h-2 bg-gray-200 rounded-full">
-                            <div
-                              className="h-full bg-blue-600 rounded-full"
-                              style={{ width: `${(score / 10) * 100}%` }}
-                            />
-                          </div>
-                          <div className="mt-1 text-sm text-gray-900">{score}/10</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
               </div>
 
               <div className="flex justify-between items-center">
@@ -333,7 +335,7 @@ export function FreeFeatures() {
                 <div className="mt-4 bg-gray-50 rounded-lg p-4">
                   <h5 className="font-medium text-gray-900 mb-2">Feedback</h5>
                   <ul className="space-y-2">
-                    {feedbacks[feature.id].map((feedback) => (
+                    {feedbacks[feature.id].map((feedback: Feedback) => (
                       <li key={feedback.id} className="text-gray-700">
                         {feedback.suggestion}
                       </li>
@@ -342,7 +344,8 @@ export function FreeFeatures() {
                 </div>
               )}
             </li>
-          ))}
+             );
+          })}
         </ul>
       </div>
     </div>

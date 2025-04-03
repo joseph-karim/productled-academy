@@ -1,12 +1,20 @@
 import React, { createContext, useState, useEffect, useContext, ReactNode } from 'react';
 import { Session, User } from '@supabase/supabase-js';
-import { supabase } from '@/core/services/supabase';
+import { supabase, getModuleData, saveModuleData } from '@/core/services/supabase';
+
+// Define types for the data functions (using any for now, refine later if possible)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type GetModuleDataFunc = (moduleKey: string, options?: any) => Promise<any>;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type SaveModuleDataFunc = (moduleKey: string, data: any) => Promise<any>;
 
 interface AuthContextType {
   session: Session | null;
   user: User | null;
   isLoading: boolean;
   signOut: () => Promise<void>;
+  getModuleData: GetModuleDataFunc;
+  saveModuleData: SaveModuleDataFunc;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -57,6 +65,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     user,
     isLoading,
     signOut,
+    getModuleData,
+    saveModuleData,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

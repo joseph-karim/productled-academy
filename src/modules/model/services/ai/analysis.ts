@@ -1,6 +1,6 @@
 import { openai, handleOpenAIRequest } from './client';
-import type { Analysis, AnalysisInput } from '../../types/analysis';
-import type { PackageFeature, PricingStrategy } from '../../types/package';
+import type { Analysis, AnalysisInput, Challenge, Solution } from './types';
+import type { PackageFeature as Feature } from '../../types/package';
 
 export async function analyzeFormData(inputData: AnalysisInput): Promise<Analysis> {
   // Validate required fields
@@ -14,29 +14,29 @@ export async function analyzeFormData(inputData: AnalysisInput): Promise<Analysi
     : '';
 
   // Format challenges with levels
-  const formattedChallenges = inputData.challenges.map(c => {
+  const formattedChallenges = inputData.challenges.map((c: Challenge) => {
     const level = c.level || 'unspecified';
     const magnitude = c.magnitude || 'unspecified';
     return `- ${c.title} (Level: ${level}, Magnitude: ${magnitude})`;
   }).join('\n');
 
   // Format solutions with type, cost and impact
-  const formattedSolutions = inputData.solutions.map(s => {
-    return `- ${s.text} (Type: ${s.type}, Cost: ${s.cost}, Impact: ${s.impact})`;
+  const formattedSolutions = inputData.solutions.map((s: Solution) => {
+    return `- ${s.text} (Type: ${s.type}, Cost: ${s.cost}, Impact: ${(s as any).impact || 'N/A'})`;
   }).join('\n');
 
   // Format package features
   const formattedPackages = inputData.packages ? `
 Free Package Features:
 ${inputData.packages.features
-  .filter(f => f.tier === 'free')
-  .map(f => `- ${f.name}: ${f.description} (${f.category})`)
+  .filter((f: Feature) => f.tier === 'free')
+  .map((f: Feature) => `- ${f.name}: ${f.description} (${f.category})`)
   .join('\n')}
 
 Paid Package Features:
 ${inputData.packages.features
-  .filter(f => f.tier === 'paid')
-  .map(f => `- ${f.name}: ${f.description} (${f.category})`)
+  .filter((f: Feature) => f.tier === 'paid')
+  .map((f: Feature) => `- ${f.name}: ${f.description} (${f.category})`)
   .join('\n')}
 
 Pricing Strategy:

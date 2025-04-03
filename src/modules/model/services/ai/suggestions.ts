@@ -1,5 +1,5 @@
 import { openai, handleOpenAIRequest } from './client';
-import type { UserLevel, Challenge, Solution, ModelType, Feature, SolutionType, SolutionCost, SolutionImpact } from '../../types';
+import type { UserLevel, Challenge, Solution, ModelType, SolutionType, SolutionCost, SolutionImpact } from '../types/analysis';
 import type { PackageFeature, PricingStrategy } from '../../types/package';
 
 export async function suggestChallenges(

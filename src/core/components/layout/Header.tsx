@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { useAuth } from '@/core/auth/useAuth';
-import { LogOut, UserCircle } from 'lucide-react';
+import { useAuth } from '@/core/auth/AuthProvider';
+import { LogOut } from 'lucide-react';
 
 export function Header() {
   const { user, signOut, isLoading } = useAuth();
