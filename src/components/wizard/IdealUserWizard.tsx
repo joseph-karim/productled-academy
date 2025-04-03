@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useFormStore } from '../../store/formStore';
+import { useModelInputsStore } from '../../modules/model/store/modelInputsStore';
 import { MessageSquare, Send, X, Loader2 } from 'lucide-react';
 import { idealUserChatFlow, synthesizeIdealUserProfile, type ChatResponse } from '../../utils/idealUserChatFlow';
 
@@ -15,7 +15,7 @@ interface IdealUserWizardProps {
 }
 
 export function IdealUserWizard({ onClose }: IdealUserWizardProps) {
-  const { setIdealUser } = useFormStore();
+  const { setIdealUser } = useModelInputsStore();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [currentInput, setCurrentInput] = useState('');
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
