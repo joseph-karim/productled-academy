@@ -162,14 +162,22 @@ export function MultiStepForm({ readOnly = false }: MultiStepFormProps) {
 
   useEffect(() => {
     const idToLoad = routeId || analysisId;
-    if (idToLoad && !readOnly) {
-      loadAnalysisData(idToLoad);
-    } else if (!idToLoad && !readOnly) {
+    
+    // Only reset stores if we don't have an ID to load
+    if (!idToLoad) {
       store.resetState();
       packageStore.reset();
+      return;
     }
+
+    // If we have an ID and we're not in read-only mode, load the data
+    if (!readOnly) {
+      loadAnalysisData(idToLoad);
+    }
+
+    // Update analysisId if we have a routeId but no analysisId
     if (routeId && !analysisId) {
-        setAnalysisId(routeId);
+      setAnalysisId(routeId);
     }
   }, [routeId, readOnly, analysisId]);
 
@@ -177,43 +185,64 @@ export function MultiStepForm({ readOnly = false }: MultiStepFormProps) {
     try {
       const moduleData = await getModuleData('model');
       if (!moduleData) {
-          console.warn("No data found for model module for user/ID", idToLoad);
-          return;
+        console.warn("No data found for model module for user/ID", idToLoad);
+        // Reset both stores when no data is found
+        store.resetState();
+        packageStore.reset();
+        return;
       }
 
+      // Reset both stores before loading new data
+      store.resetState();
+      packageStore.reset();
+
+      // Update model inputs store
       store.setTitle(moduleData.title || 'Untitled Analysis');
       store.setProductDescription(moduleData.productDescription || '');
       if (moduleData.idealUser) store.setIdealUser(moduleData.idealUser);
       if (moduleData.outcomes) {
-          store.setProcessingState({ outcomes: true });
-          moduleData.outcomes.forEach((o: any) => store.updateOutcome(o.level, o.text));
-          store.setProcessingState({ outcomes: false });
+        store.setProcessingState({ outcomes: true });
+        moduleData.outcomes.forEach((o: any) => store.updateOutcome(o.level, o.text));
+        store.setProcessingState({ outcomes: false });
       }
       if (moduleData.challenges) {
-          store.setProcessingState({ challenges: true });
-          moduleData.challenges.forEach((c: any) => store.addChallenge(c));
-          store.setProcessingState({ challenges: false });
+        store.setProcessingState({ challenges: true });
+        moduleData.challenges.forEach((c: any) => store.addChallenge(c));
+        store.setProcessingState({ challenges: false });
       }
       if (moduleData.solutions) {
-          store.setProcessingState({ solutions: true });
-          moduleData.solutions.forEach((s: any) => store.addSolution(s));
-          store.setProcessingState({ solutions: false });
+        store.setProcessingState({ solutions: true });
+        moduleData.solutions.forEach((s: any) => store.addSolution(s));
+        store.setProcessingState({ solutions: false });
       }
-      if (moduleData.selectedModel) store.setSelectedModel(moduleData.selectedModel);
-      
-      packageStore.reset();
+      if (moduleData.selectedModel) {
+        store.setSelectedModel(moduleData.selectedModel);
+      }
+      if (moduleData.userJourney) {
+        store.setUserJourney(moduleData.userJourney);
+      }
+      if (moduleData.callToAction) {
+        store.setCallToAction(moduleData.callToAction);
+      }
+      if (moduleData.analysis) {
+        store.setAnalysis(moduleData.analysis);
+      }
+
+      // Update package store
       if (moduleData.features) {
-        moduleData.features.forEach((feature: any) => packageStore.addFeature(feature));
+        moduleData.features.forEach((f: any) => packageStore.addFeature(f));
       }
       if (moduleData.pricingStrategy) {
         packageStore.setPricingStrategy(moduleData.pricingStrategy);
       }
-      
-      setAnalysisId(idToLoad);
 
-    } catch (err) {
-      console.error('Error loading model module data:', err);
-      setError('Failed to load progress.');
+      setAnalysisId(idToLoad);
+    } catch (error) {
+      console.error('Error loading analysis data:', error);
+      setError('Failed to load analysis data. Please try again.');
+      // Reset both stores on error
+      store.resetState();
+      packageStore.reset();
     }
   };
 
