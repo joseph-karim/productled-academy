@@ -19,11 +19,28 @@ import type { PackageFeature } from '@/modules/model/types/package';
 
 interface MultiStepFormProps {
   readOnly?: boolean;
+  analysisId?: string;
 }
 
 interface UserOutcome {
   level: string;
   text: string;
+}
+
+interface Challenge {
+  id: string;
+  title: string;
+  description: string;
+  level: string;
+  magnitude: string;
+}
+
+interface Solution {
+  id: string;
+  challengeId: string;
+  text: string;
+  type: string;
+  cost: string;
 }
 
 const steps = [
@@ -144,12 +161,12 @@ const ErrorFallback = ({ error, resetErrorBoundary }: { error: Error; resetError
   );
 };
 
-export function MultiStepForm({ readOnly = false }: MultiStepFormProps) {
+export function MultiStepForm({ readOnly = false, analysisId: propAnalysisId }: MultiStepFormProps) {
   const [currentStep, setCurrentStep] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showTitlePrompt, setShowTitlePrompt] = useState(false);
-  const [analysisId, setAnalysisId] = useState<string | null>(null);
+  const [analysisId, setAnalysisId] = useState<string | null>(propAnalysisId || null);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   
@@ -161,7 +178,7 @@ export function MultiStepForm({ readOnly = false }: MultiStepFormProps) {
   const CurrentStepComponent = steps[currentStep].component;
 
   useEffect(() => {
-    const idToLoad = routeId || analysisId;
+    const idToLoad = routeId || propAnalysisId;
     
     // Only reset stores if we don't have an ID to load
     if (!idToLoad) {
@@ -179,14 +196,13 @@ export function MultiStepForm({ readOnly = false }: MultiStepFormProps) {
     if (routeId && !analysisId) {
       setAnalysisId(routeId);
     }
-  }, [routeId, readOnly, analysisId]);
+  }, [routeId, readOnly, propAnalysisId]);
 
   const loadAnalysisData = async (idToLoad: string) => {
     try {
       const moduleData = await getModuleData('model');
       if (!moduleData) {
         console.warn("No data found for model module for user/ID", idToLoad);
-        // Reset both stores when no data is found
         store.resetState();
         packageStore.reset();
         return;
@@ -199,75 +215,56 @@ export function MultiStepForm({ readOnly = false }: MultiStepFormProps) {
       // Update model inputs store
       store.setTitle(moduleData.title || 'Untitled Analysis');
       store.setProductDescription(moduleData.productDescription || '');
-      if (moduleData.idealUser) store.setIdealUser(moduleData.idealUser);
-      if (moduleData.outcomes) {
-        store.setProcessingState({ outcomes: true });
-        moduleData.outcomes.forEach((o: any) => store.updateOutcome(o.level, o.text));
-        store.setProcessingState({ outcomes: false });
-      }
-      if (moduleData.challenges) {
-        store.setProcessingState({ challenges: true });
-        moduleData.challenges.forEach((c: any) => store.addChallenge(c));
-        store.setProcessingState({ challenges: false });
-      }
-      if (moduleData.solutions) {
-        store.setProcessingState({ solutions: true });
-        moduleData.solutions.forEach((s: any) => store.addSolution(s));
-        store.setProcessingState({ solutions: false });
-      }
-      if (moduleData.selectedModel) {
-        store.setSelectedModel(moduleData.selectedModel);
-      }
-      if (moduleData.userJourney) {
-        store.setUserJourney(moduleData.userJourney);
-      }
-      if (moduleData.callToAction) {
-        store.setCallToAction(moduleData.callToAction);
-      }
-      if (moduleData.analysis) {
-        store.setAnalysis(moduleData.analysis);
-      }
+      store.setIdealUser(moduleData.idealUser || undefined);
+      moduleData.outcomes?.forEach((outcome: UserOutcome) => {
+        store.addOutcome(outcome);
+      });
+      moduleData.challenges?.forEach((challenge: Challenge) => {
+        store.addChallenge({
+          id: challenge.id || crypto.randomUUID(),
+          title: challenge.title,
+          description: challenge.description,
+          level: challenge.level,
+          magnitude: challenge.magnitude
+        });
+      });
+      moduleData.solutions?.forEach((solution: Solution) => {
+        store.addSolution({
+          id: solution.id || crypto.randomUUID(),
+          challengeId: solution.challengeId,
+          text: solution.text,
+          type: solution.type || 'general',
+          cost: solution.cost || 'medium'
+        });
+      });
+      store.setSelectedModel(moduleData.selectedModel || null);
+      store.setUserJourney(moduleData.userJourney || undefined);
+      store.setCallToAction(moduleData.callToAction || undefined);
+      store.setAnalysis(moduleData.analysis || null);
 
       // Update package store
-      if (moduleData.features) {
-        moduleData.features.forEach((f: any) => packageStore.addFeature(f));
-      }
+      moduleData.features?.forEach((feature: PackageFeature) => {
+        packageStore.addFeature(feature);
+      });
       if (moduleData.pricingStrategy) {
         packageStore.setPricingStrategy(moduleData.pricingStrategy);
       }
-
-      setAnalysisId(idToLoad);
-    } catch (error) {
-      console.error('Error loading analysis data:', error);
-      setError('Failed to load analysis data. Please try again.');
-      // Reset both stores on error
+    } catch (err) {
+      console.error('Error loading analysis:', err);
       store.resetState();
       packageStore.reset();
+      setError('Failed to load analysis data');
     }
   };
 
   const handleSave = async () => {
-    if (readOnly) return;
-
     if (!user) {
       setShowAuthModal(true);
       setPendingAction('save');
       return;
     }
 
-    const moduleDataToSave = {
-      title: store.title,
-      productDescription: store.productDescription,
-      idealUser: store.idealUser,
-      outcomes: store.outcomes,
-      challenges: store.challenges,
-      solutions: store.solutions,
-      selectedModel: store.selectedModel,
-      features: packageStore.features,
-      pricingStrategy: packageStore.pricingStrategy,
-    };
-
-    if (!moduleDataToSave.title?.trim()) {
+    if (!store.title) {
       setShowTitlePrompt(true);
       return;
     }
@@ -276,22 +273,51 @@ export function MultiStepForm({ readOnly = false }: MultiStepFormProps) {
     setError(null);
 
     try {
-      await saveModuleData('model', moduleDataToSave);
-      
-      const successMessage = document.createElement('div');
-      successMessage.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
-      successMessage.textContent = 'Progress saved successfully';
-      document.body.appendChild(successMessage);
-      setTimeout(() => successMessage.remove(), 3000);
+      const dataToSave = {
+        title: store.title,
+        productDescription: store.productDescription,
+        idealUser: store.idealUser,
+        outcomes: store.outcomes,
+        challenges: store.challenges,
+        solutions: store.solutions,
+        selectedModel: store.selectedModel,
+        userJourney: store.userJourney,
+        callToAction: store.callToAction,
+        analysis: store.analysis,
+        features: packageStore.features,
+        pricingStrategy: packageStore.pricingStrategy,
+      };
 
-    } catch (err) { 
-      console.error('Error saving model module data:', err);
-      setError(err instanceof Error ? err.message : 'Failed to save progress.');
-      setTimeout(() => setError(null), 5000);
+      const savedData = await saveModuleData('model', dataToSave);
+      if (savedData) {
+        setAnalysisId(savedData.id);
+        navigate(`/app/model/${savedData.id}`, { replace: true });
+      }
+    } catch (err) {
+      console.error('Error saving analysis:', err);
+      setError('Failed to save analysis');
     } finally {
       setIsSaving(false);
-      setShowTitlePrompt(false);
     }
+  };
+
+  const handleShare = () => {
+    if (!user) {
+      setShowAuthModal(true);
+      setPendingAction('share');
+      return;
+    }
+    // Implement share functionality
+  };
+
+  const handleAuthSuccess = () => {
+    setShowAuthModal(false);
+    if (pendingAction === 'save') {
+      handleSave();
+    } else if (pendingAction === 'share') {
+      handleShare();
+    }
+    setPendingAction(null);
   };
 
   const goNext = () => {
@@ -332,21 +358,87 @@ export function MultiStepForm({ readOnly = false }: MultiStepFormProps) {
 
   return (
     <div className="space-y-8">
-      {showTitlePrompt && !readOnly && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-[#2A2A2A] p-6 rounded-lg shadow-lg w-full max-w-md">
-            <h3 className="text-lg font-medium text-white mb-4">Name your analysis</h3>
+      <ErrorBoundary FallbackComponent={ErrorFallback}>
+        <div className="bg-[#2A2A2A] rounded-lg p-6">
+          <CurrentStepComponent />
+        </div>
+
+        <div className="flex justify-between items-center">
+          <button
+            onClick={goPrevious}
+            disabled={currentStep === 0}
+            className="flex items-center px-4 py-2 text-gray-300 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <ChevronLeft className="w-5 h-5 mr-1" />
+            Previous
+          </button>
+
+          <div className="flex items-center space-x-4">
+            {!readOnly && currentStep === steps.length - 1 && (
+              <>
+                <button
+                  onClick={handleSave}
+                  disabled={isSaving}
+                  className="flex items-center px-4 py-2 bg-[#FFD23F] text-[#1C1C1C] rounded-lg hover:bg-opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isSaving ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <>
+                      <Save className="w-5 h-5 mr-1" />
+                      {user ? 'Save Analysis' : 'Sign Up to Save'}
+                    </>
+                  )}
+                </button>
+
+                <button
+                  onClick={handleShare}
+                  className="flex items-center px-4 py-2 bg-[#2A2A2A] text-white rounded-lg hover:bg-opacity-90"
+                >
+                  {user ? 'Share Analysis' : 'Sign Up to Share'}
+                </button>
+              </>
+            )}
+
+            {currentStep < steps.length - 1 && (
+              <button
+                onClick={goNext}
+                disabled={!isStepCompleted(currentStep)}
+                className="flex items-center px-4 py-2 bg-[#FFD23F] text-[#1C1C1C] rounded-lg hover:bg-opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Next
+                <ChevronRight className="w-5 h-5 ml-1" />
+              </button>
+            )}
+          </div>
+        </div>
+      </ErrorBoundary>
+
+      {showAuthModal && (
+        <AuthModal
+          onClose={() => {
+            setShowAuthModal(false);
+            setPendingAction(null);
+          }}
+          onSuccess={handleAuthSuccess}
+        />
+      )}
+
+      {showTitlePrompt && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+          <div className="bg-[#2A2A2A] p-6 rounded-lg max-w-md w-full">
+            <h3 className="text-xl font-bold text-white mb-4">Name Your Analysis</h3>
             <input
               type="text"
               value={store.title}
               onChange={(e) => store.setTitle(e.target.value)}
-              placeholder="Enter a title..."
               className="w-full p-2 bg-[#1C1C1C] text-white border border-[#333333] rounded-lg mb-4"
+              placeholder="Enter a title..."
             />
             <div className="flex justify-end space-x-4">
               <button
                 onClick={() => setShowTitlePrompt(false)}
-                className="px-4 py-2 text-gray-400 hover:text-white"
+                className="px-4 py-2 text-gray-300 hover:text-white"
               >
                 Cancel
               </button>
@@ -355,133 +447,13 @@ export function MultiStepForm({ readOnly = false }: MultiStepFormProps) {
                   setShowTitlePrompt(false);
                   handleSave();
                 }}
-                className="px-4 py-2 bg-[#FFD23F] text-[#1C1C1C] rounded-lg hover:bg-[#FFD23F]/90"
+                className="px-4 py-2 bg-[#FFD23F] text-[#1C1C1C] rounded-lg hover:bg-opacity-90"
               >
                 Save
               </button>
             </div>
           </div>
         </div>
-      )}
-      
-      {error && (
-        <div className="mb-4 p-3 bg-red-500 bg-opacity-20 border border-red-500 rounded-md text-red-300">
-          {error}
-        </div>
-      )}
-
-      <div className="mb-8">
-        <div className="flex justify-center mb-2">
-          <nav className="bg-[#1C1C1C] rounded-lg p-1 inline-flex">
-            {steps.map((step, index) => {
-              const isActive = index === currentStep;
-              const state = store;
-              const packageState = packageStore;
-              const isCompleted = 
-                index !== currentStep && 
-                (index < currentStep || step.isComplete(state, packageState));
-              
-              const isUnlocked = step.isUnlocked(state, packageState);
-              
-              const isClickable = index <= currentStep || (index > currentStep && isUnlocked);
-              
-              return (
-                <button
-                  key={index}
-                  onClick={() => isClickable ? setCurrentStep(index) : null}
-                  disabled={!isClickable}
-                  className={`
-                    px-4 py-2 text-sm rounded-md transition-colors duration-200
-                    focus:outline-none
-                    ${isActive 
-                      ? 'bg-[#2A2A2A] text-white font-medium shadow-sm' 
-                      : isCompleted
-                        ? 'text-gray-300 hover:text-white'
-                        : 'text-gray-500 cursor-not-allowed'
-                    }
-                  `}
-                >
-                  {step.title}
-                </button>
-              );
-            })}
-          </nav>
-        </div>
-        
-        <div className="w-full bg-[#2A2A2A] h-1 rounded-full overflow-hidden">
-          <div 
-            className="bg-[#FFD23F] h-full transition-all duration-300 ease-in-out" 
-            style={{ width: `${((currentStep) / (steps.length - 1)) * 100}%` }}
-          />
-        </div>
-      </div>
-
-      <div className="bg-[#2A2A2A] rounded-lg p-6">
-        <ErrorBoundary FallbackComponent={ErrorFallback}>
-          <CurrentStepComponent readOnly={readOnly} />
-        </ErrorBoundary>
-      </div>
-
-      <div className="flex justify-between">
-        <button
-          onClick={goPrevious}
-          disabled={currentStep === 0}
-          className={`px-4 py-2 rounded-lg flex items-center space-x-2 ${
-            currentStep === 0
-              ? 'bg-[#1C1C1C] text-gray-600 cursor-not-allowed'
-              : 'bg-[#1C1C1C] text-white hover:bg-[#333333]'
-          }`}
-        >
-          <ChevronLeft className="w-4 h-4" />
-          <span>Previous</span>
-        </button>
-
-        {currentStep < steps.length - 1 ? (
-          <button
-            onClick={goNext}
-            disabled={!isStepCompleted(currentStep) && !readOnly}
-            className={`px-4 py-2 rounded-lg flex items-center space-x-2 ${
-              !isStepCompleted(currentStep) && !readOnly
-                ? 'bg-[#1C1C1C] text-gray-600 cursor-not-allowed'
-                : 'bg-[#FFD23F] text-[#1C1C1C] hover:bg-[#FFD23F]/90'
-            }`}
-          >
-            <span>Next</span>
-            <ChevronRight className="w-4 h-4" />
-          </button>
-        ) : !readOnly ? (
-          <button
-            onClick={handleSave}
-            disabled={isSaving}
-            className="px-4 py-2 rounded-lg flex items-center space-x-2 bg-green-500 text-white hover:bg-green-600"
-          >
-            {isSaving ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Saving...</span>
-              </>
-            ) : (
-              <>
-                <Save className="w-4 h-4" />
-                <span>Save Analysis</span>
-              </>
-            )}
-          </button>
-        ) : null}
-      </div>
-
-      {showAuthModal && (
-        <AuthModal 
-          onClose={() => {
-            setShowAuthModal(false);
-            setPendingAction(null);
-          }}
-          onSuccess={() => {
-            setShowAuthModal(false);
-            if (pendingAction === 'save') handleSave(); 
-            setPendingAction(null);
-          }}
-        />
       )}
     </div>
   );
