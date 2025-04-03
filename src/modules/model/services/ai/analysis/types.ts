@@ -111,6 +111,10 @@ export interface Analysis {
   journeyAnalysis: JourneyAnalysis;
 }
 
+export interface StoredAnalysis extends Analysis {
+  id?: string;
+}
+
 // Input type for the analyzeFormData function
 export interface AnalysisInput {
   productDescription: string;

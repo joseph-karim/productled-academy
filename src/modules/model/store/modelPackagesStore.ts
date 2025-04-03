@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import type { PackageFeature, PricingTier, PricingStrategy } from '../types/package';
 
-interface PackageState {
+export interface PackageState {
   features: PackageFeature[];
   pricingTiers: PricingTier[];
   pricingStrategy: PricingStrategy | null;
