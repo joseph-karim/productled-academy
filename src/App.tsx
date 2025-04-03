@@ -5,7 +5,16 @@ import { ErrorBoundary } from 'react-error-boundary'; // Optional: Wrap everythi
 
 function App() {
   return (
-    <ErrorBoundary fallback={<div>Something went wrong</div>}>
+    <ErrorBoundary 
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-[#1C1C1C] text-white">
+          <div className="text-center">
+            <h2 className="text-xl font-bold mb-4">Something went wrong</h2>
+            <p className="text-gray-400">Please refresh the page to try again</p>
+          </div>
+        </div>
+      }
+    >
       <AppRouter />
     </ErrorBoundary>
   );

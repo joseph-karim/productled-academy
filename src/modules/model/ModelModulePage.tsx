@@ -1,23 +1,33 @@
 import React from 'react';
 import { useParams, useLocation } from 'react-router-dom';
 import { MultiStepForm } from './components/MultiStepForm';
-import { useAuth } from '@/core/auth/AuthProvider';
-import { Navigate } from 'react-router-dom';
+import { AuthProvider } from '@/core/auth/AuthProvider';
 
 export function ModelModulePage() {
   const { id } = useParams();
-  const { user } = useAuth();
   const location = useLocation();
   const isAppRoute = location.pathname.startsWith('/app');
 
-  // If we're on an /app route but have no ID, redirect to dashboard
-  if (isAppRoute && !id && user) {
-    return <Navigate to="/app" replace />;
+  // For app routes, wrap in AuthProvider
+  if (isAppRoute) {
+    return (
+      <AuthProvider>
+        <ModelModuleContent id={id} />
+      </AuthProvider>
+    );
   }
+
+  // For public routes, render without auth
+  return <ModelModuleContent id={id} />;
+}
+
+function ModelModuleContent({ id }: { id?: string }) {
+  const location = useLocation();
+  const isAppRoute = location.pathname.startsWith('/app');
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-      {!user && !id && (
+      {!isAppRoute && !id && (
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-white mb-4">
             Free Model Analyzer
@@ -33,7 +43,7 @@ export function ModelModulePage() {
       
       <MultiStepForm 
         analysisId={id} 
-        readOnly={Boolean(id && !user)} 
+        readOnly={Boolean(id && !isAppRoute)} 
       />
     </div>
   );
