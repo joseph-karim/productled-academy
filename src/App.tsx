@@ -1,64 +1,31 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { MultiStepForm } from './components/MultiStepForm';
-import { ErrorBoundary } from './components/ErrorBoundary';
-import { AuthButton } from './components/auth/AuthButton';
-import { AuthProvider } from './components/auth/AuthProvider';
-import { AuthCallback } from './components/auth/AuthCallback';
-import { ResetPassword } from './components/auth/ResetPassword';
-import { SharedAnalysis } from './components/SharedAnalysis';
-import { MyAnalyses } from './components/MyAnalyses';
-import { FloatingChat } from './components/FloatingChat';
-import { useFormStore } from './store/formStore';
-import { Header } from './components/header/Header';
+import { AppRouter } from '@/core/router/AppRouter';
+import { AuthProvider } from '@/core/auth/AuthProvider'; // Assuming AuthProvider exists
+import './index.css'; // Main CSS
+import { ErrorBoundary } from 'react-error-boundary'; // Optional: Wrap everything
+
+function AppFallback() {
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-900 text-white">
+        <h1 className="text-2xl font-bold text-red-500 mb-4">Application Error</h1>
+        <p className="text-gray-300 mb-4">Something went wrong. Please refresh the page.</p>
+        <button 
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-[#FFD23F] text-[#1C1C1C] rounded hover:bg-opacity-90"
+        >
+            Refresh
+        </button>
+    </div>
+  );
+}
 
 function App() {
-  const { analysis } = useFormStore();
-
-  // Check for required environment variables
-  if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
-    return (
-      <div className="min-h-screen bg-[#1C1C1C] flex items-center justify-center p-4">
-        <div className="bg-[#2A2A2A] p-6 rounded-lg shadow-lg max-w-md w-full">
-          <h1 className="text-xl font-bold text-red-500 mb-4">Configuration Error</h1>
-          <p className="text-gray-300 mb-4">
-            Missing required environment variables. Please ensure your .env file includes:
-          </p>
-          <ul className="list-disc list-inside text-gray-400 space-y-2 mb-4">
-            <li>VITE_SUPABASE_URL</li>
-            <li>VITE_SUPABASE_ANON_KEY</li>
-          </ul>
-          <p className="text-sm text-gray-500">
-            Contact the administrator for assistance.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <AuthProvider>
-      <Router>
-        <div className="min-h-screen bg-[#1C1C1C]">
-          <Header />
-
-          <main className="max-w-5xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-            <ErrorBoundary>
-              <Routes>
-                <Route path="/auth/callback" element={<AuthCallback />} />
-                <Route path="/auth/reset-password" element={<ResetPassword />} />
-                <Route path="/share/:shareId" element={<SharedAnalysis />} />
-                <Route path="/my-analyses" element={<MyAnalyses />} />
-                <Route path="/analysis/:id" element={<MultiStepForm />} />
-                <Route path="/" element={<MultiStepForm />} />
-              </Routes>
-            </ErrorBoundary>
-          </main>
-
-          {analysis && <FloatingChat analysis={analysis} />}
-        </div>
-      </Router>
-    </AuthProvider>
+    <ErrorBoundary FallbackComponent={AppFallback}>
+      <AuthProvider>
+        <AppRouter />
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }
 

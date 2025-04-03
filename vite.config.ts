@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import path from 'path';
 
 export default defineConfig({
   plugins: [react()],
@@ -7,7 +8,10 @@ export default defineConfig({
     include: ['@daily-co/daily-js', '@vapi-ai/web', 'events']
   },
   resolve: {
-    dedupe: ['@daily-co/daily-js', '@vapi-ai/web', 'events', 'react', 'react-dom']
+    dedupe: ['@daily-co/daily-js', '@vapi-ai/web', 'events', 'react', 'react-dom'],
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+    },
   },
   server: {
     host: true,
