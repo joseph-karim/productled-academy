@@ -1,206 +1,223 @@
 import React, { useState, useEffect } from 'react';
-import { useFormStore } from '../../store/formStore';
-import { HelpCircle, Download } from 'lucide-react';
-import type { UserJourney } from '../../types';
+import { useModelInputsStore } from '../store/modelInputsStore';
+import { suggestModel } from '../services/ai/suggestions';
+import { HelpCircle, Loader2 } from 'lucide-react';
+import type { ModelType, UserJourney } from '../services/ai/analysis/types';
 
-export function FreeModelCanvas() {
-  const store = useFormStore();
+interface EditableContent {
+  journey: UserJourney;
+  callToAction: string;
+}
+
+interface FreeModelCanvasProps {
+  readOnly?: boolean;
+}
+
+const emptyUserJourney: UserJourney = {
+  discovery: {
+    problem: '',
+    trigger: '',
+    initialThought: ''
+  },
+  signup: {
+    friction: '',
+    timeToValue: '',
+    guidance: []
+  },
+  activation: {
+    firstWin: '',
+    ahaFeature: '',
+    timeToSuccess: ''
+  },
+  engagement: {
+    coreTasks: [],
+    collaboration: [],
+    limitations: []
+  },
+  conversion: {
+    triggers: [],
+    nextFeatures: []
+  }
+};
+
+export function FreeModelCanvas({ readOnly = false }: FreeModelCanvasProps) {
+  const { 
+    selectedModel, 
+    setSelectedModel, 
+    productDescription,
+    challenges, 
+    solutions,
+    userJourney,
+    setUserJourney,
+    callToAction,
+    setCallToAction
+  } = useModelInputsStore();
   const [showGuidance, setShowGuidance] = useState(true);
-  const beginnerOutcome = store.outcomes.find(o => o.level === 'beginner')?.text || '';
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // State for editable content
-  const [editableContent, setEditableContent] = useState<{
-    journey: UserJourney;
-    callToAction: string;
-  }>({
-    journey: store.userJourney || {
-      discovery: {
-        problem: '',
-        trigger: '',
-        initialThought: ''
-      },
-      signup: {
-        friction: '',
-        timeToValue: '',
-        guidance: []
-      },
-      activation: {
-        firstWin: '',
-        ahaFeature: '',
-        timeToSuccess: ''
-      },
-      engagement: {
-        coreTasks: [],
-        collaboration: [],
-        limitations: []
-      },
-      conversion: {
-        triggers: [],
-        nextFeatures: []
-      }
-    },
-    callToAction: store.selectedModel ? getInitialCallToAction(store.selectedModel) : ''
-  });
-
-  // Update editable content when userJourney changes
-  useEffect(() => {
-    if (store.userJourney) {
-      setEditableContent(prev => ({
-        ...prev,
-        journey: store.userJourney
-      }));
-    }
-  }, [store.userJourney]);
-
-  // Get initial call-to-action based on model
-  function getInitialCallToAction(model: string): string {
+  const getInitialCallToAction = (model: ModelType): string => {
     switch (model) {
-      case 'opt-in-trial':
-        return 'Start Your Free Trial - No Credit Card Required';
-      case 'opt-out-trial':
-        return 'Start Your 14-Day Free Trial';
-      case 'usage-trial':
-        return 'Try For Free - Up to 100 Units';
       case 'freemium':
-        return 'Get Started For Free';
+        return 'Get Started Free';
+      case 'opt-in-trial':
+        return 'Start Free Trial';
+      case 'opt-out-trial':
+        return 'Start Your 14-Day Trial';
+      case 'usage-trial':
+        return 'Try For Free';
       case 'new-product':
-        return 'Try Our Free Starter Product';
+        return 'Try Our Free Starter';
       case 'sandbox':
         return 'Experience Live Demo';
       default:
-        return 'Get Started For Free';
+        return 'Get Started';
     }
-  }
+  };
 
-  // Handle journey section updates
-  const handleJourneyUpdate = (
-    section: keyof UserJourney,
-    field: string,
+  const [editableContent, setEditableContent] = useState<EditableContent>({
+    journey: userJourney || emptyUserJourney,
+    callToAction: callToAction || (selectedModel ? getInitialCallToAction(selectedModel) : '')
+  });
+
+  useEffect(() => {
+    if (userJourney) {
+      setEditableContent(prev => ({
+        ...prev,
+        journey: { ...userJourney }
+      }));
+    }
+  }, [userJourney]);
+
+  useEffect(() => {
+    if (selectedModel) {
+      setEditableContent(prev => ({
+        ...prev,
+        callToAction: getInitialCallToAction(selectedModel)
+      }));
+    }
+  }, [selectedModel]);
+
+  const handleGetSuggestion = async () => {
+    if (!productDescription) {
+      setError('Please provide a product description first');
+      return;
+    }
+
+    setIsGenerating(true);
+    setError(null);
+
+    try {
+      const result = await suggestModel(
+        productDescription,
+        '',
+        challenges,
+        solutions
+      );
+      setSelectedModel(result.model);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to get suggestion');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleModelChange = (model: ModelType) => {
+    if (!readOnly) {
+      setSelectedModel(model);
+    }
+  };
+
+  const handleJourneyChange = (
+    stage: keyof UserJourney,
+    step: string,
     value: string | string[]
   ) => {
+    if (readOnly) return;
+
     const updatedJourney = {
       ...editableContent.journey,
-      [section]: {
-        ...editableContent.journey[section],
-        [field]: value
+      [stage]: {
+        ...editableContent.journey[stage],
+        [step]: value
       }
     };
 
     setEditableContent(prev => ({
       ...prev,
-      journey: updatedJourney
+      journey: { ...updatedJourney }
     }));
 
-    store.setUserJourney(updatedJourney);
+    setUserJourney(updatedJourney);
   };
 
-  // Handle array field updates
-  const handleArrayUpdate = (
-    section: keyof UserJourney,
-    field: string,
-    index: number,
-    value: string
-  ) => {
-    const currentArray = [...(editableContent.journey[section][field] as string[])];
-    currentArray[index] = value;
+  const handleCallToActionChange = (value: string) => {
+    if (readOnly) return;
 
-    handleJourneyUpdate(section, field, currentArray);
-  };
-
-  // Handle adding new array items
-  const handleAddArrayItem = (section: keyof UserJourney, field: string) => {
-    const currentArray = [...(editableContent.journey[section][field] as string[])];
-    currentArray.push('');
-    handleJourneyUpdate(section, field, currentArray);
-  };
-
-  // Handle removing array items
-  const handleRemoveArrayItem = (section: keyof UserJourney, field: string, index: number) => {
-    const currentArray = [...(editableContent.journey[section][field] as string[])];
-    currentArray.splice(index, 1);
-    handleJourneyUpdate(section, field, currentArray);
-  };
-
-  // Handle call-to-action updates
-  const handleCallToActionUpdate = (value: string) => {
     setEditableContent(prev => ({
       ...prev,
       callToAction: value
     }));
+
+    setCallToAction(value);
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-start">
-        <div>
-          <h2 className="text-2xl font-bold text-white">Free Model Canvas</h2>
-          <p className="text-gray-400 mt-1">
-            A comprehensive overview of your product-led growth strategy.
-          </p>
-        </div>
-        <div className="flex space-x-2">
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <h2 className="text-lg font-semibold">Free Model Canvas</h2>
           <button
+            type="button"
+            className="text-gray-500 hover:text-gray-700"
             onClick={() => setShowGuidance(!showGuidance)}
-            className="text-[#FFD23F] hover:text-[#FFD23F]/80"
-            title={showGuidance ? "Hide guidance" : "Show guidance"}
           >
-            <HelpCircle className="w-5 h-5" />
-          </button>
-          <button
-            onClick={() => window.print()}
-            className="text-[#FFD23F] hover:text-[#FFD23F]/80"
-            title="Print Canvas"
-          >
-            <Download className="w-5 h-5" />
+            <HelpCircle className="h-4 w-4" />
           </button>
         </div>
+        {!readOnly && (
+          <button
+            type="button"
+            className="flex items-center gap-2 rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:opacity-50"
+            onClick={handleGetSuggestion}
+            disabled={isGenerating || !productDescription}
+          >
+            {isGenerating ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>Generating...</span>
+              </>
+            ) : (
+              <span>Get Suggestion</span>
+            )}
+          </button>
+        )}
       </div>
 
+      {error && (
+        <div className="rounded-md bg-red-50 p-4">
+          <div className="flex">
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-red-800">Error</h3>
+              <div className="mt-2 text-sm text-red-700">{error}</div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showGuidance && (
-        <div className="description-framework">
-          <div>
-            <h3 className="framework-heading">Canvas Guide</h3>
-            <div className="mt-2 grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <h4 className="text-white font-medium">Purpose</h4>
-                <ul className="space-y-2">
-                  <li className="framework-list-item">
-                    <span className="framework-bullet" />
-                    <span>Map the complete user journey</span>
-                  </li>
-                  <li className="framework-list-item">
-                    <span className="framework-bullet" />
-                    <span>Identify key conversion moments</span>
-                  </li>
-                  <li className="framework-list-item">
-                    <span className="framework-bullet" />
-                    <span>Align features with user needs</span>
-                  </li>
-                  <li className="framework-list-item">
-                    <span className="framework-bullet" />
-                    <span>Plan natural upgrade paths</span>
-                  </li>
-                </ul>
-              </div>
-              <div>
-                <h4 className="text-white font-medium">Best Practices</h4>
-                <ul className="space-y-2">
-                  <li className="framework-list-item">
-                    <span className="framework-bullet" />
-                    <span>Focus on quick time-to-value</span>
-                  </li>
-                  <li className="framework-list-item">
-                    <span className="framework-bullet" />
-                    <span>Remove friction points</span>
-                  </li>
-                  <li className="framework-list-item">
-                    <span className="framework-bullet" />
-                    <span>Guide users to success</span>
-                  </li>
-                  <li className="framework-list-item">
-                    <span className="framework-bullet" />
-                    <span>Create clear upgrade triggers</span>
-                  </li>
+        <div className="rounded-md bg-blue-50 p-4">
+          <div className="flex">
+            <div className="ml-3">
+              <h3 className="text-sm font-medium text-blue-800">Guidance</h3>
+              <div className="mt-2 text-sm text-blue-700">
+                <p>
+                  Choose the right model based on your product's complexity and target users:
+                </p>
+                <ul className="mt-2 list-inside list-disc">
+                  <li>Freemium: Core value is easy to demonstrate</li>
+                  <li>Free Trial: Complex product needing evaluation time</li>
+                  <li>Open Core: Technical product with advanced features</li>
                 </ul>
               </div>
             </div>
@@ -208,305 +225,278 @@ export function FreeModelCanvas() {
         </div>
       )}
 
-      <div className="bg-[#2A2A2A] border border-[#333333] rounded-lg shadow-lg">
-        <div className="p-6 space-y-6">
-          {/* Discovery */}
-          <div className="space-y-2">
-            <div className="flex items-center space-x-2 text-[#FFD23F]">
-              <h3 className="font-medium">Discovery</h3>
-            </div>
-            <div className="bg-[#1C1C1C] p-4 rounded-lg space-y-4">
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <button
+            type="button"
+            onClick={() => handleModelChange('freemium')}
+            className={`relative flex flex-col items-center justify-center rounded-lg border p-4 text-center hover:border-blue-400 ${
+              selectedModel === 'freemium'
+                ? 'border-blue-500 bg-blue-50'
+                : 'border-gray-300'
+            }`}
+            disabled={readOnly}
+          >
+            <h3 className="text-sm font-medium">Freemium</h3>
+            <p className="mt-1 text-xs text-gray-500">
+              Free forever with premium features
+            </p>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleModelChange('opt-in-trial')}
+            className={`relative flex flex-col items-center justify-center rounded-lg border p-4 text-center hover:border-blue-400 ${
+              selectedModel === 'opt-in-trial'
+                ? 'border-blue-500 bg-blue-50'
+                : 'border-gray-300'
+            }`}
+            disabled={readOnly}
+          >
+            <h3 className="text-sm font-medium">Free Trial</h3>
+            <p className="mt-1 text-xs text-gray-500">
+              Time-limited access to full product
+            </p>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleModelChange('sandbox')}
+            className={`relative flex flex-col items-center justify-center rounded-lg border p-4 text-center hover:border-blue-400 ${
+              selectedModel === 'sandbox'
+                ? 'border-blue-500 bg-blue-50'
+                : 'border-gray-300'
+            }`}
+            disabled={readOnly}
+          >
+            <h3 className="text-sm font-medium">Sandbox</h3>
+            <p className="mt-1 text-xs text-gray-500">
+              Try before you buy
+            </p>
+          </button>
+        </div>
+
+        <div className="space-y-6">
+          <div>
+            <h3 className="text-base font-medium text-gray-900">User Journey</h3>
+            <div className="mt-4 space-y-6">
+              {/* Discovery Stage */}
               <div>
-                <label className="block text-sm font-medium text-gray-400 mb-1">Problem</label>
-                <input
-                  type="text"
-                  value={editableContent.journey.discovery.problem}
-                  onChange={(e) => handleJourneyUpdate('discovery', 'problem', e.target.value)}
-                  className="w-full bg-[#2A2A2A] text-white p-2 rounded border border-[#333333] focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent"
-                  placeholder="Enter the core problem..."
-                />
+                <h4 className="text-sm font-medium text-gray-700">Discovery</h4>
+                <div className="mt-2 space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500">
+                      Problem Recognition
+                    </label>
+                    <textarea
+                      value={editableContent.journey.discovery.problem}
+                      onChange={(e) => handleJourneyChange('discovery', 'problem', e.target.value)}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                      rows={2}
+                      placeholder="How do users realize they need your solution?"
+                      disabled={readOnly}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500">
+                      Trigger
+                    </label>
+                    <textarea
+                      value={editableContent.journey.discovery.trigger}
+                      onChange={(e) => handleJourneyChange('discovery', 'trigger', e.target.value)}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                      rows={2}
+                      placeholder="What triggers users to seek a solution?"
+                      disabled={readOnly}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500">
+                      Initial Thought
+                    </label>
+                    <textarea
+                      value={editableContent.journey.discovery.initialThought}
+                      onChange={(e) => handleJourneyChange('discovery', 'initialThought', e.target.value)}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                      rows={2}
+                      placeholder="What's their first reaction?"
+                      disabled={readOnly}
+                    />
+                  </div>
+                </div>
               </div>
+
+              {/* Sign Up Stage */}
               <div>
-                <label className="block text-sm font-medium text-gray-400 mb-1">Trigger</label>
-                <input
-                  type="text"
-                  value={editableContent.journey.discovery.trigger}
-                  onChange={(e) => handleJourneyUpdate('discovery', 'trigger', e.target.value)}
-                  className="w-full bg-[#2A2A2A] text-white p-2 rounded border border-[#333333] focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent"
-                  placeholder="What triggers the user to seek a solution..."
-                />
+                <h4 className="text-sm font-medium text-gray-700">Sign Up</h4>
+                <div className="mt-2 space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500">
+                      Friction Points
+                    </label>
+                    <textarea
+                      value={editableContent.journey.signup.friction}
+                      onChange={(e) => handleJourneyChange('signup', 'friction', e.target.value)}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                      rows={2}
+                      placeholder="What are the friction points in signing up?"
+                      disabled={readOnly}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500">
+                      Time to Value
+                    </label>
+                    <textarea
+                      value={editableContent.journey.signup.timeToValue}
+                      onChange={(e) => handleJourneyChange('signup', 'timeToValue', e.target.value)}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                      rows={2}
+                      placeholder="How quickly do users get value?"
+                      disabled={readOnly}
+                    />
+                  </div>
+                </div>
               </div>
+
+              {/* Activation Stage */}
               <div>
-                <label className="block text-sm font-medium text-gray-400 mb-1">Initial Thought</label>
-                <input
-                  type="text"
-                  value={editableContent.journey.discovery.initialThought}
-                  onChange={(e) => handleJourneyUpdate('discovery', 'initialThought', e.target.value)}
-                  className="w-full bg-[#2A2A2A] text-white p-2 rounded border border-[#333333] focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent"
-                  placeholder="User's first reaction..."
-                />
+                <h4 className="text-sm font-medium text-gray-700">Activation</h4>
+                <div className="mt-2 space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500">
+                      First Win
+                    </label>
+                    <textarea
+                      value={editableContent.journey.activation.firstWin}
+                      onChange={(e) => handleJourneyChange('activation', 'firstWin', e.target.value)}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                      rows={2}
+                      placeholder="What's their first success moment?"
+                      disabled={readOnly}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500">
+                      Aha Feature
+                    </label>
+                    <textarea
+                      value={editableContent.journey.activation.ahaFeature}
+                      onChange={(e) => handleJourneyChange('activation', 'ahaFeature', e.target.value)}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                      rows={2}
+                      placeholder="Which feature demonstrates the most value?"
+                      disabled={readOnly}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500">
+                      Time to Success
+                    </label>
+                    <textarea
+                      value={editableContent.journey.activation.timeToSuccess}
+                      onChange={(e) => handleJourneyChange('activation', 'timeToSuccess', e.target.value)}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                      rows={2}
+                      placeholder="How long until they achieve success?"
+                      disabled={readOnly}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Engagement Stage */}
+              <div>
+                <h4 className="text-sm font-medium text-gray-700">Engagement</h4>
+                <div className="mt-2 space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500">
+                      Core Tasks
+                    </label>
+                    <textarea
+                      value={editableContent.journey.engagement.coreTasks.join('\n')}
+                      onChange={(e) => handleJourneyChange('engagement', 'coreTasks', e.target.value.split('\n'))}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                      rows={3}
+                      placeholder="What are the core tasks users perform? (One per line)"
+                      disabled={readOnly}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500">
+                      Collaboration
+                    </label>
+                    <textarea
+                      value={editableContent.journey.engagement.collaboration.join('\n')}
+                      onChange={(e) => handleJourneyChange('engagement', 'collaboration', e.target.value.split('\n'))}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                      rows={3}
+                      placeholder="How do users collaborate? (One item per line)"
+                      disabled={readOnly}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500">
+                      Limitations
+                    </label>
+                    <textarea
+                      value={editableContent.journey.engagement.limitations.join('\n')}
+                      onChange={(e) => handleJourneyChange('engagement', 'limitations', e.target.value.split('\n'))}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                      rows={3}
+                      placeholder="What are the current limitations? (One per line)"
+                      disabled={readOnly}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Conversion Stage */}
+              <div>
+                <h4 className="text-sm font-medium text-gray-700">Conversion</h4>
+                <div className="mt-2 space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500">
+                      Triggers
+                    </label>
+                    <textarea
+                      value={editableContent.journey.conversion.triggers.join('\n')}
+                      onChange={(e) => handleJourneyChange('conversion', 'triggers', e.target.value.split('\n'))}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                      rows={3}
+                      placeholder="What triggers users to upgrade? (One per line)"
+                      disabled={readOnly}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500">
+                      Next Features
+                    </label>
+                    <textarea
+                      value={editableContent.journey.conversion.nextFeatures.join('\n')}
+                      onChange={(e) => handleJourneyChange('conversion', 'nextFeatures', e.target.value.split('\n'))}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                      rows={3}
+                      placeholder="What features do they want next? (One per line)"
+                      disabled={readOnly}
+                    />
+                  </div>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Sign Up */}
-          <div className="space-y-2">
-            <div className="flex items-center space-x-2 text-[#FFD23F]">
-              <h3 className="font-medium">Sign Up</h3>
-            </div>
-            <div className="bg-[#1C1C1C] p-4 rounded-lg space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-1">Friction</label>
-                <input
-                  type="text"
-                  value={editableContent.journey.signup.friction}
-                  onChange={(e) => handleJourneyUpdate('signup', 'friction', e.target.value)}
-                  className="w-full bg-[#2A2A2A] text-white p-2 rounded border border-[#333333] focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent"
-                  placeholder="Enter signup friction points..."
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-1">Time to Value</label>
-                <input
-                  type="text"
-                  value={editableContent.journey.signup.timeToValue}
-                  onChange={(e) => handleJourneyUpdate('signup', 'timeToValue', e.target.value)}
-                  className="w-full bg-[#2A2A2A] text-white p-2 rounded border border-[#333333] focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent"
-                  placeholder="How quickly users get value..."
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-1">Guidance</label>
-                {editableContent.journey.signup.guidance.map((item, index) => (
-                  <div key={index} className="flex space-x-2 mb-2">
-                    <input
-                      type="text"
-                      value={item}
-                      onChange={(e) => handleArrayUpdate('signup', 'guidance', index, e.target.value)}
-                      className="flex-1 bg-[#2A2A2A] text-white p-2 rounded border border-[#333333] focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent"
-                      placeholder="Enter guidance item..."
-                    />
-                    <button
-                      onClick={() => handleRemoveArrayItem('signup', 'guidance', index)}
-                      className="text-red-400 hover:text-red-300 px-2"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                ))}
-                <button
-                  onClick={() => handleAddArrayItem('signup', 'guidance')}
-                  className="text-[#FFD23F] hover:text-[#FFD23F]/80 text-sm"
-                >
-                  + Add Guidance
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Activation */}
-          <div className="space-y-2">
-            <div className="flex items-center space-x-2 text-[#FFD23F]">
-              <h3 className="font-medium">Activation</h3>
-            </div>
-            <div className="bg-[#1C1C1C] p-4 rounded-lg space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-1">First Win</label>
-                <input
-                  type="text"
-                  value={editableContent.journey.activation.firstWin}
-                  onChange={(e) => handleJourneyUpdate('activation', 'firstWin', e.target.value)}
-                  className="w-full bg-[#2A2A2A] text-white p-2 rounded border border-[#333333] focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent"
-                  placeholder="User's first success..."
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-1">"Aha" Feature</label>
-                <input
-                  type="text"
-                  value={editableContent.journey.activation.ahaFeature}
-                  onChange={(e) => handleJourneyUpdate('activation', 'ahaFeature', e.target.value)}
-                  className="w-full bg-[#2A2A2A] text-white p-2 rounded border border-[#333333] focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent"
-                  placeholder="Feature that demonstrates value..."
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-1">Time to Success</label>
-                <input
-                  type="text"
-                  value={editableContent.journey.activation.timeToSuccess}
-                  onChange={(e) => handleJourneyUpdate('activation', 'timeToSuccess', e.target.value)}
-                  className="w-full bg-[#2A2A2A] text-white p-2 rounded border border-[#333333] focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent"
-                  placeholder="Time to achieve success..."
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Engagement */}
-          <div className="space-y-2">
-            <div className="flex items-center space-x-2 text-[#FFD23F]">
-              <h3 className="font-medium">Engagement</h3>
-            </div>
-            <div className="bg-[#1C1C1C] p-4 rounded-lg space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-1">Core Tasks</label>
-                {editableContent.journey.engagement.coreTasks.map((task, index) => (
-                  <div key={index} className="flex space-x-2 mb-2">
-                    <input
-                      type="text"
-                      value={task}
-                      onChange={(e) => handleArrayUpdate('engagement', 'coreTasks', index, e.target.value)}
-                      className="flex-1 bg-[#2A2A2A] text-white p-2 rounded border border-[#333333] focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent"
-                      placeholder="Enter core task..."
-                    />
-                    <button
-                      onClick={() => handleRemoveArrayItem('engagement', 'coreTasks', index)}
-                      className="text-red-400 hover:text-red-300 px-2"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                ))}
-                <button
-                  onClick={() => handleAddArrayItem('engagement', 'coreTasks')}
-                  className="text-[#FFD23F] hover:text-[#FFD23F]/80 text-sm"
-                >
-                  + Add Core Task
-                </button>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-1">Collaboration</label>
-                {editableContent.journey.engagement.collaboration.map((item, index) => (
-                  <div key={index} className="flex space-x-2 mb-2">
-                    <input
-                      type="text"
-                      value={item}
-                      onChange={(e) => handleArrayUpdate('engagement', 'collaboration', index, e.target.value)}
-                      className="flex-1 bg-[#2A2A2A] text-white p-2 rounded border border-[#333333] focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent"
-                      placeholder="Enter collaboration item..."
-                    />
-                    <button
-                      onClick={() => handleRemoveArrayItem('engagement', 'collaboration', index)}
-                      className="text-red-400 hover:text-red-300 px-2"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                ))}
-                <button
-                  onClick={() => handleAddArrayItem('engagement', 'collaboration')}
-                  className="text-[#FFD23F] hover:text-[#FFD23F]/80 text-sm"
-                >
-                  + Add Collaboration Item
-                </button>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-1">Limitations</label>
-                {editableContent.journey.engagement.limitations.map((limit, index) => (
-                  <div key={index} className="flex space-x-2 mb-2">
-                    <input
-                      type="text"
-                      value={limit}
-                      onChange={(e) => handleArrayUpdate('engagement', 'limitations', index, e.target.value)}
-                      className="flex-1 bg-[#2A2A2A] text-white p-2 rounded border border-[#333333] focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent"
-                      placeholder="Enter limitation..."
-                    />
-                    <button
-                      onClick={() => handleRemoveArrayItem('engagement', 'limitations', index)}
-                      className="text-red-400 hover:text-red-300 px-2"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                ))}
-                <button
-                  onClick={() => handleAddArrayItem('engagement', 'limitations')}
-                  className="text-[#FFD23F] hover:text-[#FFD23F]/80 text-sm"
-                >
-                  + Add Limitation
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Conversion */}
-          <div className="space-y-2">
-            <div className="flex items-center space-x-2 text-[#FFD23F]">
-              <h3 className="font-medium">Conversion</h3>
-            </div>
-            <div className="bg-[#1C1C1C] p-4 rounded-lg space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-1">Triggers</label>
-                {editableContent.journey.conversion.triggers.map((trigger, index) => (
-                  <div key={index} className="flex space-x-2 mb-2">
-                    <input
-                      type="text"
-                      value={trigger}
-                      onChange={(e) => handleArrayUpdate('conversion', 'triggers', index, e.target.value)}
-                      className="flex-1 bg-[#2A2A2A] text-white p-2 rounded border border-[#333333] focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent"
-                      placeholder="Enter conversion trigger..."
-                    />
-                    <button
-                      onClick={() => handleRemoveArrayItem('conversion', 'triggers', index)}
-                      className="text-red-400 hover:text-red-300 px-2"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                ))}
-                <button
-                  onClick={() => handleAddArrayItem('conversion', 'triggers')}
-                  className="text-[#FFD23F] hover:text-[#FFD23F]/80 text-sm"
-                >
-                  + Add Trigger
-                </button>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-1">Next Features</label>
-                {editableContent.journey.conversion.nextFeatures.map((feature, index) => (
-                  <div key={index} className="flex space-x-2 mb-2">
-                    <input
-                      type="text"
-                      value={feature}
-                      onChange={(e) => handleArrayUpdate('conversion', 'nextFeatures', index, e.target.value)}
-                      className="flex-1 bg-[#2A2A2A] text-white p-2 rounded border border-[#333333] focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent"
-                      placeholder="Enter next feature..."
-                    />
-                    <button
-                      onClick={() => handleRemoveArrayItem('conversion', 'nextFeatures', index)}
-                      className="text-red-400 hover:text-red-300 px-2"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                ))}
-                <button
-                  onClick={() => handleAddArrayItem('conversion', 'nextFeatures')}
-                  className="text-[#FFD23F] hover:text-[#FFD23F]/80 text-sm"
-                >
-                  + Add Next Feature
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Call to Action */}
-          <div className="border-t border-[#333333] pt-6">
-            <div className="flex items-center space-x-2 text-[#FFD23F] mb-2">
-              <h3 className="font-medium">Call-to-Action</h3>
-            </div>
-            <div className="bg-[#1C1C1C] p-4 rounded-lg">
+          <div>
+            <h3 className="text-base font-medium text-gray-900">Call to Action</h3>
+            <div className="mt-2">
               <input
                 type="text"
                 value={editableContent.callToAction}
-                onChange={(e) => handleCallToActionUpdate(e.target.value)}
-                className="w-full bg-[#2A2A2A] text-white p-2 rounded border border-[#333333] focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent"
-                placeholder="Enter call-to-action text..."
+                onChange={(e) => handleCallToActionChange(e.target.value)}
+                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                placeholder="Enter your call to action text"
+                disabled={readOnly}
               />
-              <p className="mt-2 text-sm text-gray-400">
-                Primary action button for website and marketing materials
-              </p>
             </div>
           </div>
         </div>
