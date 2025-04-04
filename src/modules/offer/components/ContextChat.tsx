@@ -36,77 +36,87 @@ export function ContextChat({ onComplete }: ContextChatProps) {
     } : null;
 
   useEffect(() => {
-    // Initial message and questions setup
-    if (websiteUrl && websiteScraping.status === 'completed' && websiteFindings) {
-      setIsProcessing(true);
-      
+    clearChatMessages();
+    
+    addChatMessage({
+      sender: 'system',
+      content: "👋 I'll help you refine your offer based on the information you've provided."
+    });
+
+    setTimeout(() => {
+      addChatMessage({
+        sender: 'system',
+        content: `Here's what I know so far:
+        
+Website URL: ${websiteUrl || 'Not provided'}
+Current Offer: ${initialContext.currentOffer || 'Not specified'}
+Target Audience: ${initialContext.targetAudience || 'Not specified'}
+Problem Solved: ${initialContext.problemSolved || 'Not specified'}`
+      });
+    }, 500);
+
+    if (websiteScraping.status === 'completed' && websiteFindings) {
       setTimeout(() => {
-        // Safely check if the component is still mounted before updating state
-        try {
-          addChatMessage({
-            sender: 'system',
-            content: `I've analyzed the website at ${websiteUrl} and found the following information:
-            
-Core Offer: ${websiteFindings.coreOffer}
-Target Audience: ${websiteFindings.targetAudience}
-Problem Solved: ${websiteFindings.problemSolved}
-Key Benefits: ${websiteFindings.keyBenefits?.join(', ') || 'Not specified'}
-Value Proposition: ${websiteFindings.valueProposition}
-            
-Let's discuss your offer in more detail to better understand its context.`
-          });
+        addChatMessage({
+          sender: 'ai',
+          content: `I've analyzed your website and found some interesting insights:
           
-          setTimeout(() => {
-            // Generate follow-up questions based on website scraping
-            const followUpQuestions = [
-              `Can you tell me more about how your ${websiteFindings.coreOffer} specifically helps ${websiteFindings.targetAudience}?`,
-              `What specific results can users expect from your offer that address the problem of ${websiteFindings.problemSolved}?`,
-              `What are the biggest objections or concerns potential customers might have about your solution?`
-            ];
-            setQuestions(followUpQuestions);
-            
+Core Offer: ${websiteFindings.coreOffer || 'Not found'}
+Target Audience: ${websiteFindings.targetAudience || 'Not found'}
+Problem Solved: ${websiteFindings.problemSolved || 'Not found'}
+Value Proposition: ${websiteFindings.valueProposition || 'Not found'}`
+        });
+      }, 1000);
+
+      setTimeout(async () => {
+        setIsProcessing(true);
+        try {
+          const questionsText = await generateClarifyingQuestions(initialContext, websiteFindings);
+          const parsedQuestions = parseQuestionsFromText(questionsText);
+          setQuestions(parsedQuestions);
+          
+          if (parsedQuestions.length > 0) {
             addChatMessage({
               sender: 'ai',
-              content: followUpQuestions[0]
+              content: parsedQuestions[0]
             });
-            
             setCurrentQuestionIndex(1); // Ready for the next question
-            setIsProcessing(false);
-          }, 1500);
+          }
         } catch (error) {
-          // Component might have unmounted, do nothing
-          console.log("Component unmounted during state update");
+          console.error('Error generating clarifying questions:', error);
+          const fallbackQuestions = [
+            "What specific results do your customers achieve with your offer?",
+            "What makes your solution unique compared to alternatives?",
+            "What objections do potential customers typically have?"
+          ];
+          setQuestions(fallbackQuestions);
+          
+          addChatMessage({
+            sender: 'ai',
+            content: fallbackQuestions[0]
+          });
+          setCurrentQuestionIndex(1); // Ready for the next question
+        } finally {
+          setIsProcessing(false);
         }
       }, 1500);
     } else {
       setTimeout(() => {
-        try {
-          const defaultQuestions = [
-            "What makes your offer unique compared to alternatives?",
-            "What specific results can users expect from your offer?",
-            "What are the biggest objections or concerns potential customers might have?"
-          ];
-          setQuestions(defaultQuestions);
-          
-          addChatMessage({
-            sender: 'ai',
-            content: defaultQuestions[0]
-          });
-          setCurrentQuestionIndex(1); // Ready for the next question
-        } catch (error) {
-          // Component might have unmounted, do nothing
-          console.log("Component unmounted during state update");
-        }
+        const defaultQuestions = [
+          "What makes your offer unique compared to alternatives?",
+          "What specific results can users expect from your offer?",
+          "What are the biggest objections or concerns potential customers might have?"
+        ];
+        setQuestions(defaultQuestions);
+        
+        addChatMessage({
+          sender: 'ai',
+          content: defaultQuestions[0]
+        });
+        setCurrentQuestionIndex(1); // Ready for the next question
       }, 1000);
     }
-    
-    // Clean up function to handle component unmounting
-    return () => {
-      // Don't call clearChatMessages directly here
-      // This avoids React error #185 related to state updates on unmounted components
-    };
-  // Remove clearChatMessages from the dependency array
-  }, [websiteUrl, initialContext, websiteScraping, websiteFindings, addChatMessage]);
+  }, [websiteUrl, initialContext, websiteScraping, websiteFindings, addChatMessage, clearChatMessages]);
   
   const parseQuestionsFromText = (text: string): string[] => {
     const numberedQuestionsRegex = /\d+\.\s+([^\d]+?)(?=\d+\.|$)/g;
@@ -201,6 +211,8 @@ Are you ready to continue building your offer?`
       handleSendMessage();
     }
   };
+
+
 
   return (
     <div className="bg-[#2A2A2A] rounded-lg shadow-xl overflow-hidden flex flex-col h-[70vh] w-full">

@@ -65,36 +65,51 @@ export async function scrapeWebsite(url: string, offerId?: string): Promise<{ sc
 
 export async function getScrapingResult(scrapingId: string): Promise<WebsiteScrapingResult | null> {
   try {
-    // Get current auth state
-    const { data: { user } } = await supabase.auth.getUser();
+    console.log(`Fetching scraping result for ID: ${scrapingId}`);
     
-    // For anonymous users, use direct fetch which works more reliably
+    // Get current auth state for debugging
+    const { data: { user } } = await supabase.auth.getUser();
+    console.log(`Current user state:`, user ? `Authenticated as ${user.id}` : 'Not authenticated');
+    
+    // Try direct fetch approach for anonymous users
     if (!user) {
-      const apiKey = import.meta.env.VITE_SUPABASE_ANON_KEY.trim();
+      console.log('Using direct fetch for anonymous user');
       const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/website_scraping?id=eq.${scrapingId}&select=*`;
-      
       const response = await fetch(apiUrl, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
-          'apikey': apiKey,
-          'Authorization': `Bearer ${apiKey}`
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
         }
       });
       
       if (!response.ok) {
-        console.error(`Error fetching scraping result: ${response.status}`);
+        const errorText = await response.text();
+        console.error(`Direct fetch failed: ${response.status} ${response.statusText}`, errorText);
         return null;
       }
       
       const data = await response.json();
       if (data && data.length > 0) {
-        return mapToScrapingResult(data[0]);
+        console.log('Successfully retrieved scraping result via direct fetch:', data[0]);
+        const result = data[0];
+        return {
+          id: result.id,
+          status: result.status,
+          url: result.url,
+          title: result.title,
+          metaDescription: result.meta_description,
+          analysisResult: result.analysis_result,
+          error: result.error,
+          createdAt: result.created_at,
+          completedAt: result.completed_at
+        };
       }
       return null;
     }
     
-    // For authenticated users, use the Supabase client
+    // Continue with Supabase client for authenticated users
     const { data, error } = await supabase
       .from('website_scraping')
       .select('*')
@@ -103,27 +118,25 @@ export async function getScrapingResult(scrapingId: string): Promise<WebsiteScra
       
     if (error) {
       console.error('Error fetching scraping result:', error);
+      console.error(`Error code: ${error.code}, Message: ${error.message}`);
       return null;
     }
     
-    return mapToScrapingResult(data);
+    console.log('Successfully retrieved scraping result:', data);
+    
+    return {
+      id: data.id,
+      status: data.status,
+      url: data.url,
+      title: data.title,
+      metaDescription: data.meta_description,
+      analysisResult: data.analysis_result,
+      error: data.error,
+      createdAt: data.created_at,
+      completedAt: data.completed_at
+    };
   } catch (error) {
     console.error('Error getting scraping result:', error);
     return null;
   }
-}
-
-// Helper function to map database fields to result object
-function mapToScrapingResult(data: any): WebsiteScrapingResult {
-  return {
-    id: data.id,
-    status: data.status,
-    url: data.url,
-    title: data.title,
-    metaDescription: data.meta_description,
-    analysisResult: data.analysis_result,
-    error: data.error,
-    createdAt: data.created_at,
-    completedAt: data.completed_at
-  };
 }
