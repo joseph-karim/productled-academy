@@ -103,6 +103,12 @@ interface ScorecardItem {
   justification: string;
 }
 
+interface InitialContext {
+  currentOffer: string;
+  targetAudience: string;
+  problemSolved: string;
+}
+
 interface ProcessingState {
   userSuccess: boolean;
   topResults: boolean;
@@ -122,6 +128,8 @@ interface ProcessingState {
 
 interface OfferState {
   title: string;
+  websiteUrl: string;
+  initialContext: InitialContext;
   offerRating: number | null;
   userSuccess: UserSuccess;
   topResults: TopResults;
@@ -149,6 +157,8 @@ interface OfferState {
   
   // Actions
   setTitle: (title: string) => void;
+  setWebsiteUrl: (url: string) => void;
+  setInitialContext: (field: keyof InitialContext, value: string) => void;
   setOfferRating: (rating: number) => void;
   setUserSuccess: (statement: string) => void;
   setTopResults: (results: TopResults) => void;
@@ -222,6 +232,12 @@ interface OfferState {
 // Initial state
 const initialState = {
   title: 'Untitled Offer',
+  websiteUrl: '',
+  initialContext: {
+    currentOffer: '',
+    targetAudience: '',
+    problemSolved: ''
+  },
   offerRating: null,
   userSuccess: { statement: '' },
   topResults: { 
@@ -303,6 +319,12 @@ export const useOfferStore = create<OfferState>()(
       
       // Title
       setTitle: (title) => set({ title }),
+      
+      setWebsiteUrl: (url) => set({ websiteUrl: url }),
+      
+      setInitialContext: (field, value) => set((state) => ({
+        initialContext: { ...state.initialContext, [field]: value }
+      })),
       
       // Offer Rating
       setOfferRating: (offerRating) => set({ offerRating }),
@@ -621,4 +643,4 @@ export const useOfferStore = create<OfferState>()(
     }),
     { name: 'offer-store' }
   )
-); 
+);  

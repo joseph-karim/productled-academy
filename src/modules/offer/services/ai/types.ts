@@ -86,4 +86,16 @@ export interface ActionStepSuggestion {
 export interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
+}
+
+export interface InitialContextAnalysis {
+  rating: number;
+  feedback: string;
+  suggestions: string[];
+}
+
+export interface InitialContext {
+  currentOffer: string;
+  targetAudience: string;
+  problemSolved: string;
 } 
