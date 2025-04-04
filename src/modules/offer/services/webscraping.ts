@@ -65,6 +65,12 @@ export async function scrapeWebsite(url: string, offerId?: string): Promise<{ sc
 
 export async function getScrapingResult(scrapingId: string): Promise<WebsiteScrapingResult | null> {
   try {
+    console.log(`Fetching scraping result for ID: ${scrapingId}`);
+    
+    // Get current auth state for debugging
+    const { data: { user } } = await supabase.auth.getUser();
+    console.log(`Current user state:`, user ? `Authenticated as ${user.id}` : 'Not authenticated');
+    
     const { data, error } = await supabase
       .from('website_scraping')
       .select('*')
@@ -73,8 +79,12 @@ export async function getScrapingResult(scrapingId: string): Promise<WebsiteScra
       
     if (error) {
       console.error('Error fetching scraping result:', error);
+      // For debugging - print the exact error code and message
+      console.error(`Error code: ${error.code}, Message: ${error.message}`);
       return null;
     }
+    
+    console.log('Successfully retrieved scraping result:', data);
     
     return {
       id: data.id,
