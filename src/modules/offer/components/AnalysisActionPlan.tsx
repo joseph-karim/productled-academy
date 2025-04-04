@@ -22,7 +22,7 @@ interface ScorecardItem {
 // Rating component to display colored badges
 const RatingBadge = ({ rating }: { rating: string }) => {
   let bgColor = '';
-  let textColor = 'text-white';
+  const textColor = 'text-white';
   
   switch (rating) {
     case 'Excellent':

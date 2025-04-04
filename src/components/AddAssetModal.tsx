@@ -62,7 +62,7 @@ export default function AddAssetModal({ isOpen, onClose, onAssetAdd }: AddAssetM
   const handleSubmit = () => {
     if (!name || !assetType || !source) return;
 
-    let finalUrl = url;
+    const finalUrl = url;
     let sourceConfig = {};
 
     switch (source) {

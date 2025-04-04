@@ -119,7 +119,7 @@ export function ChallengeCollector() {
     const challengeFeedbacks = feedbacks[challengeId] || [];
     if (challengeFeedbacks.length === 0) return null;
 
-    let result = [];
+    const result = [];
     let lastIndex = 0;
 
     // Sort feedbacks by startIndex
