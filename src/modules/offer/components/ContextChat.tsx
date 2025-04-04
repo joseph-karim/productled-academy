@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useOfferStore } from '../store/offerStore';
 import { MessageSquare, Send, Loader2 } from 'lucide-react';
-import { generateClarifyingQuestions, generateChatResponse, WebsiteFindings } from '../services/ai/contextChat';
+import { generateChatResponse, WebsiteFindings } from '../services/ai/contextChat';
 
 interface ContextChatProps {
   onComplete: () => void;
@@ -13,8 +13,7 @@ export function ContextChat({ onComplete }: ContextChatProps) {
     initialContext, 
     websiteScraping,
     contextChat,
-    addChatMessage,
-    clearChatMessages
+    addChatMessage
   } = useOfferStore();
   const [currentInput, setCurrentInput] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -121,18 +120,6 @@ Value Proposition: ${websiteFindings.valueProposition || 'Not found'}`
     }
   }, [websiteUrl, initialContext, websiteScraping, websiteFindings, addChatMessage]);
   
-  const parseQuestionsFromText = (text: string): string[] => {
-    const numberedQuestionsRegex = /\d+\.\s+([^\d]+?)(?=\d+\.|$)/g;
-    const matches = [...text.matchAll(numberedQuestionsRegex)];
-    
-    if (matches.length > 0) {
-      return matches.map(match => match[1].trim());
-    }
-    
-    return text.split('\n')
-      .map(line => line.trim())
-      .filter(line => line.length > 0 && line.endsWith('?'));
-  };
 
   useEffect(() => {
     if (messagesEndRef.current) {
