@@ -60,10 +60,40 @@ serve(async (req) => {
       );
     }
     
+    async function fetchWithRetry(url: string, maxRetries = 2) {
+      let lastError;
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+          console.log(`Attempt ${attempt + 1} to fetch ${url}`);
+          const response = await fetch(url, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+              'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+              'Accept-Language': 'en-US,en;q=0.5',
+              'Referer': 'https://www.google.com/'
+            },
+            timeout: 15000, // 15 second timeout
+          });
+          
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          
+          return await response.text();
+        } catch (error) {
+          console.error(`Attempt ${attempt + 1} failed:`, error);
+          lastError = error;
+          if (attempt < maxRetries) {
+            await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+          }
+        }
+      }
+      throw lastError;
+    }
+    
     (async () => {
       try {
-        const response = await fetch(url);
-        const html = await response.text();
+        const html = await fetchWithRetry(url);
         
         const parser = new DOMParser();
         const document = parser.parseFromString(html, 'text/html');
@@ -147,7 +177,17 @@ If a specific piece of information is not clearly present, use null or an empty 
           
       } catch (error) {
         console.error('Scraping error:', error);
-        await updateScrapingStatus(supabase, scrapingRecord.id, 'failed', error.message);
+        let errorMessage = error.message || 'Unknown error during website scraping';
+        
+        if (error.name === 'AbortError') {
+          errorMessage = `Request timed out while fetching ${url}`;
+        } else if (error.code === 'ENOTFOUND') {
+          errorMessage = `Domain not found: ${url}`;
+        } else if (error.message.includes('ssl')) {
+          errorMessage = `SSL certificate error for ${url}`;
+        }
+        
+        await updateScrapingStatus(supabase, scrapingRecord.id, 'failed', errorMessage);
       }
     })();
     
