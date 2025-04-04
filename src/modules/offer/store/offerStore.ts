@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import { generateUUID } from '../utils/uuid';
+import { WebsiteScrapingData, InitialContext } from '../services/ai/types';
+import { scrapeWebsite, getScrapingResult } from '../services/webscraping';
 
 // Interfaces for the Offer module components
 interface UserSuccess {
@@ -122,6 +124,9 @@ interface ProcessingState {
 
 interface OfferState {
   title: string;
+  websiteUrl: string;
+  initialContext: InitialContext;
+  websiteScraping: WebsiteScrapingData;
   offerRating: number | null;
   userSuccess: UserSuccess;
   topResults: TopResults;
@@ -149,6 +154,10 @@ interface OfferState {
   
   // Actions
   setTitle: (title: string) => void;
+  setWebsiteUrl: (url: string) => void;
+  setInitialContext: (field: keyof InitialContext, value: string) => void;
+  startWebsiteScraping: (url: string) => Promise<void>;
+  checkScrapingStatus: (scrapingId: string) => Promise<void>;
   setOfferRating: (rating: number) => void;
   setUserSuccess: (statement: string) => void;
   setTopResults: (results: TopResults) => void;
@@ -220,8 +229,24 @@ interface OfferState {
 }
 
 // Initial state
-const initialState = {
+const initialState: Partial<OfferState> = {
   title: 'Untitled Offer',
+  websiteUrl: '',
+  initialContext: {
+    currentOffer: '',
+    targetAudience: '',
+    problemSolved: ''
+  },
+  websiteScraping: {
+    scrapingId: null,
+    status: 'idle',
+    coreOffer: '',
+    targetAudience: '',
+    keyProblem: '',
+    valueProposition: '',
+    keyFeatures: [],
+    error: null
+  },
   offerRating: null,
   userSuccess: { statement: '' },
   topResults: { 
@@ -298,11 +323,100 @@ const initialState = {
 
 export const useOfferStore = create<OfferState>()(
   devtools(
-    (set) => ({
+    (set): OfferState => ({
       ...initialState,
       
       // Title
       setTitle: (title) => set({ title }),
+      
+      setWebsiteUrl: (url) => set({ websiteUrl: url }),
+      
+      setInitialContext: (field, value) => set((state) => ({
+        initialContext: { ...state.initialContext, [field]: value }
+      })),
+      
+      startWebsiteScraping: async (url) => {
+        if (!url) return;
+        
+        set((state) => ({
+          websiteScraping: {
+            ...state.websiteScraping,
+            status: 'processing',
+            error: null
+          }
+        }));
+        
+        try {
+          const { scrapingId } = await scrapeWebsite(url);
+          
+          set((state) => ({
+            websiteScraping: {
+              ...state.websiteScraping,
+              scrapingId,
+              status: 'processing'
+            }
+          }));
+          
+          setTimeout(() => {
+            const get = useOfferStore.getState;
+            get().checkScrapingStatus(scrapingId);
+          }, 100);
+        } catch (error) {
+          set((state) => ({
+            websiteScraping: {
+              ...state.websiteScraping,
+              status: 'failed',
+              error: error instanceof Error ? error.message : 'Failed to start website scraping'
+            }
+          }));
+        }
+      },
+      
+      checkScrapingStatus: async (scrapingId) => {
+        if (!scrapingId) return;
+        
+        try {
+          const result = await getScrapingResult(scrapingId);
+          
+          if (result) {
+            if (result.status === 'completed' && result.analysisResult) {
+              set({
+                websiteScraping: {
+                  scrapingId,
+                  status: 'completed',
+                  coreOffer: result.analysisResult.coreOffer || '',
+                  targetAudience: result.analysisResult.targetAudience || '',
+                  keyProblem: result.analysisResult.keyProblem || '',
+                  valueProposition: result.analysisResult.valueProposition || '',
+                  keyFeatures: result.analysisResult.keyFeatures || [],
+                  error: null
+                }
+              });
+            } else if (result.status === 'failed') {
+              set((state) => ({
+                websiteScraping: {
+                  ...state.websiteScraping,
+                  status: 'failed',
+                  error: result.error || 'Website scraping failed'
+                }
+              }));
+            } else if (result.status === 'processing') {
+              setTimeout(() => {
+                import('../services/webscraping').then(({ getScrapingResult }) => {
+                  getScrapingResult(scrapingId).then(updatedResult => {
+                    if (updatedResult) {
+                      const get = useOfferStore.getState;
+                      get().checkScrapingStatus(scrapingId);
+                    }
+                  });
+                });
+              }, 5000); // Poll every 5 seconds
+            }
+          }
+        } catch (error) {
+          console.error('Error checking scraping status:', error);
+        }
+      },
       
       // Offer Rating
       setOfferRating: (offerRating) => set({ offerRating }),
@@ -621,4 +735,4 @@ export const useOfferStore = create<OfferState>()(
     }),
     { name: 'offer-store' }
   )
-); 
+);                   
