@@ -7,11 +7,20 @@ export interface WebsiteScrapingResult {
   title?: string;
   metaDescription?: string;
   analysisResult?: {
-    coreOffer: string;
-    targetAudience: string;
-    keyProblem: string;
-    valueProposition: string;
-    keyFeatures: string[];
+    status: 'complete' | 'processing' | 'failed' | 'no_content';
+    error_message: string | null;
+    analyzed_url: string;
+    findings: {
+      coreOffer: string;
+      targetAudience: string;
+      problemSolved: string;
+      keyBenefits: string[];
+      valueProposition: string;
+      cta: string;
+      tone: string;
+      missingInfo: string[];
+    } | null;
+    scraped_at: string;
   };
   error?: string;
   createdAt: string;

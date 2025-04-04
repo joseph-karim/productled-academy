@@ -93,23 +93,29 @@ serve(async (req) => {
           messages: [
             {
               role: 'system',
-              content: 'You are an expert at analyzing websites and extracting key business information. Extract structured data from the provided website content.'
+              content: `You are an expert marketing and offer analyst. Your task is to meticulously analyze the provided website text content to understand the core offer being presented. Extract the key components and structure your findings strictly as a JSON object.`
             },
             {
               role: 'user',
-              content: `Analyze this website content and extract the following information:
-              1. Core Offer/Product: What is the main product or service being offered?
-              2. Target Audience: Who is the product/service for?
-              3. Key Problem: What problem does this product/service solve?
-              4. Value Proposition: What is the main value proposition?
-              5. Key Features/Benefits: What are the main features or benefits?
-              
-              Website Title: ${title}
-              Meta Description: ${metaDescription}
-              
-              Content: ${cleanedText}
-              
-              Return ONLY a JSON object with these keys: coreOffer, targetAudience, keyProblem, valueProposition, keyFeatures (array)`
+              content: `
+Analyze this website content and extract the following information:
+
+Website Title: ${title}
+Meta Description: ${metaDescription}
+
+Content: ${cleanedText}
+
+Extract and return a JSON object with these keys:
+- "coreOffer": The primary product or service being offered. Be concise.
+- "targetAudience": The specific group of people or businesses the offer appears intended for.
+- "problemSolved": The main pain point or challenge the offer claims to address for the target audience.
+- "keyBenefits": List the distinct, primary benefits or key features highlighted in the text.
+- "valueProposition": Identify the core value proposition if explicitly stated or clearly implied. Summarize the main promise.
+- "cta": The main call(s) to action presented on the page (e.g., "Sign Up", "Learn More", "Request Demo").
+- "tone": Describe the overall tone and style of the language used (e.g., "Formal", "Casual", "Technical", "Benefit-Driven", "Humorous").
+- "missingInfo": List any crucial offer components (like pricing, clear success metrics, guarantees) that seem absent or unclear from the provided text.
+
+If a specific piece of information is not clearly present, use null or an empty array for the corresponding key. Do not invent information.`
             }
           ],
           response_format: { type: 'json_object' }
@@ -121,7 +127,13 @@ serve(async (req) => {
           .from('website_scraping')
           .update({
             status: 'completed',
-            analysis_result: analysisResult,
+            analysis_result: {
+              status: 'complete',
+              error_message: null,
+              analyzed_url: url,
+              findings: JSON.parse(completion.choices[0].message.content),
+              scraped_at: new Date().toISOString()
+            },
             title: title,
             meta_description: metaDescription,
             completed_at: new Date().toISOString()
@@ -150,13 +162,22 @@ serve(async (req) => {
   }
 });
 
-async function updateScrapingStatus(supabase, id, status, error = null) {
+async function updateScrapingStatus(supabase, id, status, errorMessage = null) {
+  const timestamp = new Date().toISOString();
+  
   await supabase
     .from('website_scraping')
     .update({
       status: status,
-      error: error,
-      completed_at: new Date().toISOString()
+      error: errorMessage,
+      analysis_result: status === 'failed' ? {
+        status: 'failed',
+        error_message: errorMessage,
+        analyzed_url: null,
+        findings: null,
+        scraped_at: timestamp
+      } : null,
+      completed_at: timestamp
     })
     .eq('id', id);
 }
