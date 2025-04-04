@@ -67,7 +67,7 @@ serve(async (req) => {
           console.log(`Attempt ${attempt + 1} to scrape ${url} with crawl4ai`);
           
           const crawlServiceUrl = Deno.env.get('CRAWL4AI_SERVICE_URL') || 'http://localhost:8000';
-          const authToken = Deno.env.get('CRAWL4AI_AUTH_TOKEN') || 'your_secret_key_here';
+          const authToken = Deno.env.get('CRAWL4AI_AUTH_TOKEN') || '2080526ca47212486f0f655572b6c6c2af4257af71a93c78dfe77258e07e287a';
           
           const response = await fetch(`${crawlServiceUrl}/api/v1/scrape`, {
             method: 'POST',
