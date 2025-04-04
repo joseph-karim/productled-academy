@@ -134,7 +134,7 @@ interface ProcessingState {
   socialProof: boolean;
 }
 
-interface OfferState {
+interface OfferStateData {
   title: string;
   websiteUrl: string;
   initialContext: InitialContext;
@@ -168,7 +168,9 @@ interface OfferState {
   suggestedNextSteps: string[] | null;
   isAnalyzingOffer: boolean;
   analysisError: string | null;
-  
+}
+
+interface OfferState extends OfferStateData {
   // Actions
   setTitle: (title: string) => void;
   setWebsiteUrl: (url: string) => void;
@@ -255,7 +257,7 @@ interface OfferState {
 }
 
 // Initial state
-const initialState: Partial<OfferState> = {
+const initialState: OfferStateData = {
   title: 'Untitled Offer',
   websiteUrl: '',
   initialContext: {
@@ -271,6 +273,8 @@ const initialState: Partial<OfferState> = {
     keyProblem: '',
     valueProposition: '',
     keyFeatures: [],
+    keyPhrases: [],
+    competitiveAdvantages: [],
     error: null
   },
   contextChat: {
@@ -414,15 +418,30 @@ export const useOfferStore = create<OfferState>()(
           
           if (result) {
             if (result.status === 'completed' && result.analysisResult?.findings) {
+              const findings = result.analysisResult.findings;
+              
+              let processedKeyFeatures: string[] = [];
+              if (findings.keyBenefits) {
+                if (Array.isArray(findings.keyBenefits)) {
+                  if (typeof findings.keyBenefits[0] === 'string') {
+                    processedKeyFeatures = findings.keyBenefits as string[];
+                  } else {
+                    processedKeyFeatures = (findings.keyBenefits as Array<{benefit: string}>).map(item => item.benefit);
+                  }
+                }
+              }
+              
               set({
                 websiteScraping: {
                   scrapingId,
                   status: 'completed',
-                  coreOffer: result.analysisResult.findings.coreOffer || '',
-                  targetAudience: result.analysisResult.findings.targetAudience || '',
-                  keyProblem: result.analysisResult.findings.problemSolved || '',
-                  valueProposition: result.analysisResult.findings.valueProposition || '',
-                  keyFeatures: result.analysisResult.findings.keyBenefits || [],
+                  coreOffer: findings.coreOffer || '',
+                  targetAudience: findings.targetAudience || '',
+                  keyProblem: findings.problemSolved || '',
+                  valueProposition: findings.valueProposition || '',
+                  keyFeatures: processedKeyFeatures,
+                  keyPhrases: findings.keyPhrases || [],
+                  competitiveAdvantages: findings.competitiveAdvantages || [],
                   error: null
                 }
               });
@@ -820,4 +839,4 @@ export const useOfferStore = create<OfferState>()(
     }),
     { name: 'offer-store' }
   )
-);                    
+);                                            
