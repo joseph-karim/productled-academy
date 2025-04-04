@@ -1,7 +1,7 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useOfferStore } from '../store/offerStore';
 import { MessageSquare, Send, Loader2 } from 'lucide-react';
-import { generateClarifyingQuestions, generateChatResponse, WebsiteFindings } from '../services/ai/contextChat';
+import { generateChatResponse, WebsiteFindings } from '../services/ai/contextChat';
 
 interface ContextChatProps {
   onComplete: () => void;
@@ -13,8 +13,7 @@ export function ContextChat({ onComplete }: ContextChatProps) {
     initialContext, 
     websiteScraping,
     contextChat,
-    addChatMessage,
-    clearChatMessages
+    addChatMessage
   } = useOfferStore();
   const [currentInput, setCurrentInput] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -22,7 +21,7 @@ export function ContextChat({ onComplete }: ContextChatProps) {
   const [questions, setQuestions] = useState<string[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
-  const websiteFindings: WebsiteFindings | null = 
+  const websiteFindings = useMemo<WebsiteFindings | null>(() => 
     websiteScraping.status === 'completed' && websiteScraping.coreOffer ? 
     {
       coreOffer: websiteScraping.coreOffer,
@@ -33,7 +32,10 @@ export function ContextChat({ onComplete }: ContextChatProps) {
       cta: null,
       tone: null,
       missingInfo: null
-    } : null;
+    } : null, 
+    [websiteScraping.status, websiteScraping.coreOffer, websiteScraping.targetAudience, 
+     websiteScraping.keyProblem, websiteScraping.keyFeatures, websiteScraping.valueProposition]
+  );
 
   useEffect(() => {
     // Initial message and questions setup
@@ -108,18 +110,6 @@ Let's discuss your offer in more detail to better understand its context.`
   // Remove clearChatMessages from the dependency array
   }, [websiteUrl, initialContext, websiteScraping, websiteFindings, addChatMessage]);
   
-  const parseQuestionsFromText = (text: string): string[] => {
-    const numberedQuestionsRegex = /\d+\.\s+([^\d]+?)(?=\d+\.|$)/g;
-    const matches = [...text.matchAll(numberedQuestionsRegex)];
-    
-    if (matches.length > 0) {
-      return matches.map(match => match[1].trim());
-    }
-    
-    return text.split('\n')
-      .map(line => line.trim())
-      .filter(line => line.length > 0 && line.endsWith('?'));
-  };
 
   useEffect(() => {
     if (messagesEndRef.current) {
