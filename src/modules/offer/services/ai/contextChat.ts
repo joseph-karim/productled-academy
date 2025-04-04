@@ -6,11 +6,29 @@ export interface WebsiteFindings {
   coreOffer: string | null;
   targetAudience: string | null;
   problemSolved: string | null;
-  keyBenefits: string[] | null;
+  keyBenefits: string[] | Array<{
+    benefit: string;
+    problemRelation?: string;
+    metrics?: string;
+    isUnique?: boolean;
+  }> | null;
   valueProposition: string | null;
-  cta: string | null;
-  tone: string | null;
+  cta: string | {
+    primary: string;
+    secondary?: string[];
+    action?: string;
+    urgency?: string;
+  } | null;
+  tone: string | {
+    overall: string;
+    socialProof?: string;
+    emotionalAppeals?: string;
+    technicalLevel?: string;
+    storytelling?: boolean;
+  } | null;
   missingInfo: string[] | null;
+  keyPhrases?: string[] | null;
+  competitiveAdvantages?: string[] | null;
 }
 
 /**

@@ -33,10 +33,13 @@ export function ContextChat({ onComplete }: ContextChatProps) {
       valueProposition: websiteScraping.valueProposition,
       cta: null,
       tone: null,
-      missingInfo: null
+      missingInfo: null,
+      keyPhrases: websiteScraping.keyPhrases || null,
+      competitiveAdvantages: websiteScraping.competitiveAdvantages || null
     } : null, 
     [websiteScraping.status, websiteScraping.coreOffer, websiteScraping.targetAudience, 
-     websiteScraping.keyProblem, websiteScraping.keyFeatures, websiteScraping.valueProposition]
+     websiteScraping.keyProblem, websiteScraping.keyFeatures, websiteScraping.valueProposition,
+     websiteScraping.keyPhrases, websiteScraping.competitiveAdvantages]
   );
 
   useEffect(() => {
