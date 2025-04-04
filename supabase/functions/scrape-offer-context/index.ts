@@ -28,7 +28,7 @@ serve(async (req) => {
       );
     }
     
-    const effectiveUserId = userId || 'anonymous';
+    const effectiveUserId = userId || null;
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
