@@ -4,6 +4,18 @@ import { generateUUID } from '../utils/uuid';
 import { WebsiteScrapingData, InitialContext } from '../services/ai/types';
 import { scrapeWebsite, getScrapingResult } from '../services/webscraping';
 
+export interface ChatMessage {
+  id: string;
+  sender: 'system' | 'user' | 'ai';
+  content: string;
+  timestamp: Date;
+}
+
+export interface ContextChat {
+  messages: ChatMessage[];
+  lastUpdated: Date | null;
+}
+
 // Interfaces for the Offer module components
 interface UserSuccess {
   statement: string;
@@ -127,6 +139,7 @@ interface OfferState {
   websiteUrl: string;
   initialContext: InitialContext;
   websiteScraping: WebsiteScrapingData;
+  contextChat: ContextChat;
   offerRating: number | null;
   userSuccess: UserSuccess;
   topResults: TopResults;
@@ -158,6 +171,10 @@ interface OfferState {
   setInitialContext: (field: keyof InitialContext, value: string) => void;
   startWebsiteScraping: (url: string) => Promise<void>;
   checkScrapingStatus: (scrapingId: string) => Promise<void>;
+  
+  addChatMessage: (message: Omit<ChatMessage, 'id' | 'timestamp'>) => void;
+  clearChatMessages: () => void;
+  
   setOfferRating: (rating: number) => void;
   setUserSuccess: (statement: string) => void;
   setTopResults: (results: TopResults) => void;
@@ -246,6 +263,10 @@ const initialState: Partial<OfferState> = {
     valueProposition: '',
     keyFeatures: [],
     error: null
+  },
+  contextChat: {
+    messages: [],
+    lastUpdated: null
   },
   offerRating: null,
   userSuccess: { statement: '' },
@@ -379,16 +400,16 @@ export const useOfferStore = create<OfferState>()(
           const result = await getScrapingResult(scrapingId);
           
           if (result) {
-            if (result.status === 'completed' && result.analysisResult) {
+            if (result.status === 'completed' && result.analysisResult?.findings) {
               set({
                 websiteScraping: {
                   scrapingId,
                   status: 'completed',
-                  coreOffer: result.analysisResult.coreOffer || '',
-                  targetAudience: result.analysisResult.targetAudience || '',
-                  keyProblem: result.analysisResult.keyProblem || '',
-                  valueProposition: result.analysisResult.valueProposition || '',
-                  keyFeatures: result.analysisResult.keyFeatures || [],
+                  coreOffer: result.analysisResult.findings.coreOffer || '',
+                  targetAudience: result.analysisResult.findings.targetAudience || '',
+                  keyProblem: result.analysisResult.findings.problemSolved || '',
+                  valueProposition: result.analysisResult.findings.valueProposition || '',
+                  keyFeatures: result.analysisResult.findings.keyBenefits || [],
                   error: null
                 }
               });
@@ -576,6 +597,27 @@ export const useOfferStore = create<OfferState>()(
         aestheticsChecklistCompleted: completed
       }),
       
+      addChatMessage: (message) => set((state) => ({
+        contextChat: {
+          messages: [
+            ...state.contextChat.messages,
+            {
+              id: crypto.randomUUID(),
+              ...message,
+              timestamp: new Date()
+            }
+          ],
+          lastUpdated: new Date()
+        }
+      })),
+      
+      clearChatMessages: () => set({
+        contextChat: {
+          messages: [],
+          lastUpdated: null
+        }
+      }),
+      
       // Processing State
       setProcessing: (key, isProcessing) => set((state) => ({
         processingState: {
@@ -735,4 +777,4 @@ export const useOfferStore = create<OfferState>()(
     }),
     { name: 'offer-store' }
   )
-);                   
+);  

@@ -53,24 +53,33 @@ async function mockOpenAI(content) {
   
   if (content.includes('Example Product')) {
     return {
-      coreOffer: 'Workflow management software',
-      targetAudience: 'Small Business Owners',
-      keyProblem: 'Inefficient task management',
-      valueProposition: 'Streamline business workflows',
-      keyFeatures: [
-        'Automated task assignment',
-        'Real-time progress tracking',
-        'Customizable workflows'
+      "coreOffer": "Workflow management software",
+      "targetAudience": "Small Business Owners",
+      "problemSolved": "Inefficient task management",
+      "keyBenefits": [
+        "Automated task assignment",
+        "Real-time progress tracking",
+        "Customizable workflows"
+      ],
+      "valueProposition": "Streamline business workflows",
+      "cta": "Get Started",
+      "tone": "Professional, Solution-Oriented",
+      "missingInfo": [
+        "Pricing details",
+        "Customer testimonials"
       ]
     };
   }
   
   return {
-    coreOffer: 'Unknown product',
-    targetAudience: 'General audience',
-    keyProblem: 'Unspecified problem',
-    valueProposition: 'Generic value proposition',
-    keyFeatures: ['Feature 1', 'Feature 2']
+    "coreOffer": "Unknown product",
+    "targetAudience": "General audience",
+    "problemSolved": "Unspecified problem",
+    "keyBenefits": ["Feature 1", "Feature 2"],
+    "valueProposition": "Generic value proposition",
+    "cta": "Learn More",
+    "tone": "Neutral",
+    "missingInfo": ["Product details", "Use cases"]
   };
 }
 
@@ -108,13 +117,21 @@ async function testEdgeFunction() {
     const analysisResult = await mockOpenAI(html);
     console.log('Analysis result:', analysisResult);
     
+    const timestamp = new Date().toISOString();
+    
     await mockSupabase('update', {
       id: scrapingRecord.data.id,
       status: 'completed',
-      analysis_result: analysisResult,
+      analysis_result: {
+        status: 'complete',
+        error_message: null,
+        analyzed_url: url,
+        findings: analysisResult,
+        scraped_at: timestamp
+      },
       title,
       meta_description: metaDescription,
-      completed_at: new Date().toISOString()
+      completed_at: timestamp
     });
     
     console.log('Test Case 1: Success');
