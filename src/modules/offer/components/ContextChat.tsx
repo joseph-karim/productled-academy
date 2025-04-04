@@ -20,6 +20,7 @@ export function ContextChat({ onComplete }: ContextChatProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [questions, setQuestions] = useState<string[]>([]);
+  const [hasNewMessages, setHasNewMessages] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   const websiteFindings = useMemo<WebsiteFindings | null>(() => 
@@ -135,10 +136,16 @@ Value Proposition: ${websiteFindings.valueProposition || 'Not found'}`
   };
 
   useEffect(() => {
-    if (messagesEndRef.current) {
+    if (contextChat.messages.length > 3) {
+      setHasNewMessages(true);
+    }
+  }, [contextChat.messages.length]);
+  
+  useEffect(() => {
+    if (messagesEndRef.current && contextChat.messages.length <= 3) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [contextChat.messages]);
+  }, []);
 
   const handleSendMessage = async () => {
     if (!currentInput.trim()) return;
@@ -150,6 +157,7 @@ Value Proposition: ${websiteFindings.valueProposition || 'Not found'}`
     
     setCurrentInput('');
     setIsProcessing(true);
+    setHasNewMessages(false); // Reset notification when user sends a message
 
     try {
       const response = await generateChatResponse(
@@ -259,6 +267,24 @@ Are you ready to continue building your offer?`
           </div>
         )}
         <div ref={messagesEndRef} />
+        
+        {/* Scroll to bottom button with notification indicator */}
+        {contextChat.messages.length > 3 && (
+          <div className="flex justify-center mt-4">
+            <button
+              onClick={() => {
+                messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+                setHasNewMessages(false);
+              }}
+              className={`px-3 py-1 ${hasNewMessages ? 'bg-[#FFD23F] text-[#1C1C1C]' : 'bg-[#333333] text-white'} rounded-md hover:bg-opacity-90 text-sm flex items-center`}
+            >
+              {hasNewMessages && (
+                <span className="w-2 h-2 bg-red-500 rounded-full mr-2 animate-pulse"></span>
+              )}
+              View Latest Messages
+            </button>
+          </div>
+        )}
       </div>
       
       <div className="border-t border-[#333333] p-4 bg-[#2A2A2A]">
