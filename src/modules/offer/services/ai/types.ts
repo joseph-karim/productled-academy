@@ -107,7 +107,14 @@ export interface WebsiteScrapingData {
   targetAudience: string;
   keyProblem: string;
   valueProposition: string;
-  keyFeatures: string[];
+  keyFeatures: string[] | Array<{
+    benefit: string;
+    problemRelation?: string;
+    metrics?: string;
+    isUnique?: boolean;
+  }>;
+  keyPhrases?: string[];
+  competitiveAdvantages?: string[];
   error: string | null;
 }
 

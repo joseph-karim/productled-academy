@@ -14,11 +14,29 @@ export interface WebsiteScrapingResult {
       coreOffer: string;
       targetAudience: string;
       problemSolved: string;
-      keyBenefits: string[];
+      keyBenefits: string[] | Array<{
+        benefit: string;
+        problemRelation?: string;
+        metrics?: string;
+        isUnique?: boolean;
+      }>;
       valueProposition: string;
-      cta: string;
-      tone: string;
+      cta: string | {
+        primary: string;
+        secondary?: string[];
+        action?: string;
+        urgency?: string;
+      };
+      tone: string | {
+        overall: string;
+        socialProof?: string;
+        emotionalAppeals?: string;
+        technicalLevel?: string;
+        storytelling?: boolean;
+      };
       missingInfo: string[];
+      keyPhrases?: string[];
+      competitiveAdvantages?: string[];
     } | null;
     scraped_at: string;
   };

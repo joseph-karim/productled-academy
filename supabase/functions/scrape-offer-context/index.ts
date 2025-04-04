@@ -180,12 +180,12 @@ serve(async (req) => {
           messages: [
             {
               role: 'system',
-              content: `You are an expert marketing and offer analyst. Your task is to meticulously analyze the provided website text content to understand the core offer being presented. Extract the key components and structure your findings strictly as a JSON object.`
+              content: `You are an expert marketing and offer analyst with deep expertise in product-led growth strategies. Your task is to meticulously analyze the provided website text content to understand the core offer being presented. Extract the key components with high precision and detail, structuring your findings strictly as a JSON object. Be thorough in your analysis, looking for both explicit statements and implicit indicators in the content.`
             },
             {
               role: 'user',
               content: `
-Analyze this website content and extract the following information:
+Analyze this website content and extract the following information with as much detail as possible:
 
 Website Title: ${title}
 Meta Description: ${metaDescription}
@@ -193,16 +193,62 @@ Meta Description: ${metaDescription}
 Content: ${cleanedText}
 
 Extract and return a JSON object with these keys:
-- "coreOffer": The primary product or service being offered. Be concise.
-- "targetAudience": The specific group of people or businesses the offer appears intended for.
-- "problemSolved": The main pain point or challenge the offer claims to address for the target audience.
-- "keyBenefits": List the distinct, primary benefits or key features highlighted in the text.
-- "valueProposition": Identify the core value proposition if explicitly stated or clearly implied. Summarize the main promise.
-- "cta": The main call(s) to action presented on the page (e.g., "Sign Up", "Learn More", "Request Demo").
-- "tone": Describe the overall tone and style of the language used (e.g., "Formal", "Casual", "Technical", "Benefit-Driven", "Humorous").
-- "missingInfo": List any crucial offer components (like pricing, clear success metrics, guarantees) that seem absent or unclear from the provided text.
 
-If a specific piece of information is not clearly present, use null or an empty array for the corresponding key. Do not invent information.`
+- "coreOffer": The primary product or service being offered. Be specific about what it is, what it does, and how it's delivered (SaaS, physical product, service, etc.). Include pricing model if mentioned (subscription, one-time, etc.).
+
+- "targetAudience": The specific group of people or businesses the offer is intended for. Include:
+  * Demographics (if mentioned)
+  * Job titles or roles
+  * Industry verticals
+  * Company size (if B2B)
+  * Pain points specific to this audience
+  * Level of technical expertise required
+
+- "problemSolved": The main pain points or challenges the offer claims to address. Include:
+  * Primary problem
+  * Secondary problems
+  * How the problem impacts the target audience
+  * Current alternatives or workarounds mentioned
+  * Cost of inaction (if mentioned)
+
+- "keyBenefits": A comprehensive list of benefits or features highlighted in the text. For each, include:
+  * The specific benefit
+  * How it relates to solving the problem
+  * Any metrics or statistics mentioned (e.g., "saves 30% time")
+  * Whether it's unique or differentiated from competitors
+
+- "valueProposition": The core value proposition, including:
+  * The main promise to customers
+  * The transformation or outcome offered
+  * Timeframe for results (if mentioned)
+  * Risk reduction elements (guarantees, free trials, etc.)
+
+- "cta": All calls to action presented on the page, including:
+  * Primary CTA text
+  * Secondary CTAs
+  * The action users are asked to take
+  * Any urgency or scarcity tactics used
+
+- "tone": Detailed analysis of the communication style:
+  * Overall tone (formal, casual, technical, etc.)
+  * Use of social proof or authority
+  * Emotional appeals used
+  * Level of technical language
+  * Use of storytelling or case studies
+
+- "missingInfo": Crucial offer components that seem absent or unclear:
+  * Pricing details
+  * Implementation requirements
+  * Technical specifications
+  * Success metrics or case studies
+  * Support or onboarding information
+  * Comparison with alternatives
+
+- "keyPhrases": Extract 5-10 exact phrases or sentences that best capture the core messaging of the offer.
+
+- "competitiveAdvantages": Any explicit or implicit statements about how this offer differs from alternatives or competitors.
+
+If a specific piece of information is not clearly present, provide your best inference based on context, but mark it as inferred. If you cannot make a reasonable inference, use null or an empty array for the corresponding key. Prioritize accuracy over completeness.`
             }
           ],
           response_format: { type: 'json_object' }
