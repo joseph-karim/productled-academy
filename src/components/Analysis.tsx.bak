@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useFormStore } from '../store/formStore';
-import { usePackageStore } from '../store/packageStore';
-import { Link, useNavigate } from 'react-router-dom';
+import { useFormStore } from '../stores/formStore';
+import { usePackageStore } from '../stores/packageStore';
 import { 
   Loader2, 
   X, 
@@ -22,7 +21,7 @@ import {
 } from 'lucide-react';
 import { Chart as ChartJS, RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend, CategoryScale, LinearScale, BarElement } from 'chart.js';
 import { Radar, Bar } from 'react-chartjs-2';
-import { analyzeFormData } from '../services/ai/analysis';
+import { analyzeFormData } from '../services/openai';
 import { ComponentCard } from './analysis/ComponentCard';
 import { shareAnalysis, saveAnalysis, updateAnalysis } from '../services/supabase';
 import { AuthModal } from './auth/AuthModal';
@@ -47,7 +46,7 @@ interface AnalysisProps {
 export function Analysis({ isShared = false }: AnalysisProps) {
   const store = useFormStore();
   const packageStore = usePackageStore();
-  const navigate = useNavigate();
+  const [showVoiceChat, setShowVoiceChat] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('overview');
@@ -61,26 +60,9 @@ export function Analysis({ isShared = false }: AnalysisProps) {
   const [showTitlePrompt, setShowTitlePrompt] = useState(false);
 
   useEffect(() => {
-    // Debug the current store state
-    console.log("Analysis component - isShared:", isShared);
-    console.log("Analysis component - store.analysis:", store.analysis);
-    console.log("Analysis component - packageStore state:", packageStore);
-    
     const analyzeData = async () => {
-      // If already analyzing or we already have analysis data, don't do anything
-      if (isAnalyzing || store.analysis) return;
+      if (isAnalyzing || store.analysis || isShared) return;
       
-      // For shared analyses, we expect the data to already be in the store
-      // If it's not there, show an error
-      if (isShared) {
-        if (!store.analysis) {
-          console.error("Analysis data missing in shared view");
-          setError("Analysis data not available");
-        }
-        return;
-      }
-      
-      // For regular (non-shared) analyses, validate required data
       const beginnerOutcome = store.outcomes.find(o => o.level === 'beginner');
       
       if (!store.productDescription || !beginnerOutcome?.text || !store.selectedModel || !store.idealUser) {
@@ -91,7 +73,30 @@ export function Analysis({ isShared = false }: AnalysisProps) {
       setIsAnalyzing(true);
       
       try {
-        // Generate the analysis - this doesn't require authentication
+        // Check if user is authenticated before trying to save
+        const { data: { user } } = await supabase.auth.getUser();
+        let analysisId = null;
+
+        // Only save to database if user is authenticated
+        if (user) {
+          const analysisData = {
+            title: store.title || 'Untitled Analysis',
+            productDescription: store.productDescription,
+            idealUser: store.idealUser,
+            outcomes: store.outcomes,
+            challenges: store.challenges,
+            solutions: store.solutions,
+            selectedModel: store.selectedModel,
+            features: packageStore.features,
+            userJourney: store.userJourney,
+            pricingStrategy: packageStore.pricingStrategy,
+            analysisResults: null // Initialize as null
+          };
+
+          const savedAnalysis = await saveAnalysis(analysisData);
+          analysisId = savedAnalysis.id;
+        }
+
         const result = await analyzeFormData({
           productDescription: store.productDescription,
           idealUser: store.idealUser,
@@ -105,52 +110,29 @@ export function Analysis({ isShared = false }: AnalysisProps) {
           }
         });
         
-        // Check if authenticated AFTER getting the analysis results
-        // This means anonymous users still see the analysis
-        const { data: { user } } = await supabase.auth.getUser();
-        let analysisId = undefined;
-        
-        // Only attempt database operations if the user is logged in
-        if (user) {
-          try {
-            // First save the base analysis
-            const analysisData = {
-              title: store.title || 'Untitled Analysis',
-              productDescription: store.productDescription,
-              idealUser: store.idealUser,
-              outcomes: store.outcomes,
-              challenges: store.challenges,
-              solutions: store.solutions,
-              selectedModel: store.selectedModel,
-              features: packageStore.features,
-              pricingStrategy: packageStore.pricingStrategy,
-              userJourney: store.userJourney
-            };
-            
-            const savedAnalysis = await saveAnalysis(analysisData);
-            analysisId = savedAnalysis.id;
-            
-            // Then update with the results
-            await updateAnalysis(savedAnalysis.id, {
-              analysisResults: result
-            });
-          } catch (dbError) {
-            // Don't block rendering due to database errors
-            console.error('Database operation failed:', dbError);
-            // Just continue with local analysis
-          }
+        // Only update in database if user is authenticated and we have an analysisId
+        if (user && analysisId) {
+          await updateAnalysis(analysisId, {
+            analysisResults: result,
+            pricingStrategy: packageStore.pricingStrategy
+          });
         }
 
-        // Always set the analysis in the store, regardless of authentication
+        // Always update the local store, regardless of authentication
         store.setAnalysis({
           ...result,
-          id: analysisId
+          id: analysisId || undefined
         });
         
         setError(null);
       } catch (error) {
         console.error('Error analyzing data:', error);
-        setError(error instanceof Error ? error.message : 'An unexpected error occurred during analysis');
+        // Don't show auth errors to users - just process the analysis locally
+        if (error instanceof Error && error.message.includes('must be logged in')) {
+          // Continue with local analysis only, no error message needed
+        } else {
+          setError(error instanceof Error ? error.message : 'An unexpected error occurred during analysis');
+        }
       } finally {
         setIsAnalyzing(false);
       }
@@ -160,16 +142,16 @@ export function Analysis({ isShared = false }: AnalysisProps) {
   }, [store, packageStore, isAnalyzing, isShared]);
 
   const handleSave = async () => {
-    // Check authentication
+    // Check if user is authenticated
     const { data: { user } } = await supabase.auth.getUser();
     
+    // If not authenticated, show auth modal
     if (!user) {
-      // Show auth modal and set pending action to save
-      setPendingAction('save');
       setShowAuthModal(true);
+      setPendingAction('save');
       return;
     }
-
+    
     if (!store.title) {
       setShowTitlePrompt(true);
       return;
@@ -186,24 +168,22 @@ export function Analysis({ isShared = false }: AnalysisProps) {
         solutions: store.solutions,
         selectedModel: store.selectedModel,
         features: packageStore.features,
-        pricingStrategy: packageStore.pricingStrategy,
         userJourney: store.userJourney,
-        analysisResults: store.analysis
+        analysisResults: store.analysis,
+        pricingStrategy: packageStore.pricingStrategy
       };
 
-      const response = await saveAnalysis(analysisData);
-      
-      // If we get here, it succeeded
-      notifySuccess('Analysis saved successfully');
-      console.log('Saved analysis:', response);
-      
-      // Update the analysis ID in the store
-      if (store.analysis) {
-        store.setAnalysis({
-          ...store.analysis,
-          id: response.id
-        });
+      if (store.analysis?.id) {
+        await updateAnalysis(store.analysis.id, analysisData);
+      } else {
+        const savedAnalysis = await saveAnalysis(analysisData);
+        store.setAnalysis({ ...store.analysis!, id: savedAnalysis.id });
       }
+
+      const successMessage = "Analysis saved successfully";
+      setError(successMessage);
+      setTimeout(() => setError(null), 3000);
+
     } catch (error) {
       console.error('Error saving analysis:', error);
       notifyError('Failed to save analysis');
@@ -213,17 +193,23 @@ export function Analysis({ isShared = false }: AnalysisProps) {
   };
 
   const handleShare = async () => {
-    // Check authentication
+    // Check if user is authenticated
     const { data: { user } } = await supabase.auth.getUser();
     
+    // If not authenticated, show auth modal
     if (!user) {
-      // Show auth modal and set pending action to share
-      setPendingAction('share');
       setShowAuthModal(true);
+      setPendingAction('share');
       return;
     }
-
-    // If no analysis ID, we need to save first
+    
+    // Check if analysis has a title
+    if (!store.title || store.title.trim() === '' || store.title === 'Untitled Analysis') {
+      setShowTitlePrompt(true);
+      setPendingAction('share');
+      return;
+    }
+    
     if (!store.analysis?.id) {
       if (!store.title) {
         setShowTitlePrompt(true);
@@ -231,8 +217,7 @@ export function Analysis({ isShared = false }: AnalysisProps) {
       }
       
       try {
-        setIsSaving(true);
-        const analysisData = {
+        const savedAnalysis = await saveAnalysis({
           title: store.title,
           productDescription: store.productDescription,
           idealUser: store.idealUser,
@@ -244,9 +229,8 @@ export function Analysis({ isShared = false }: AnalysisProps) {
           pricingStrategy: packageStore.pricingStrategy,
           userJourney: store.userJourney,
           analysisResults: store.analysis
-        };
+        });
 
-        const savedAnalysis = await saveAnalysis(analysisData);
         // If we get here, it succeeded
         console.log('Saved analysis before sharing:', savedAnalysis);
         
@@ -293,17 +277,18 @@ export function Analysis({ isShared = false }: AnalysisProps) {
     }
   };
 
-  const handleCopyToClipboard = async () => {
-    if (!shareUrl) return;
+  const handleExport = async () => {
+    // Check if user is authenticated
+    const { data: { user } } = await supabase.auth.getUser();
     
-    try {
-      await navigator.clipboard.writeText(shareUrl);
-      setShowCopiedMessage(true);
-      setTimeout(() => setShowCopiedMessage(false), 3000);
-    } catch (error) {
-      setError('Failed to copy to clipboard');
-      setTimeout(() => setError(null), 3000);
+    // If not authenticated, show auth modal
+    if (!user) {
+      setShowAuthModal(true);
+      setPendingAction('export');
+      return;
     }
+    
+    window.print();
   };
 
   // Handle user authentication completion
@@ -471,15 +456,28 @@ export function Analysis({ isShared = false }: AnalysisProps) {
             />
             <div className="flex justify-end space-x-4">
               <button
-                onClick={() => setShowTitlePrompt(false)}
+                onClick={() => {
+                  setShowTitlePrompt(false);
+                  setPendingAction(null);
+                }}
                 className="px-4 py-2 text-gray-400 hover:text-white"
               >
                 Cancel
               </button>
               <button
                 onClick={() => {
+                  if (!store.title || store.title.trim() === '') {
+                    store.setTitle('My Analysis');
+                  }
                   setShowTitlePrompt(false);
-                  handleSave();
+                  
+                  if (pendingAction === 'share') {
+                    handleShare();
+                  } else {
+                    handleSave();
+                  }
+                  
+                  setPendingAction(null);
                 }}
                 className="px-4 py-2 bg-[#FFD23F] text-[#1C1C1C] rounded-lg hover:bg-[#FFD23F]/90"
               >
@@ -493,13 +491,13 @@ export function Analysis({ isShared = false }: AnalysisProps) {
       {/* Header with navigation */}
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-center space-x-4">
-          <Link
-            to="/my-analyses"
+          <a
+            href="/my-analyses"
             className="flex items-center px-4 py-2 bg-[#2A2A2A] text-white rounded-lg hover:bg-[#333333]"
           >
             <Home className="w-4 h-4 mr-2" />
             My Analyses
-          </Link>
+          </a>
           {!isShared && (
             <button
               onClick={handleSave}
@@ -729,7 +727,7 @@ export function Analysis({ isShared = false }: AnalysisProps) {
         <div className="flex justify-between items-center">
           <div className="flex space-x-2">
             <button
-              onClick={() => window.print()}
+              onClick={handleExport}
               className="flex items-center px-4 py-2 rounded-lg bg-[#1C1C1C] text-white hover:bg-[#333333]"
             >
               <Download className="w-4 h-4 mr-2" />
@@ -754,6 +752,13 @@ export function Analysis({ isShared = false }: AnalysisProps) {
               </button>
             )}
           </div>
+          <button
+            onClick={() => setShowVoiceChat(true)}
+            className="flex items-center px-4 py-2 rounded-lg bg-[#FFD23F] text-[#1C1C1C] hover:bg-[#FFD23F]/90"
+          >
+            <Mic className="w-4 h-4 mr-2" />
+            Voice Chat
+          </button>
         </div>
       )}
 
@@ -774,9 +779,35 @@ export function Analysis({ isShared = false }: AnalysisProps) {
       )}
 
       {showAuthModal && (
-        <AuthModal
-          onComplete={handleAuthComplete}
-          action={pendingAction || 'view'}
+        <AuthModal 
+          onClose={() => {
+            setShowAuthModal(false);
+            setPendingAction(null);
+          }}
+          onSuccess={() => {
+            setShowAuthModal(false);
+            if (pendingAction === 'share') handleShare();
+            else if (pendingAction === 'save') handleSave();
+            else if (pendingAction === 'export') handleExport();
+            setPendingAction(null);
+          }}
+        />
+      )}
+
+      {showVoiceChat && (
+        <VoiceChat 
+          onClose={() => setShowVoiceChat(false)} 
+          context={{
+            productDescription: store.productDescription,
+            idealUser: store.idealUser,
+            outcomes: store.outcomes,
+            challenges: store.challenges,
+            solutions: store.solutions,
+            selectedModel: store.selectedModel,
+            features: packageStore.features,
+            pricingStrategy: packageStore.pricingStrategy,
+            analysis: store.analysis
+          }}
         />
       )}
     </div>
