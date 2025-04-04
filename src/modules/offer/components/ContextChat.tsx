@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useOfferStore } from '../store/offerStore';
 import { MessageSquare, Send, Loader2 } from 'lucide-react';
 import { generateClarifyingQuestions, generateChatResponse, WebsiteFindings } from '../services/ai/contextChat';
@@ -22,7 +22,7 @@ export function ContextChat({ onComplete }: ContextChatProps) {
   const [questions, setQuestions] = useState<string[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
-  const websiteFindings: WebsiteFindings | null = 
+  const websiteFindings = useMemo<WebsiteFindings | null>(() => 
     websiteScraping.status === 'completed' && websiteScraping.coreOffer ? 
     {
       coreOffer: websiteScraping.coreOffer,
@@ -33,7 +33,10 @@ export function ContextChat({ onComplete }: ContextChatProps) {
       cta: null,
       tone: null,
       missingInfo: null
-    } : null;
+    } : null, 
+    [websiteScraping.status, websiteScraping.coreOffer, websiteScraping.targetAudience, 
+     websiteScraping.keyProblem, websiteScraping.keyFeatures, websiteScraping.valueProposition]
+  );
 
   useEffect(() => {
     clearChatMessages();
@@ -116,7 +119,7 @@ Value Proposition: ${websiteFindings.valueProposition || 'Not found'}`
         setCurrentQuestionIndex(1); // Ready for the next question
       }, 1000);
     }
-  }, [websiteUrl, initialContext, websiteScraping, websiteFindings, addChatMessage, clearChatMessages]);
+  }, [websiteUrl, initialContext, websiteScraping, websiteFindings, addChatMessage]);
   
   const parseQuestionsFromText = (text: string): string[] => {
     const numberedQuestionsRegex = /\d+\.\s+([^\d]+?)(?=\d+\.|$)/g;
