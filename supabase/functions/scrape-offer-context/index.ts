@@ -60,26 +60,42 @@ serve(async (req) => {
       );
     }
     
-    async function fetchWithRetry(url: string, maxRetries = 2) {
+    async function scrapeWebsiteWithCrawl4ai(url: string, maxRetries = 2) {
       let lastError;
       for (let attempt = 0; attempt <= maxRetries; attempt++) {
         try {
-          console.log(`Attempt ${attempt + 1} to fetch ${url}`);
-          const response = await fetch(url, {
+          console.log(`Attempt ${attempt + 1} to scrape ${url} with crawl4ai`);
+          
+          const crawlServiceUrl = Deno.env.get('CRAWL4AI_SERVICE_URL') || 'http://localhost:8000';
+          const authToken = Deno.env.get('CRAWL4AI_AUTH_TOKEN') || 'your_secret_key_here';
+          
+          const response = await fetch(`${crawlServiceUrl}/api/v1/scrape`, {
+            method: 'POST',
             headers: {
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-              'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-              'Accept-Language': 'en-US,en;q=0.5',
-              'Referer': 'https://www.google.com/'
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${authToken}`
             },
-            timeout: 15000, // 15 second timeout
+            body: JSON.stringify({
+              url: url,
+              javascript_enabled: true,
+              wait_for_selector: 'body',
+              timeout: 30000,
+              max_retries: 2
+            })
           });
           
           if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+            throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
           }
           
-          return await response.text();
+          const result = await response.json();
+          
+          if (!result.html) {
+            throw new Error('No HTML content returned from crawl4ai');
+          }
+          
+          return result.html;
         } catch (error) {
           console.error(`Attempt ${attempt + 1} failed:`, error);
           lastError = error;
@@ -93,7 +109,7 @@ serve(async (req) => {
     
     (async () => {
       try {
-        const html = await fetchWithRetry(url);
+        const html = await scrapeWebsiteWithCrawl4ai(url);
         
         const parser = new DOMParser();
         const document = parser.parseFromString(html, 'text/html');
@@ -117,6 +133,7 @@ serve(async (req) => {
         const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
         
         if (!openaiApiKey) {
+          console.error('Missing OpenAI API key');
           await updateScrapingStatus(supabase, scrapingRecord.id, 'failed', 'Missing OpenAI API key');
           return;
         }
