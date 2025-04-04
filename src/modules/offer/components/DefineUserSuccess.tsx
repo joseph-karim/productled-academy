@@ -1,43 +1,145 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useOfferStore } from '../store/offerStore';
-import { Loader2 } from 'lucide-react';
+import { Loader2, MessageSquarePlus } from 'lucide-react';
+import { generateUserSuccessSuggestions } from '../services/ai/contextSuggestions';
+import { ActiveConversationalCheckpoint } from './ConversationalCheckpoint';
 
 export function DefineUserSuccess({ modelData, readOnly = false }: { modelData?: any; readOnly?: boolean }) {
-  const { userSuccess, setUserSuccess, setProcessing } = useOfferStore();
+  const { 
+    userSuccess, 
+    setUserSuccess, 
+    setProcessing,
+    addAISuggestion,
+    addConversationalCheckpoint,
+    setActiveCheckpoint,
+    initialContext,
+    websiteScraping
+  } = useOfferStore();
+  
+  const [userSuccessStatement, setUserSuccessStatement] = useState(userSuccess.statement);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [idleTimeoutId, setIdleTimeoutId] = useState<number | null>(null);
   
   // Get relevant data from model analysis if available
   const userPersonas = modelData?.userPersonas || [];
   const hasModelData = userPersonas.length > 0;
   
+  useEffect(() => {
+    return () => {
+      if (idleTimeoutId) {
+        clearTimeout(idleTimeoutId);
+      }
+    };
+  }, [idleTimeoutId]);
+  
+  useEffect(() => {
+    if (!readOnly && userSuccessStatement.length === 0) {
+      const timeoutId = setTimeout(async () => {
+        try {
+          const suggestions = await generateUserSuccessSuggestions(initialContext, websiteScraping);
+          
+          suggestions.forEach(suggestion => {
+            addAISuggestion(suggestion);
+          });
+          
+          const checkpointId = crypto.randomUUID();
+          addConversationalCheckpoint({
+            type: 'userSuccess',
+            triggerCondition: 'empty',
+            message: "I notice you haven't defined your user success statement yet. Here are some suggestions based on your context:",
+            suggestions: suggestions.map(s => ({ ...s, id: crypto.randomUUID(), createdAt: new Date() })),
+          });
+          setActiveCheckpoint(checkpointId);
+        } catch (error) {
+          console.error('Error generating user success suggestions:', error);
+        }
+      }, 3000); // Show after 3 seconds of inactivity with empty input
+      
+      setIdleTimeoutId(timeoutId as unknown as number);
+    } else if (idleTimeoutId) {
+      clearTimeout(idleTimeoutId);
+      setIdleTimeoutId(null);
+    }
+  }, [userSuccessStatement, readOnly, addAISuggestion, addConversationalCheckpoint, setActiveCheckpoint, initialContext, websiteScraping]);
+  
   const handleStatementChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setUserSuccessStatement(e.target.value);
+    
+    if (idleTimeoutId) {
+      clearTimeout(idleTimeoutId);
+    }
+    
+    if (e.target.value.length > 10 && e.target.value.length < 50) {
+      const newTimeoutId = setTimeout(async () => {
+        try {
+          const checkpointId = crypto.randomUUID();
+          addConversationalCheckpoint({
+            type: 'userSuccess',
+            triggerCondition: 'incomplete',
+            message: "Your statement is a good start! Consider making it more specific by including measurable outcomes or clear benefits for your users.",
+            suggestions: [],
+          });
+          setActiveCheckpoint(checkpointId);
+        } catch (error) {
+          console.error('Error creating incomplete checkpoint:', error);
+        }
+      }, 5000); // Show after 5 seconds of inactivity with incomplete input
+      
+      setIdleTimeoutId(newTimeoutId as unknown as number);
+    }
+    
     setUserSuccess(e.target.value);
   };
   
+  const handleUseSuggestion = (text: string) => {
+    setUserSuccessStatement(text);
+    setUserSuccess(text);
+    setActiveCheckpoint(null);
+  };
+  
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    const text = e.dataTransfer.getData('text/plain');
+    if (text) {
+      setUserSuccessStatement(text);
+      setUserSuccess(text);
+    }
+  };
+  
   const generateSuggestion = async () => {
-    // In a real implementation, this would call an AI endpoint to generate suggestions
-    // For now, we'll simulate the process
     setIsProcessing(true);
     setProcessing('userSuccess', true);
     
-    // Simulate API call
-    setTimeout(() => {
-      const suggestions = [
-        "Successfully reduce customer acquisition costs by 30% through improving onboarding conversion rates",
-        "Enable users to complete their core task in half the time compared to previous solutions",
-        "Help marketing teams increase campaign ROI by providing actionable insights from user data"
-      ];
+    try {
+      const suggestions = await generateUserSuccessSuggestions(initialContext, websiteScraping);
       
-      // Use the first suggestion or a custom one based on user personas if available
-      let suggestion = suggestions[0];
+      suggestions.forEach(suggestion => {
+        addAISuggestion(suggestion);
+      });
+      
+      const checkpointId = crypto.randomUUID();
+      addConversationalCheckpoint({
+        type: 'userSuccess',
+        triggerCondition: 'time',
+        message: "Here are some AI-powered suggestions for your user success statement:",
+        suggestions: suggestions.map(s => ({ ...s, id: crypto.randomUUID(), createdAt: new Date() })),
+      });
+      setActiveCheckpoint(checkpointId);
+      
       if (hasModelData && userPersonas[0]) {
-        suggestion = `Help ${userPersonas[0].role || 'users'} ${userPersonas[0].goal || 'achieve their goals'} with less friction and faster time-to-value`;
+        const customSuggestion = `Help ${userPersonas[0].role || 'users'} ${userPersonas[0].goal || 'achieve their goals'} with less friction and faster time-to-value`;
+        setUserSuccessStatement(customSuggestion);
+        setUserSuccess(customSuggestion);
+      } else if (suggestions.length > 0) {
+        setUserSuccessStatement(suggestions[0].text);
+        setUserSuccess(suggestions[0].text);
       }
-      
-      setUserSuccess(suggestion);
+    } catch (error) {
+      console.error('Error generating suggestions:', error);
+    } finally {
       setIsProcessing(false);
       setProcessing('userSuccess', false);
-    }, 1500);
+    }
   };
   
   return (
@@ -54,7 +156,11 @@ export function DefineUserSuccess({ modelData, readOnly = false }: { modelData?:
         </p>
       </div>
 
-      <div className="bg-[#222222] p-6 rounded-lg">
+      <div 
+        className="bg-[#222222] p-6 rounded-lg"
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={handleDrop}
+      >
         <h3 className="text-xl font-semibold text-white mb-4">User Success Statement</h3>
         <p className="text-gray-300 mb-6">
           Complete this statement: "Our product helps users to..."
@@ -62,17 +168,22 @@ export function DefineUserSuccess({ modelData, readOnly = false }: { modelData?:
         
         <div className="space-y-4">
           <textarea
-            value={userSuccess.statement}
+            value={userSuccessStatement}
             onChange={handleStatementChange}
             disabled={readOnly || isProcessing}
             placeholder="e.g., reduce support ticket volume by 40% through self-service knowledge base automation"
             className="w-full h-32 p-3 bg-[#1A1A1A] text-white border border-[#333333] rounded-lg placeholder-gray-500 focus:border-[#FFD23F] focus:outline-none disabled:opacity-70"
           />
           
+          <ActiveConversationalCheckpoint
+            fieldType="userSuccess"
+            onSelectSuggestion={handleUseSuggestion}
+          />
+          
           {!readOnly && (
             <div className="flex justify-between items-center">
               <div className="text-sm text-gray-400">
-                {userSuccess.statement.length < 10 ? (
+                {userSuccessStatement.length < 10 ? (
                   <span className="text-yellow-500">Please provide a detailed success statement</span>
                 ) : (
                   <span className="text-green-500">Good! Your statement is clear and specific</span>
@@ -90,7 +201,10 @@ export function DefineUserSuccess({ modelData, readOnly = false }: { modelData?:
                     Generating...
                   </>
                 ) : (
-                  'Generate Suggestion'
+                  <>
+                    <MessageSquarePlus className="w-4 h-4 mr-2" />
+                    Get AI Suggestions
+                  </>
                 )}
               </button>
             </div>
@@ -128,4 +242,4 @@ export function DefineUserSuccess({ modelData, readOnly = false }: { modelData?:
       )}
     </div>
   );
-} 
+}    
