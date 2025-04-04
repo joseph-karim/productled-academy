@@ -17,11 +17,16 @@ export function ContextGatheringForm({ onNext }: ContextGatheringFormProps) {
   } = useOfferStore();
   
   const [isValidUrl, setIsValidUrl] = useState(false);
+  const [showUrlFormatMessage, setShowUrlFormatMessage] = useState(false);
 
   const handleUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const url = e.target.value;
     setWebsiteUrl(url);
-    setIsValidUrl(url.match(/^(http|https):\/\/[a-zA-Z0-9-_.]+\.[a-zA-Z]{2,}(\/.*)?$/) !== null);
+    
+    const isValid = url.match(/^(http|https):\/\/[a-zA-Z0-9-_.]+\.[a-zA-Z]{2,}(\/.*)?$/) !== null;
+    setIsValidUrl(isValid);
+    
+    setShowUrlFormatMessage(url.length > 0 && !url.match(/^(http|https):\/\//));
   };
 
   const handleStartScraping = async () => {
@@ -91,6 +96,12 @@ export function ContextGatheringForm({ onNext }: ContextGatheringFormProps) {
           {websiteScraping.status === 'failed' && (
             <p className="text-sm text-red-500">
               Failed to analyze website: {websiteScraping.error}
+            </p>
+          )}
+          
+          {showUrlFormatMessage && (
+            <p className="text-sm text-red-500">
+              Please include the full URL with "https://" prefix (e.g., https://example.com)
             </p>
           )}
           

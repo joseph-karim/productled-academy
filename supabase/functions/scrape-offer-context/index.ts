@@ -22,6 +22,8 @@ serve(async (req) => {
         { headers: { 'Content-Type': 'application/json', ...corsHeaders }, status: 400 }
       );
     }
+    
+    const effectiveUserId = userId || 'anonymous';
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -39,7 +41,7 @@ serve(async (req) => {
       .from('website_scraping')
       .insert({
         offer_id: offerId,
-        user_id: userId,
+        user_id: effectiveUserId,
         url: url,
         status: 'processing',
       })
