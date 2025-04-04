@@ -71,6 +71,45 @@ export async function getScrapingResult(scrapingId: string): Promise<WebsiteScra
     const { data: { user } } = await supabase.auth.getUser();
     console.log(`Current user state:`, user ? `Authenticated as ${user.id}` : 'Not authenticated');
     
+    // Try direct fetch approach for anonymous users
+    if (!user) {
+      console.log('Using direct fetch for anonymous user');
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/website_scraping?id=eq.${scrapingId}&select=*`;
+      const response = await fetch(apiUrl, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+        }
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`Direct fetch failed: ${response.status} ${response.statusText}`, errorText);
+        return null;
+      }
+      
+      const data = await response.json();
+      if (data && data.length > 0) {
+        console.log('Successfully retrieved scraping result via direct fetch:', data[0]);
+        const result = data[0];
+        return {
+          id: result.id,
+          status: result.status,
+          url: result.url,
+          title: result.title,
+          metaDescription: result.meta_description,
+          analysisResult: result.analysis_result,
+          error: result.error,
+          createdAt: result.created_at,
+          completedAt: result.completed_at
+        };
+      }
+      return null;
+    }
+    
+    // Continue with Supabase client for authenticated users
     const { data, error } = await supabase
       .from('website_scraping')
       .select('*')
@@ -79,7 +118,6 @@ export async function getScrapingResult(scrapingId: string): Promise<WebsiteScra
       
     if (error) {
       console.error('Error fetching scraping result:', error);
-      // For debugging - print the exact error code and message
       console.error(`Error code: ${error.code}, Message: ${error.message}`);
       return null;
     }
