@@ -32,6 +32,9 @@ export function ContextGatheringForm({ onNext }: ContextGatheringFormProps) {
   const handleStartScraping = async () => {
     if (isValidUrl && websiteUrl) {
       await startWebsiteScraping(websiteUrl);
+      if (onNext) {
+        setTimeout(onNext, 1000); // Give a moment for scraping to start
+      }
     }
   };
 

@@ -110,3 +110,21 @@ export interface WebsiteScrapingData {
   keyFeatures: string[];
   error: string | null;
 }
+
+export interface AISuggestion {
+  id: string;
+  type: 'userSuccess' | 'topResults' | 'advantage' | 'risk' | 'assurance';
+  text: string;
+  description?: string;
+  metadata?: Record<string, any>;
+  createdAt: Date;
+}
+
+export interface ConversationalCheckpoint {
+  id: string;
+  type: string;
+  triggerCondition: 'time' | 'empty' | 'incomplete';
+  message: string;
+  suggestions: AISuggestion[];
+  createdAt: Date;
+}

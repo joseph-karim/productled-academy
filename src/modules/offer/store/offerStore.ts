@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import { generateUUID } from '../utils/uuid';
-import { WebsiteScrapingData, InitialContext } from '../services/ai/types';
+import { WebsiteScrapingData, InitialContext, AISuggestion, ConversationalCheckpoint } from '../services/ai/types';
 import { scrapeWebsite, getScrapingResult } from '../services/webscraping';
 
 export interface ChatMessage {
@@ -158,6 +158,10 @@ interface OfferState {
   aestheticsChecklistCompleted: boolean;
   processingState: ProcessingState;
   
+  aiSuggestions: AISuggestion[];
+  conversationalCheckpoints: ConversationalCheckpoint[];
+  activeCheckpoint: string | null;
+  
   // Analysis data
   offerScorecard: ScorecardItem[] | null;
   offerAnalysisFeedback: string | null;
@@ -240,6 +244,11 @@ interface OfferState {
   setSuggestedNextSteps: (steps: string[]) => void;
   setIsAnalyzingOffer: (isAnalyzing: boolean) => void;
   setAnalysisError: (error: string | null) => void;
+  
+  addAISuggestion: (suggestion: Omit<AISuggestion, 'id' | 'createdAt'>) => void;
+  removeAISuggestion: (id: string) => void;
+  addConversationalCheckpoint: (checkpoint: Omit<ConversationalCheckpoint, 'id' | 'createdAt'>) => void;
+  setActiveCheckpoint: (id: string | null) => void;
   
   // Reset
   resetState: () => void;
@@ -339,7 +348,11 @@ const initialState: Partial<OfferState> = {
     headlinesSection: false,
     bodyCopySection: false,
     socialProof: false,
-  }
+  },
+  
+  aiSuggestions: [],
+  conversationalCheckpoints: [],
+  activeCheckpoint: null
 };
 
 export const useOfferStore = create<OfferState>()(
@@ -772,9 +785,39 @@ export const useOfferStore = create<OfferState>()(
       
       setAnalysisError: (error) => set({ analysisError: error }),
       
+      addAISuggestion: (suggestion) => set((state) => ({
+        aiSuggestions: [
+          ...state.aiSuggestions,
+          {
+            id: crypto.randomUUID(),
+            ...suggestion,
+            createdAt: new Date()
+          }
+        ]
+      })),
+      
+      removeAISuggestion: (id) => set((state) => ({
+        aiSuggestions: state.aiSuggestions.filter(suggestion => suggestion.id !== id)
+      })),
+      
+      addConversationalCheckpoint: (checkpoint) => set((state) => ({
+        conversationalCheckpoints: [
+          ...state.conversationalCheckpoints,
+          {
+            id: crypto.randomUUID(),
+            ...checkpoint,
+            createdAt: new Date()
+          }
+        ]
+      })),
+      
+      setActiveCheckpoint: (id) => set({
+        activeCheckpoint: id
+      }),
+      
       // Reset
       resetState: () => set(initialState)
     }),
     { name: 'offer-store' }
   )
-);  
+);                    
