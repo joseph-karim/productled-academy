@@ -46,7 +46,7 @@ export async function scrapeWebsite(url: string, offerId?: string): Promise<{ sc
         body: JSON.stringify({
           url,
           offerId,
-          userId: user?.id || 'anonymous' // Use 'anonymous' for unauthenticated users
+          userId: user?.id || null // Use null for unauthenticated users
         })
       }
     );
