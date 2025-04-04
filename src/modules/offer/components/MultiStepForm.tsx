@@ -112,6 +112,7 @@ export function MultiStepForm({ readOnly = false, analysisId: propAnalysisId }: 
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [modelData, setModelData] = useState<any>(null);
+  const [offerNotFound, setOfferNotFound] = useState(false);
   
   const store = useOfferStore();
   const { user } = useAuth();
@@ -147,6 +148,7 @@ export function MultiStepForm({ readOnly = false, analysisId: propAnalysisId }: 
 
   const loadOfferData = async (idToLoad: string) => {
     try {
+      console.log(`Loading offer data with ID: ${idToLoad}`);
       const moduleData = await getModuleData('offer');
       if (!moduleData) {
         console.warn("No data found for offer module");
@@ -156,6 +158,21 @@ export function MultiStepForm({ readOnly = false, analysisId: propAnalysisId }: 
 
       // Reset store before loading new data
       store.resetState();
+      
+      if (idToLoad && moduleData.offers) {
+        const specificOffer = moduleData.offers.find((offer: any) => offer.id === idToLoad);
+        
+        if (specificOffer) {
+          console.log(`Loading specific offer with ID: ${idToLoad}`);
+          useOfferStore.setState(specificOffer);
+          return;
+        } else {
+          console.warn(`Offer with ID ${idToLoad} not found`);
+          setOfferNotFound(true);
+        }
+      }
+      
+      useOfferStore.setState(moduleData);
 
       // Map data from Supabase to store
       store.setTitle(moduleData.title || 'Untitled Offer');
@@ -385,6 +402,18 @@ export function MultiStepForm({ readOnly = false, analysisId: propAnalysisId }: 
     return step.isComplete(state);
   };
 
+  if (offerNotFound) {
+    return (
+      <div className="max-w-4xl mx-auto py-12 px-4">
+        <h2 className="text-2xl font-bold text-white mb-4">Offer Not Found</h2>
+        <p className="text-gray-300 mb-6">
+          The offer you're looking for could not be found. Please check the URL or return to the dashboard.
+        </p>
+        <button onClick={() => navigate('/app/dashboard')} className="px-4 py-2 bg-[#333333] text-white rounded-lg">Return to Dashboard</button>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-[80vh] flex flex-col">
       {/* Progress indicator */}
@@ -526,4 +555,4 @@ export function MultiStepForm({ readOnly = false, analysisId: propAnalysisId }: 
       </div>
     </div>
   );
-} 
+}            
