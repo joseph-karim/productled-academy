@@ -235,7 +235,7 @@ export function SolutionInput({ readOnly = false }: SolutionInputProps) {
     const solutionFeedbacks = feedbacks[solutionId] || [];
     if (solutionFeedbacks.length === 0) return null;
 
-    let result: React.ReactNode[] = [];
+    const result: React.ReactNode[] = [];
     let lastIndex = 0;
 
     const sortedFeedbacks = [...solutionFeedbacks].sort((a, b) => a.startIndex - b.startIndex);

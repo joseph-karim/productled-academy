@@ -139,7 +139,7 @@ export function ChallengeCollector({ readOnly = false }: ChallengeCollectorProps
     const challengeFeedbacks = feedbacks[challengeId] || [];
     if (challengeFeedbacks.length === 0) return null;
 
-    let result: React.ReactNode[] = [];
+    const result: React.ReactNode[] = [];
     let lastIndex = 0;
 
     const sortedFeedbacks = [...challengeFeedbacks].sort((a, b) => a.startIndex - b.startIndex);

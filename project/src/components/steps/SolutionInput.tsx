@@ -104,7 +104,7 @@ export function SolutionInput() {
     const solutionFeedbacks = feedbacks[solutionId] || [];
     if (solutionFeedbacks.length === 0) return null;
 
-    let result = [];
+    const result = [];
     let lastIndex = 0;
 
     // Sort feedbacks by startIndex
