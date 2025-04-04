@@ -109,4 +109,4 @@ export interface WebsiteScrapingData {
   valueProposition: string;
   keyFeatures: string[];
   error: string | null;
-}    
+}
