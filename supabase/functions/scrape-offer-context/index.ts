@@ -62,27 +62,71 @@ serve(async (req) => {
     
     (async () => {
       try {
-        const response = await fetch(url);
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Referer': 'https://www.google.com/',
+            'Upgrade-Insecure-Requests': '1',
+            'Cache-Control': 'max-age=0'
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch website: ${response.status} ${response.statusText}`);
+        }
+        
         const html = await response.text();
         
-        const parser = new DOMParser();
-        const document = parser.parseFromString(html, 'text/html');
+        if (!html || html.length < 100) {
+          throw new Error('Website returned empty or very small content');
+        }
         
-        if (!document) {
-          await updateScrapingStatus(supabase, scrapingRecord.id, 'failed', 'Failed to parse HTML');
+        let document;
+        try {
+          const parser = new DOMParser();
+          document = parser.parseFromString(html, 'text/html');
+          
+          if (!document) {
+            throw new Error('Failed to parse HTML');
+          }
+        } catch (parseError) {
+          console.error('HTML parsing error:', parseError);
+          await updateScrapingStatus(supabase, scrapingRecord.id, 'failed', `Failed to parse HTML: ${parseError.message}`);
           return;
         }
         
-        const title = document.querySelector('title')?.textContent || '';
-        const metaDescription = document.querySelector('meta[name="description"]')?.getAttribute('content') || '';
+        let title = '';
+        let metaDescription = '';
         
-        const bodyText = document.querySelector('body')?.textContent || '';
-        const mainText = document.querySelector('main')?.textContent || bodyText;
+        try {
+          title = document.querySelector('title')?.textContent || '';
+          metaDescription = document.querySelector('meta[name="description"]')?.getAttribute('content') || '';
+        } catch (extractError) {
+          console.error('Metadata extraction error:', extractError);
+          // Continue anyway, these are optional
+        }
         
-        const cleanedText = mainText
-          .replace(/\s+/g, ' ')
-          .trim()
-          .substring(0, 15000); // Limit to 15K chars for OpenAI
+        let cleanedText = '';
+        try {
+          const bodyText = document.querySelector('body')?.textContent || '';
+          const mainText = document.querySelector('main')?.textContent || bodyText;
+          
+          cleanedText = mainText
+            .replace(/\s+/g, ' ')
+            .trim()
+            .substring(0, 15000); // Limit to 15K chars for OpenAI
+            
+          if (cleanedText.length < 100) {
+            throw new Error('Extracted text is too short for analysis');
+          }
+        } catch (contentError) {
+          console.error('Content extraction error:', contentError);
+          await updateScrapingStatus(supabase, scrapingRecord.id, 'failed', `Failed to extract content: ${contentError.message}`);
+          return;
+        }
         
         const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
         
