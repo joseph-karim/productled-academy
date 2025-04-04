@@ -194,4 +194,111 @@ function extractNextSteps(feedbackMarkdown: string): string[] {
   // Extract bullet points following the heading
   const bulletPoints = nextStepsSection.match(/[-*]\s+(.+?)(?=\n[-*]|\n\n|$)/g) || [];
   return bulletPoints.map(bullet => bullet.replace(/^[-*]\s+/, '').trim());
-} 
+}
+
+/**
+ * Analyze initial context to provide preliminary rating and feedback
+ */
+export async function analyzeInitialContext(
+  websiteUrl: string,
+  initialContext: {
+    currentOffer: string;
+    targetAudience: string;
+    problemSolved: string;
+  },
+  websiteScrapingData?: {
+    coreOffer: string;
+    targetAudience: string;
+    keyProblem: string;
+    valueProposition: string;
+    keyFeatures: string[];
+  }
+): Promise<{
+  rating: number;
+  feedback: string;
+  suggestions: string[];
+}> {
+  try {
+    return handleOpenAIRequest(
+      openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "system",
+            content: `You are a ProductLed Offer Coach. You analyze initial context about a product/service to provide an initial rating and feedback to help improve their offer.`
+          },
+          {
+            role: "user",
+            content: `
+Analyze the following initial context about a product/service:
+
+Website URL: ${websiteUrl || 'Not provided'}
+Current Offer/Product: ${initialContext.currentOffer || 'Not specified'}
+Target Audience: ${initialContext.targetAudience || 'Not specified'}
+Problem Solved: ${initialContext.problemSolved || 'Not specified'}
+
+${websiteScrapingData ? `
+We've also analyzed their website and found:
+Core Offer/Product: ${websiteScrapingData.coreOffer || 'Not found'}
+Target Audience: ${websiteScrapingData.targetAudience || 'Not found'}
+Key Problem: ${websiteScrapingData.keyProblem || 'Not found'}
+Value Proposition: ${websiteScrapingData.valueProposition || 'Not found'}
+Key Features/Benefits: 
+${websiteScrapingData.keyFeatures?.map(feature => `- ${feature}`).join('\n') || 'None found'}
+` : ''}
+
+Based on this ${websiteScrapingData ? 'combined' : 'limited'} information, provide:
+1. A preliminary rating (1-5) of their current offer
+2. Brief, constructive feedback about what you can see from this context
+3. Three specific suggestions to help them improve their offer as they continue building it`
+          }
+        ],
+        functions: [
+          {
+            name: "provide_initial_analysis",
+            description: "Provide initial analysis of the offer context",
+            parameters: {
+              type: "object",
+              properties: {
+                rating: {
+                  type: "number",
+                  description: "Rating from 1-5, where 1 is very poor and 5 is excellent"
+                },
+                feedback: {
+                  type: "string",
+                  description: "Brief, constructive feedback based on the context provided"
+                },
+                suggestions: {
+                  type: "array",
+                  items: {
+                    type: "string"
+                  },
+                  description: "Specific suggestions to help improve the offer"
+                }
+              },
+              required: ["rating", "feedback", "suggestions"]
+            }
+          }
+        ],
+        function_call: { name: "provide_initial_analysis" }
+      }).then(completion => {
+        const result = completion.choices[0].message.function_call?.arguments;
+        if (!result) throw new Error("Failed to analyze initial context");
+        
+        return JSON.parse(result);
+      }),
+      'analyzing initial context'
+    );
+  } catch (error) {
+    console.error("Error analyzing initial context:", error);
+    return {
+      rating: 3,
+      feedback: "We couldn't analyze your context at this time. Please continue building your offer.",
+      suggestions: [
+        "Make sure your offer clearly communicates the main benefit",
+        "Ensure your target audience is well-defined",
+        "Highlight how you solve the problem better than alternatives"
+      ]
+    };
+  }
+}    
