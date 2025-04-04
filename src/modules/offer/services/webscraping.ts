@@ -24,9 +24,6 @@ export async function scrapeWebsite(url: string, offerId?: string): Promise<{ sc
   }
   
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
-    throw new Error('User not authenticated');
-  }
   
   try {
     const response = await fetch(
@@ -40,7 +37,7 @@ export async function scrapeWebsite(url: string, offerId?: string): Promise<{ sc
         body: JSON.stringify({
           url,
           offerId,
-          userId: user.id
+          userId: user?.id || 'anonymous' // Use 'anonymous' for unauthenticated users
         })
       }
     );
