@@ -236,7 +236,7 @@ class MockCanvasElement extends HTMLCanvasElement {
   }
 }
 
-// @ts-ignore - Override HTMLCanvasElement
+// @ts-expect-error - Override HTMLCanvasElement
 global.HTMLCanvasElement = MockCanvasElement;
 global.HTMLCanvasElement.prototype.getContext = function(contextType: string) {
   if (contextType === '2d') return mockContext2D;
