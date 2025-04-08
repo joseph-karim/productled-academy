@@ -12,7 +12,6 @@ import {
   Save,
   Home,
   Edit,
-  Bot,
 } from 'lucide-react';
 import { Chart as ChartJS, RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend, CategoryScale, LinearScale, BarElement } from 'chart.js';
 import { Radar, Bar } from 'react-chartjs-2';
@@ -22,7 +21,6 @@ import { useAuth } from '@/core/auth/AuthProvider';
 import { getModuleData, saveModuleData } from '@/core/services/supabase';
 import type { StoredAnalysis } from '../services/ai/analysis/types';
 import { ComponentCard } from './analysis/ComponentCard';
-import { VoiceChat } from '@/components/VoiceChat'; // Assuming VoiceChat is in the main components dir
 
 ChartJS.register(
   RadialLinearScale,
@@ -56,7 +54,6 @@ export function Analysis({ isShared = false }: AnalysisProps) {
   const [showTitlePrompt, setShowTitlePrompt] = useState(false);
   const [existingAnalyses, setExistingAnalyses] = useState<any[]>([]);
   const [showOverwriteConfirm, setShowOverwriteConfirm] = useState(false);
-  const [showVoiceChat, setShowVoiceChat] = useState(false);
 
   // Load existing analyses to check for duplicates
   useEffect(() => {

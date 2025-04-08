@@ -2,6 +2,8 @@ import React from 'react';
 import { useParams, useLocation, Link } from 'react-router-dom';
 import { MultiStepForm } from './components/MultiStepForm';
 import { AuthProvider } from '@/core/auth/AuthProvider';
+import { useModelInputsStore } from './store/modelInputsStore'; // Import the store
+import { FloatingChat } from '@/components/FloatingChat'; // Import FloatingChat
 
 export function ModelModulePage() {
   const { id } = useParams();
@@ -24,6 +26,7 @@ export function ModelModulePage() {
 function ModelModuleContent({ id }: { id?: string }) {
   const location = useLocation();
   const isAppRoute = location.pathname.startsWith('/app');
+  const { analysis } = useModelInputsStore(); // Get analysis state
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
@@ -53,8 +56,11 @@ function ModelModuleContent({ id }: { id?: string }) {
       
       <MultiStepForm 
         analysisId={id} 
-        readOnly={Boolean(id && !isAppRoute)} 
+        readOnly={Boolean(id && !isAppRoute)}
       />
+      
+      {/* Conditionally render FloatingChat if analysis exists */}
+      {analysis && <FloatingChat analysis={analysis} />}
     </div>
   );
 } 
