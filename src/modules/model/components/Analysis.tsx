@@ -12,6 +12,7 @@ import {
   Save,
   Home,
   Edit,
+  Bot,
 } from 'lucide-react';
 import { Chart as ChartJS, RadialLinearScale, PointElement, LineElement, Filler, Tooltip, Legend, CategoryScale, LinearScale, BarElement } from 'chart.js';
 import { Radar, Bar } from 'react-chartjs-2';
@@ -20,6 +21,8 @@ import { AuthModal } from '@/core/auth/AuthModal';
 import { useAuth } from '@/core/auth/AuthProvider';
 import { getModuleData, saveModuleData } from '@/core/services/supabase';
 import type { StoredAnalysis } from '../services/ai/analysis/types';
+import { ComponentCard } from './analysis/ComponentCard';
+import { VoiceChat } from '@/components/VoiceChat'; // Assuming VoiceChat is in the main components dir
 
 ChartJS.register(
   RadialLinearScale,
@@ -53,6 +56,7 @@ export function Analysis({ isShared = false }: AnalysisProps) {
   const [showTitlePrompt, setShowTitlePrompt] = useState(false);
   const [existingAnalyses, setExistingAnalyses] = useState<any[]>([]);
   const [showOverwriteConfirm, setShowOverwriteConfirm] = useState(false);
+  const [showVoiceChat, setShowVoiceChat] = useState(false);
 
   // Load existing analyses to check for duplicates
   useEffect(() => {
@@ -648,36 +652,44 @@ export function Analysis({ isShared = false }: AnalysisProps) {
 
       {activeTab === 'components' && (
         <div className="space-y-6">
-          {/* Commented out ComponentCard usage until it's restored/recreated */}
+          {Object.entries(componentFeedback).map(([key, feedback]) => (
+            <ComponentCard
+              key={key}
+              title={key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
+              score={componentScores[key as keyof typeof componentScores]}
+              strengths={feedback.strengths}
+              recommendations={feedback.recommendations}
+              analysis={feedback.analysis}
+            />
+          ))}
         </div>
       )}
 
       {activeTab === 'packages' && (
         <div className="space-y-6">
-          {/* Commented out ComponentCard usage until it's restored/recreated */}
+          {/* Placeholder for package-specific analysis card if needed */}
+          <p className="text-gray-400">Package analysis details will be shown here.</p>
         </div>
       )}
 
       {activeTab === 'action' && (
         <div className="space-y-6">
-          {/* ComponentCard to be restored
           <ComponentCard
             title="Implementation Timeline"
-            score={100}
-            strengths={[]}
+            score={100} // Score might not be applicable here, using 100 as placeholder
+            strengths={[]} // No direct strengths for timeline
             recommendations={[
-              ...actionPlan.immediate.map(a => `Immediate (1-30 days): ${a}`),
-              ...actionPlan.medium.map(a => `Medium-term (30-90 days): ${a}`),
-              ...actionPlan.long.map(a => `Long-term (90+ days): ${a}`)
+              ...(actionPlan.immediate || []).map(a => `Immediate (1-30 days): ${a}`),
+              ...(actionPlan.medium || []).map(a => `Medium-term (30-90 days): ${a}`),
+              ...(actionPlan.long || []).map(a => `Long-term (90+ days): ${a}`)
             ]}
           />
           <ComponentCard
             title="Testing Framework"
-            score={100}
-            strengths={testing.metrics.map(m => `Metric: ${m}`)}
-            recommendations={testing.abTests.map(t => `A/B Test: ${t}`)}
+            score={100} // Score might not be applicable here
+            strengths={(testing.metrics || []).map(m => `Metric: ${m}`)}
+            recommendations={(testing.abTests || []).map(t => `A/B Test: ${t}`)}
           />
-          */}
         </div>
       )}
 
@@ -736,6 +748,26 @@ export function Analysis({ isShared = false }: AnalysisProps) {
         }`}>
           {error}
         </div>
+      )}
+
+      {/* Voice Chat Button */}
+      {!isShared && (
+        <button
+          onClick={() => setShowVoiceChat(!showVoiceChat)}
+          className="fixed bottom-4 left-4 bg-[#FFD23F] text-[#1C1C1C] p-3 rounded-full shadow-lg hover:bg-[#FFD23F]/90 transition-colors"
+          title="Talk with AI Assistant"
+        >
+          <Bot className="w-6 h-6" />
+        </button>
+      )}
+
+      {/* Voice Chat Modal */}
+      {showVoiceChat && (
+        <VoiceChat
+          onClose={() => setShowVoiceChat(false)}
+          // floating={true} // Optional: Set to true if you want the floating style
+          // onSwitchToText={() => { /* Handle switching to text chat if needed */ }}
+        />
       )}
     </div>
   );

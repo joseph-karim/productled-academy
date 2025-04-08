@@ -20,14 +20,15 @@ import { OfferModulePage } from '@/modules/offer/OfferModulePage';
 export function AppRouter() {
   return (
     <BrowserRouter>
-      <Header />
+      {/* Header removed as AcademyLayout likely includes its own header/navbar */}
       <Routes>
-        {/* Public Routes - No Auth Required */}
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/model" element={<ModelModulePage />} /> {/* Free access */}
-        <Route path="/offer" element={<OfferModulePage />} /> {/* Free access to Offer module */}
-        <Route path="/tools" element={<ToolsPage />} />
-        
+        {/* Public Routes - Now wrapped in AcademyLayout */}
+        <Route element={<AcademyLayout />}>
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/model" element={<ModelModulePage />} /> {/* Free access */}
+          <Route path="/offer" element={<OfferModulePage />} /> {/* Free access to Offer module */}
+          <Route path="/tools" element={<ToolsPage />} />
+        </Route>
         {/* Auth Routes - Wrapped in AuthProvider */}
         <Route element={<AuthProvider><Outlet /></AuthProvider>}>
           <Route path="/auth/callback" element={<AuthCallback />} />
@@ -37,7 +38,7 @@ export function AppRouter() {
           <Route path="/signup" element={<SignupPage />} />
         </Route>
 
-        {/* Protected Routes - Require Authentication */}
+        {/* Protected Routes - Require Authentication, already use AcademyLayout */}
         <Route
           path="/app"
           element={
