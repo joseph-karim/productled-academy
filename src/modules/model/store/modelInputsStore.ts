@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 import type { Challenge, Solution, ModelType, StoredAnalysis, UserJourney } from '../services/ai/analysis/types';
-import type { PackageFeature as Feature } from '../types/package';
 
 interface UserOutcome { level: string; text: string; /* Add other properties if needed */ }
 interface IdealUser { 
@@ -20,7 +19,6 @@ export interface FormState { // Define basic FormState structure if not importab
   challenges: Challenge[];
   solutions: Solution[];
   selectedModel: ModelType | null;
-  freeFeatures: Feature[];
   userJourney?: UserJourney;
   callToAction?: string;
   analysis?: StoredAnalysis | null;
@@ -41,9 +39,6 @@ export interface FormActions {
   removeSolution: (id: string) => void;
   addCoreSolution: (solution: Solution) => void;
   setSelectedModel: (model: ModelType | null) => void;
-  addFeature: (feature: Feature) => void;
-  updateFeature: (id: string, feature: Partial<Feature>) => void;
-  removeFeature: (id: string) => void;
   setUserJourney: (journey: UserJourney) => void;
   setCallToAction: (text: string) => void;
   setAnalysis: (analysis: StoredAnalysis | null) => void;
@@ -63,7 +58,6 @@ const initialState: FormState = {
   challenges: [],
   solutions: [],
   selectedModel: null,
-  freeFeatures: [],
   userJourney: undefined,
   callToAction: undefined,
   analysis: null,
@@ -139,22 +133,6 @@ export const useModelInputsStore = create<FormStore>()(
       setSelectedModel: (model: ModelType | null) => 
         set({ selectedModel: model }),
 
-      addFeature: (feature: Feature) => 
-        set((state: FormState) => ({ 
-          freeFeatures: [...state.freeFeatures, feature],
-        })),
-
-      updateFeature: (id: string, feature: Partial<Feature>) => 
-        set((state: FormState) => ({ 
-          freeFeatures: state.freeFeatures.map((f: Feature) => 
-            f.id === id ? { ...f, ...feature } : f
-          ),
-        })),
-
-      removeFeature: (id: string) => 
-        set((state: FormState) => ({ 
-          freeFeatures: state.freeFeatures.filter((f: Feature) => f.id !== id), 
-        })),
 
       setUserJourney: (journey: UserJourney) => 
         set({ userJourney: journey }),

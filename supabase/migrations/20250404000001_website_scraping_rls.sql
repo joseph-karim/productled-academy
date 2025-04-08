@@ -32,7 +32,7 @@ CREATE POLICY "Anonymous users can read their records"
   ON website_scraping
   FOR SELECT
   TO public
-  USING (user_id = 'anonymous' OR user_id IS NULL);
+  USING (user_id IS NULL);
 
 CREATE INDEX IF NOT EXISTS website_scraping_user_id_idx 
   ON website_scraping(user_id);
