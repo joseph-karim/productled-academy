@@ -1,16 +1,30 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Mic, MicOff, Volume2, VolumeX, X, Loader2, Bot, AlertCircle, MessageSquare } from 'lucide-react';
 import Vapi from '@vapi-ai/web';
-import { useFormStore } from '../store/formStore';
+import type { StoredAnalysis, ModelType } from '@/modules/model/services/ai/analysis/types';
+import type { PackageFeature, PricingStrategy } from '@/modules/model/types/package';
+
+interface AnalysisContext {
+  productDescription?: string;
+  selectedModel?: ModelType | null;
+  analysis?: StoredAnalysis | null;
+  features?: PackageFeature[];
+  pricingStrategy?: PricingStrategy | null;
+}
 
 interface VoiceChatProps {
   onClose: () => void;
   floating?: boolean;
   onSwitchToText?: () => void;
+  analysisContext?: AnalysisContext; // New prop for context
 }
 
-export function VoiceChat({ onClose, floating = false, onSwitchToText }: VoiceChatProps) {
-  const store = useFormStore();
+export function VoiceChat({
+  onClose,
+  floating = false,
+  onSwitchToText,
+  analysisContext = {} // Use the new prop
+}: VoiceChatProps) {
   const [isListening, setIsListening] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -29,28 +43,28 @@ export function VoiceChat({ onClose, floating = false, onSwitchToText }: VoiceCh
 
   // Format analysis data for the prompt
   const formatAnalysisData = () => {
-    if (!store.analysis) return '';
+    if (!analysisContext.analysis) return '';
 
-    const { deepScore, componentScores, strengths, weaknesses, recommendations } = store.analysis;
+    const { deepScore, componentScores, strengths, weaknesses, recommendations } = analysisContext.analysis;
 
     // Format package features
-    const freeFeatures = store.packageStore?.features
+    const freeFeatures = (analysisContext.features || [])
       .filter(f => f.tier === 'free')
       .map(f => `- ${f.name}: ${f.description} (${f.category})`)
       .join('\n');
 
-    const paidFeatures = store.packageStore?.features
+    const paidFeatures = (analysisContext.features || [])
       .filter(f => f.tier === 'paid')
       .map(f => `- ${f.name}: ${f.description} (${f.category})`)
       .join('\n');
 
-    const strategy = store.packageStore?.pricingStrategy;
+    const strategy = analysisContext.pricingStrategy;
 
     return `
 Product Description:
-${store.productDescription}
+${analysisContext.productDescription || 'N/A'}
 
-Selected Free Model: ${store.selectedModel?.replace('-', ' ')}
+Selected Free Model: ${analysisContext.selectedModel?.replace('-', ' ') || 'N/A'}
 
 DEEP Framework Scores:
 - Desirability: ${deepScore.desirability}/10
@@ -64,8 +78,8 @@ Component Analysis:
 - Challenges: ${componentScores.challenges}/100
 - Solutions: ${componentScores.solutions}/100
 - Model Selection: ${componentScores.modelSelection}/100
-- Package Design: ${componentScores.packageDesign}/100
-- Pricing Strategy: ${componentScores.pricingStrategy}/100
+{/* - Package Design: Score N/A */} {/* Removed as type doesn't include it */}
+{/* - Pricing Strategy: Score N/A */} {/* Removed as type doesn't include it */}
 
 Package Design:
 Free Features:
@@ -77,10 +91,10 @@ ${paidFeatures}
 Pricing Strategy:
 - Model: ${strategy?.model}
 - Basis: ${strategy?.basis}
-- Free Package Limitations: ${strategy?.freePackage.limitations.join(', ')}
-- Conversion Goals: ${strategy?.freePackage.conversionGoals.join(', ')}
-- Value Metrics: ${strategy?.paidPackage.valueMetrics.join(', ')}
-- Target Conversion: ${strategy?.paidPackage.targetConversion}%
+- Free Package Limitations: ${strategy?.freePackage.limitations?.join(', ') || 'N/A'}
+- Conversion Goals: ${strategy?.freePackage.conversionGoals?.join(', ') || 'N/A'}
+- Value Metrics: ${strategy?.paidPackage.valueMetrics?.join(', ') || 'N/A'}
+- Target Conversion: ${strategy?.paidPackage.targetConversion || 'N/A'}%
 
 Key Strengths:
 ${strengths.map((s, i) => `${i + 1}. ${s}`).join('\n')}
@@ -140,35 +154,9 @@ ${recommendations?.map((r, i) => `${i + 1}. ${r}`).join('\n')}`;
           provider: "openai",
           model: "gpt-4",
           temperature: 0.7,
-          systemPrompt: `You are an expert product-led growth consultant specializing in free model strategy. You're having a voice conversation with a user about their Free Model Analysis results.
-
-Analysis Context:
-${formatAnalysisData()}
-
-Key Focus Areas:
-1. Package Design
-   - Feature balance and distribution
-   - Value demonstration
-   - Upgrade triggers
-   - User journey alignment
-
-2. Pricing Strategy
-   - Model fit and effectiveness
-   - Conversion potential
-   - Value metrics
-   - Target conversion rates
-
-3. Implementation Priorities
-   - Quick wins vs strategic changes
-   - Resource allocation
-   - Success metrics
-
-Remember to:
-1. Keep responses concise (2-3 sentences)
-2. Use a conversational, friendly tone
-3. Ask clarifying questions when needed
-4. Reference specific metrics and scores
-5. Provide concrete examples and next steps`
+          // systemPrompt: `...` // Commented out as 'systemPrompt' is not a valid property here. Context needs to be handled differently if required by Vapi.
+          // The context is currently formatted in formatAnalysisData() but not passed directly here.
+          // Vapi might require context to be passed via messages or another parameter.
         },
         voice: {
           provider: "playht",

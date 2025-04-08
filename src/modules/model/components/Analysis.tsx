@@ -765,6 +765,13 @@ export function Analysis({ isShared = false }: AnalysisProps) {
       {showVoiceChat && (
         <VoiceChat
           onClose={() => setShowVoiceChat(false)}
+          analysisContext={{
+            productDescription: store.productDescription,
+            selectedModel: store.selectedModel,
+            analysis: store.analysis,
+            features: packageStore.features,
+            pricingStrategy: packageStore.pricingStrategy
+          }}
           // floating={true} // Optional: Set to true if you want the floating style
           // onSwitchToText={() => { /* Handle switching to text chat if needed */ }}
         />
