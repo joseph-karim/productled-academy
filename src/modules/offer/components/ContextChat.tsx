@@ -23,21 +23,28 @@ export function ContextChat({ onComplete }: ContextChatProps) {
   const [hasNewMessages, setHasNewMessages] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
-  const websiteFindings = useMemo<WebsiteFindings | null>(() => 
-    websiteScraping.status === 'completed' && websiteScraping.coreOffer ? 
-    {
-      coreOffer: websiteScraping.coreOffer,
-      targetAudience: websiteScraping.targetAudience,
-      problemSolved: websiteScraping.keyProblem,
-      keyBenefits: websiteScraping.keyFeatures,
-      valueProposition: websiteScraping.valueProposition,
-      cta: null,
-      tone: null,
-      missingInfo: null
-    } : null, 
-    [websiteScraping.status, websiteScraping.coreOffer, websiteScraping.targetAudience, 
-     websiteScraping.keyProblem, websiteScraping.keyFeatures, websiteScraping.valueProposition]
-  );
+  const websiteFindings = useMemo<WebsiteFindings | null>(() => {
+    if (websiteScraping.status === 'completed' && websiteScraping.coreOffer) {
+      // Map keyFeatures to a simple string array
+      const benefits = Array.isArray(websiteScraping.keyFeatures)
+        ? websiteScraping.keyFeatures.map(feature =>
+            typeof feature === 'string' ? feature : feature.benefit // Extract benefit string if it's an object
+          )
+        : []; // Default to empty array if keyFeatures is not an array
+
+      return {
+        coreOffer: websiteScraping.coreOffer,
+        targetAudience: websiteScraping.targetAudience,
+        problemSolved: websiteScraping.keyProblem,
+        keyBenefits: benefits, // Use the processed benefits array
+        valueProposition: websiteScraping.valueProposition,
+        cta: null,
+        tone: null,
+        missingInfo: null
+      };
+    }
+    return null;
+  }, [websiteScraping.status, websiteScraping.coreOffer, websiteScraping.targetAudience, websiteScraping.keyProblem, websiteScraping.keyFeatures, websiteScraping.valueProposition]);
 
   useEffect(() => {
     clearChatMessages();
@@ -180,19 +187,27 @@ Value Proposition: ${websiteFindings.valueProposition || 'Not found'}`
           setCurrentQuestionIndex(currentQuestionIndex + 1);
         }, 1500);
       } else {
-        setTimeout(() => {
-          addChatMessage({
-            sender: 'ai',
-            content: `Thank you for sharing all this information! I now have a much better understanding of your offer.
-            
+        // All questions asked, send concluding message and trigger completion
+        const finalMessage = `Thank you for sharing all this information! I now have a much better understanding of your offer.
+
 Based on our conversation, I recommend focusing on:
 1. Making your value proposition crystal clear
 2. Addressing specific pain points with concrete solutions
 3. Including specific results or outcomes customers can expect
 
-Are you ready to continue building your offer?`
-          });
-        }, 1500);
+Let's move on to rating your current offer.`;
+
+        addChatMessage({
+          sender: 'ai',
+          content: finalMessage
+        });
+
+        // Automatically call onComplete after a short delay
+        setTimeout(() => {
+          if (onComplete) {
+            onComplete();
+          }
+        }, 1000);
       }
     } catch (error) {
       console.error('Error generating chat response:', error);
@@ -310,14 +325,7 @@ Are you ready to continue building your offer?`
             <Send className="w-5 h-5" />
           </button>
         </div>
-        <div className="flex justify-end mt-4">
-          <button
-            onClick={onComplete}
-            className="px-4 py-2 bg-[#FFD23F] text-[#1C1C1C] rounded-lg hover:bg-opacity-90"
-          >
-            Continue to Next Step
-          </button>
-        </div>
+        {/* Removed the explicit "Continue to Next Step" button as completion is now automatic */}
       </div>
     </div>
   );
