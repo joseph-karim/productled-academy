@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Bot, Mic, X, Send, Loader2 } from 'lucide-react';
 import { VoiceChat } from './VoiceChat';
-import { openai } from '../services/ai/client';
+import { openai } from '../modules/model/services/ai/client'; // Corrected import path
 
 interface FloatingChatProps {
   analysis: any;
