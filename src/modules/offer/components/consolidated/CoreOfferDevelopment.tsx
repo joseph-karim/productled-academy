@@ -18,7 +18,7 @@ export function CoreOfferDevelopment({ modelData, readOnly = false }: CoreOfferD
 
   // Calculate completion status for each sub-step
   const introCompleted = store.offerRating !== null;
-  const userSuccessCompleted = store.userSuccess.statement.length >= 10;
+  const userSuccessCompleted = store.userSuccess.statement.trim().length >= 10; // Trim whitespace
   const topResultsCompleted = 
     store.topResults.tangible.length > 0 && 
     store.topResults.intangible.length > 0 && 

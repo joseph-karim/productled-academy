@@ -43,7 +43,7 @@ const steps = [
     isUnlocked: (state: ReturnType<typeof useOfferStore.getState>) => true,
     isComplete: (state: ReturnType<typeof useOfferStore.getState>) => 
       state.offerRating !== null &&
-      state.userSuccess.statement.length >= 10 &&
+      state.userSuccess.statement.trim().length >= 10 && // Trim whitespace
       state.topResults.tangible.length > 0 && 
       state.topResults.intangible.length > 0 && 
       state.topResults.improvement.length > 0 &&
