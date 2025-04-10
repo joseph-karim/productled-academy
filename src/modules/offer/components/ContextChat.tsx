@@ -23,104 +23,100 @@ export function ContextChat({ onComplete }: ContextChatProps) {
   const [hasNewMessages, setHasNewMessages] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
-  const websiteFindings = useMemo<WebsiteFindings | null>(() => 
-    websiteScraping.status === 'completed' && websiteScraping.coreOffer ? 
-    {
-      coreOffer: websiteScraping.coreOffer,
-      targetAudience: websiteScraping.targetAudience,
-      problemSolved: websiteScraping.keyProblem,
-      keyBenefits: websiteScraping.keyFeatures,
-      valueProposition: websiteScraping.valueProposition,
-      cta: null,
-      tone: null,
-      missingInfo: null
-    } : null, 
-    [websiteScraping.status, websiteScraping.coreOffer, websiteScraping.targetAudience, 
-     websiteScraping.keyProblem, websiteScraping.keyFeatures, websiteScraping.valueProposition]
-  );
+  // Removed websiteFindings useMemo hook, will calculate inside useEffect when needed
 
   useEffect(() => {
-    clearChatMessages();
-    
-    addChatMessage({
-      sender: 'system',
-      content: "👋 I'll help you refine your offer based on the information you've provided."
-    });
-
-    setTimeout(() => {
-      addChatMessage({
-        sender: 'system',
-        content: `Here's what I know so far:
-        
-Website URL: ${websiteUrl || 'Not provided'}
-Current Offer: ${initialContext.currentOffer || 'Not specified'}
-Target Audience: ${initialContext.targetAudience || 'Not specified'}
-Problem Solved: ${initialContext.problemSolved || 'Not specified'}`
-      });
-    }, 500);
-
-    if (websiteScraping.status === 'completed' && websiteFindings) {
-      setTimeout(() => {
-        addChatMessage({
-          sender: 'ai',
-          content: `I've analyzed your website and found some interesting insights:
-          
-Core Offer: ${websiteFindings.coreOffer || 'Not found'}
-Target Audience: ${websiteFindings.targetAudience || 'Not found'}
-Problem Solved: ${websiteFindings.problemSolved || 'Not found'}
-Value Proposition: ${websiteFindings.valueProposition || 'Not found'}`
-        });
-      }, 1000);
-
-      setTimeout(async () => {
-        setIsProcessing(true);
-        try {
-          const questionsText = await generateClarifyingQuestions(initialContext, websiteFindings);
-          const parsedQuestions = parseQuestionsFromText(questionsText);
-          setQuestions(parsedQuestions);
-          
-          if (parsedQuestions.length > 0) {
-            addChatMessage({
-              sender: 'ai',
-              content: parsedQuestions[0]
-            });
-            setCurrentQuestionIndex(1); // Ready for the next question
-          }
-        } catch (error) {
-          console.error('Error generating clarifying questions:', error);
-          const fallbackQuestions = [
-            "What specific results do your customers achieve with your offer?",
-            "What makes your solution unique compared to alternatives?",
-            "What objections do potential customers typically have?"
-          ];
-          setQuestions(fallbackQuestions);
-          
-          addChatMessage({
-            sender: 'ai',
-            content: fallbackQuestions[0]
-          });
-          setCurrentQuestionIndex(1); // Ready for the next question
-        } finally {
-          setIsProcessing(false);
-        }
-      }, 1500);
-    } else {
-      setTimeout(() => {
-        const defaultQuestions = [
-          "What makes your offer unique compared to alternatives?",
-          "What specific results can users expect from your offer?",
-          "What are the biggest objections or concerns potential customers might have?"
-        ];
-        setQuestions(defaultQuestions);
-        
-        addChatMessage({
-          sender: 'ai',
-          content: defaultQuestions[0]
-        });
-        setCurrentQuestionIndex(1); // Ready for the next question
-      }, 1000);
+    // Wait until scraping is finished (or wasn't started) before initializing chat
+    if (websiteScraping.status === 'processing') {
+      // Optionally clear messages or show a waiting indicator
+      // clearChatMessages();
+      // addChatMessage({ sender: 'system', content: 'Analyzing website...' });
+      return; // Exit effect if still processing
     }
-  }, [websiteUrl, initialContext, websiteScraping, websiteFindings, addChatMessage]);
+
+    // Clear previous messages once scraping status is resolved
+    clearChatMessages();
+    setCurrentQuestionIndex(0); // Reset question index
+    setQuestions([]); // Clear previous questions
+
+    const initializeChat = async () => {
+      let summaryContent = "Okay, let's refine your offer. Here's the context I have:\n\n";
+      summaryContent += `Current Offer: ${initialContext.currentOffer || 'Not specified'}\n`;
+      summaryContent += `Target Audience: ${initialContext.targetAudience || 'Not specified'}\n`;
+      summaryContent += `Problem Solved: ${initialContext.problemSolved || 'Not specified'}\n`;
+
+      let currentWebsiteFindings: WebsiteFindings | null = null;
+      if (websiteScraping.status === 'completed' && websiteScraping.coreOffer) {
+        // Calculate findings based on current scraping status
+        currentWebsiteFindings = {
+          coreOffer: websiteScraping.coreOffer,
+          targetAudience: websiteScraping.targetAudience,
+          problemSolved: websiteScraping.keyProblem,
+          // Use the corrected mapping for keyBenefits
+          keyBenefits: Array.isArray(websiteScraping.keyFeatures)
+            ? websiteScraping.keyFeatures.map(feature =>
+                typeof feature === 'string' ? feature : feature.benefit
+              )
+            : [],
+          valueProposition: websiteScraping.valueProposition,
+          cta: null, tone: null, missingInfo: null // Match WebsiteFindings type
+        };
+        summaryContent += `\nWebsite Analysis:\n`;
+        summaryContent += `  Core Offer: ${currentWebsiteFindings.coreOffer || 'Not found'}\n`;
+        summaryContent += `  Target Audience: ${currentWebsiteFindings.targetAudience || 'Not found'}\n`;
+        summaryContent += `  Problem Solved: ${currentWebsiteFindings.problemSolved || 'Not found'}\n`;
+        summaryContent += `  Value Proposition: ${currentWebsiteFindings.valueProposition || 'Not found'}\n`;
+        // Optionally add key benefits summary
+        if (currentWebsiteFindings.keyBenefits && currentWebsiteFindings.keyBenefits.length > 0) {
+           summaryContent += `  Key Benefits: ${currentWebsiteFindings.keyBenefits.slice(0, 3).join(', ')}...\n`;
+        }
+      } else if (websiteUrl) {
+        summaryContent += `\nWebsite URL: ${websiteUrl} (Analysis skipped, failed, or pending)\n`;
+      }
+
+      addChatMessage({ sender: 'ai', content: summaryContent });
+
+      // Generate and ask questions
+      setIsProcessing(true);
+      try {
+        const questionsText = await generateClarifyingQuestions(initialContext, currentWebsiteFindings);
+        const parsedQuestions = parseQuestionsFromText(questionsText);
+        setQuestions(parsedQuestions);
+
+        if (parsedQuestions.length > 0) {
+          // Add a slight delay before asking the first question
+          setTimeout(() => {
+            addChatMessage({ sender: 'ai', content: parsedQuestions[0] });
+            setCurrentQuestionIndex(1);
+          }, 500);
+        } else {
+          // If no questions generated, provide a concluding message
+          setTimeout(() => {
+            addChatMessage({ sender: 'ai', content: "I think I have enough context for now. Feel free to add more details or ask questions, otherwise you can proceed to the next step." });
+          }, 500);
+        }
+      } catch (error) {
+        console.error('Error generating clarifying questions:', error);
+        const fallbackQuestions = [
+          "What specific results do your customers achieve with your offer?",
+          "What makes your solution unique compared to alternatives?",
+          "What objections do potential customers typically have?"
+        ];
+        setQuestions(fallbackQuestions);
+        setTimeout(() => {
+          addChatMessage({ sender: 'ai', content: fallbackQuestions[0] });
+          setCurrentQuestionIndex(1);
+        }, 500);
+      } finally {
+        setIsProcessing(false);
+      }
+    };
+
+    initializeChat();
+
+  // Rerun when scraping status changes or initial context changes
+  }, [initialContext, websiteScraping.status, websiteUrl, addChatMessage, clearChatMessages]);
+  // Note: Removed specific scraping fields from deps, status change handles it.
   
   const parseQuestionsFromText = (text: string): string[] => {
     const numberedQuestionsRegex = /\d+\.\s+([^\d]+?)(?=\d+\.|$)/g;
@@ -155,15 +151,40 @@ Value Proposition: ${websiteFindings.valueProposition || 'Not found'}`
       content: currentInput
     });
     
+    const userInput = currentInput; // Capture input before clearing
     setCurrentInput('');
     setIsProcessing(true);
     setHasNewMessages(false); // Reset notification when user sends a message
 
+    // Recalculate websiteFindings based on current store state before sending message
+    let currentWebsiteFindings: WebsiteFindings | null = null;
+    if (websiteScraping.status === 'completed' && websiteScraping.coreOffer) {
+      currentWebsiteFindings = {
+        coreOffer: websiteScraping.coreOffer,
+        targetAudience: websiteScraping.targetAudience,
+        problemSolved: websiteScraping.keyProblem,
+        keyBenefits: Array.isArray(websiteScraping.keyFeatures)
+          ? websiteScraping.keyFeatures.map(feature =>
+              typeof feature === 'string' ? feature : feature.benefit
+            )
+          : [],
+        valueProposition: websiteScraping.valueProposition,
+        cta: null, tone: null, missingInfo: null
+      };
+    }
+
     try {
+      // Add user message *after* calculating findings, before AI response
+      addChatMessage({
+        sender: 'user',
+        content: userInput
+      });
+      
       const response = await generateChatResponse(
-        contextChat.messages, 
-        initialContext, 
-        websiteFindings
+        // Pass the updated messages array from the store
+        useOfferStore.getState().contextChat.messages,
+        initialContext,
+        currentWebsiteFindings // Use the locally calculated findings
       );
       
       addChatMessage({
