@@ -14,6 +14,7 @@ import { ReviewOfferCanvasStep } from './steps/ReviewOfferCanvasStep';
 import { AddEnhancersStep } from './steps/AddEnhancersStep'; 
 import { RefineLandingPageCopyStep } from './steps/RefineLandingPageCopyStep'; 
 import { FinalReviewStep } from './steps/FinalReviewStep'; 
+import { AnalyzeHomepageStep } from './steps/AnalyzeHomepageStep'; 
 
 // --- Remove Placeholder Components --- 
 // const PlaceholderStep = ...
@@ -56,11 +57,18 @@ interface StepDefinition {
 
 // --- NEW Blended Flow Step Definitions (uses actual imports) ---
 const steps: StepDefinition[] = [
+  { // Step 0: Analyze Homepage (Optional)
+    title: 'Analyze Homepage (Optional)', 
+    component: AnalyzeHomepageStep, // Use actual component
+    phase: 'Core Offer', // Keep in Core Offer phase
+    isUnlocked: () => true,
+    isComplete: () => true, // Always considered complete for progression
+  },
   { // Step 1: Define Core RARA
     title: 'Define Core Offer',
-    component: DefineCoreOfferNucleusStep, // Use actual component
+    component: DefineCoreOfferNucleusStep, 
     phase: 'Core Offer',
-    isUnlocked: () => true,
+    isUnlocked: () => true, // Also starts unlocked
     isComplete: (state) =>
       (state.initialContext?.targetAudience?.trim() ?? '').length > 0 && 
       (state.coreResult?.trim() ?? '').length > 0 &&
@@ -70,23 +78,26 @@ const steps: StepDefinition[] = [
   },
   { // Step 2: Review Canvas Checkpoint
     title: 'Review Core Offer',
-    component: ReviewOfferCanvasStep, // Use actual component
+    component: ReviewOfferCanvasStep, 
     phase: 'Core Offer',
-    isUnlocked: (state) => steps[0].isComplete(state),
+    // Now depends on the previous step (Define Core Offer)
+    isUnlocked: (state) => steps[1].isComplete(state), 
     isComplete: (state) => state.offerCanvasConfirmed === true,
   },
   { // Step 3: Add Enhancers
     title: 'Add Enhancers',
-    component: AddEnhancersStep, // Use actual component
+    component: AddEnhancersStep, 
     phase: 'Enhancers',
-    isUnlocked: (state) => steps[1].isComplete(state),
+    // Depends on step 2 (Review Canvas)
+    isUnlocked: (state) => steps[2].isComplete(state), 
     isComplete: () => true, // Optional step
   },
   { // Step 4: Refine Landing Page Copy
     title: 'Draft Landing Page',
-    component: RefineLandingPageCopyStep, // Use actual component
+    component: RefineLandingPageCopyStep, 
     phase: 'Structure & Finalize',
-    isUnlocked: (state) => steps[2].isComplete(state), 
+    // Depends on step 3 (Enhancers)
+    isUnlocked: (state) => steps[3].isComplete(state), 
     isComplete: (state) => {
         // Basic check: ensure at least one section has been started/saved
         return Object.keys(state.landingPageCopy || {}).length > 0;
@@ -97,9 +108,10 @@ const steps: StepDefinition[] = [
   },
    { // Step 5: Final Review
     title: 'Review Landing Page Copy',
-    component: FinalReviewStep, // Use actual component
+    component: FinalReviewStep, 
     phase: 'Structure & Finalize',
-    isUnlocked: (state) => steps[3].isComplete(state),
+    // Depends on step 4 (Refine Copy)
+    isUnlocked: (state) => steps[4].isComplete(state), 
     isComplete: () => true, // Display step
   },
 ];
