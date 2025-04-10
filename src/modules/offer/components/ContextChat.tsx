@@ -17,67 +17,108 @@ export function ContextChat({ onComplete }: ContextChatProps) {
     clearChatMessages
   } = useOfferStore();
   const [currentInput, setCurrentInput] = useState('');
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false); // For AI response generation
+  const [isInitializing, setIsInitializing] = useState(true); // For initial loading/question generation
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [questions, setQuestions] = useState<string[]>([]);
   const [hasNewMessages, setHasNewMessages] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
-  // Removed websiteFindings useMemo hook, will calculate inside useEffect when needed
+  // Removed websiteFindings useMemo hook
 
   useEffect(() => {
-    // Wait until scraping is finished (or wasn't started) before initializing chat
+    // Show loading message if scraping is in progress
     if (websiteScraping.status === 'processing') {
-      // Optionally clear messages or show a waiting indicator
-      // clearChatMessages();
-      // addChatMessage({ sender: 'system', content: 'Analyzing website...' });
+      clearChatMessages(); 
+      addChatMessage({ sender: 'system', content: 'Reviewing website content...' });
+      setIsInitializing(true); // Keep initializing flag true while scraping
       return; // Exit effect if still processing
     }
 
-    // Clear previous messages once scraping status is resolved
+    // --- Initialize chat only when scraping is NOT processing ---
+    
+    // Clear previous messages and state only once after scraping is resolved
     clearChatMessages();
-    setCurrentQuestionIndex(0); // Reset question index
-    setQuestions([]); // Clear previous questions
+    setCurrentQuestionIndex(0); 
+    setQuestions([]); 
+    setIsInitializing(true); // Set initializing flag
 
     const initializeChat = async () => {
-      let summaryContent = "Okay, let's refine your offer. Here's the context I have:\n\n";
-      summaryContent += `Current Offer: ${initialContext.currentOffer || 'Not specified'}\n`;
-      summaryContent += `Target Audience: ${initialContext.targetAudience || 'Not specified'}\n`;
-      summaryContent += `Problem Solved: ${initialContext.problemSolved || 'Not specified'}\n`;
-
+      let summaryLines: string[] = [];
       let currentWebsiteFindings: WebsiteFindings | null = null;
+      let analysisPerformed = false;
+
+      // Prepare website findings if completed
       if (websiteScraping.status === 'completed' && websiteScraping.coreOffer) {
-        // Calculate findings based on current scraping status
+        analysisPerformed = true;
         currentWebsiteFindings = {
           coreOffer: websiteScraping.coreOffer,
           targetAudience: websiteScraping.targetAudience,
           problemSolved: websiteScraping.keyProblem,
-          // Use the corrected mapping for keyBenefits
           keyBenefits: Array.isArray(websiteScraping.keyFeatures)
             ? websiteScraping.keyFeatures.map(feature =>
                 typeof feature === 'string' ? feature : feature.benefit
               )
             : [],
           valueProposition: websiteScraping.valueProposition,
-          cta: null, tone: null, missingInfo: null // Match WebsiteFindings type
+          cta: null, tone: null, missingInfo: null
         };
-        summaryContent += `\nWebsite Analysis:\n`;
-        summaryContent += `  Core Offer: ${currentWebsiteFindings.coreOffer || 'Not found'}\n`;
-        summaryContent += `  Target Audience: ${currentWebsiteFindings.targetAudience || 'Not found'}\n`;
-        summaryContent += `  Problem Solved: ${currentWebsiteFindings.problemSolved || 'Not found'}\n`;
-        summaryContent += `  Value Proposition: ${currentWebsiteFindings.valueProposition || 'Not found'}\n`;
-        // Optionally add key benefits summary
-        if (currentWebsiteFindings.keyBenefits && currentWebsiteFindings.keyBenefits.length > 0) {
-           summaryContent += `  Key Benefits: ${currentWebsiteFindings.keyBenefits.slice(0, 3).join(', ')}...\n`;
-        }
-      } else if (websiteUrl) {
-        summaryContent += `\nWebsite URL: ${websiteUrl} (Analysis skipped, failed, or pending)\n`;
       }
 
-      addChatMessage({ sender: 'ai', content: summaryContent });
+      // Construct the opening line
+      if (analysisPerformed) {
+        summaryLines.push(`Hello! I've reviewed your website (${websiteUrl}) and the initial context. Let's refine your offer based on this:`);
+      } else {
+        summaryLines.push("Okay, let's refine your offer based on the initial context you provided:");
+      }
+      summaryLines.push(""); // Add a blank line
+
+      // Add manual inputs only if they have content AND analysis didn't provide it
+      let manualInputAdded = false;
+      if (initialContext.currentOffer?.trim() && !currentWebsiteFindings?.coreOffer) {
+        summaryLines.push(`Current Offer: ${initialContext.currentOffer}`);
+        manualInputAdded = true;
+      }
+      if (initialContext.targetAudience?.trim() && !currentWebsiteFindings?.targetAudience) {
+        summaryLines.push(`Target Audience: ${initialContext.targetAudience}`);
+        manualInputAdded = true;
+      }
+      if (initialContext.problemSolved?.trim() && !currentWebsiteFindings?.problemSolved) {
+        summaryLines.push(`Problem Solved: ${initialContext.problemSolved}`);
+        manualInputAdded = true;
+      }
+      if (manualInputAdded) {
+         summaryLines.push(""); // Add blank line after manual inputs if any were added
+      }
+
+      // Add website analysis section if successful
+      if (analysisPerformed && currentWebsiteFindings) {
+        summaryLines.push("Website Analysis Findings:");
+        summaryLines.push(`  Core Offer: ${currentWebsiteFindings.coreOffer || 'Not clearly identified'}`);
+        summaryLines.push(`  Target Audience: ${currentWebsiteFindings.targetAudience || 'Not clearly identified'}`);
+        summaryLines.push(`  Problem Solved: ${currentWebsiteFindings.problemSolved || 'Not clearly identified'}`);
+        summaryLines.push(`  Value Proposition: ${currentWebsiteFindings.valueProposition || 'Not clearly identified'}`);
+        if (currentWebsiteFindings.keyBenefits && currentWebsiteFindings.keyBenefits.length > 0) {
+           summaryLines.push(`  Key Benefits: ${currentWebsiteFindings.keyBenefits.slice(0, 3).join(', ')}...`);
+        }
+         summaryLines.push(""); // Add blank line after analysis
+      } else if (websiteUrl && websiteScraping.status !== 'idle') { // Only mention if URL provided AND scraping was attempted
+         summaryLines.push(`Website URL Provided: ${websiteUrl} (Analysis was skipped, failed, or is pending)`);
+         summaryLines.push(""); 
+      }
+      
+      const summaryContent = summaryLines.join('\n').trim(); // Trim potential trailing newline
+
+      // Only add summary if it has meaningful context beyond the opening line
+      if (summaryContent.length > summaryLines[0].length + 1) { 
+          addChatMessage({ sender: 'ai', content: summaryContent });
+      } else {
+          // If no real context, just use a simple opening line
+          addChatMessage({ sender: 'ai', content: "Okay, let's refine your offer. Please tell me about it." });
+      }
 
       // Generate and ask questions
-      setIsProcessing(true);
+      // setIsProcessing(true); // Already handled by isInitializing
       try {
         const questionsText = await generateClarifyingQuestions(initialContext, currentWebsiteFindings);
         const parsedQuestions = parseQuestionsFromText(questionsText);
@@ -88,7 +129,7 @@ export function ContextChat({ onComplete }: ContextChatProps) {
           setTimeout(() => {
             addChatMessage({ sender: 'ai', content: parsedQuestions[0] });
             setCurrentQuestionIndex(1);
-          }, 500);
+          }, 500); 
         } else {
           // If no questions generated, provide a concluding message
           setTimeout(() => {
@@ -108,14 +149,14 @@ export function ContextChat({ onComplete }: ContextChatProps) {
           setCurrentQuestionIndex(1);
         }, 500);
       } finally {
-        setIsProcessing(false);
+        setIsInitializing(false); // Mark initialization complete
       }
     };
 
     initializeChat();
 
   // Rerun when scraping status changes or initial context changes
-  }, [initialContext, websiteScraping.status, websiteUrl, addChatMessage, clearChatMessages]);
+  }, [initialContext, websiteScraping.status, websiteUrl, addChatMessage, clearChatMessages]); 
   // Note: Removed specific scraping fields from deps, status change handles it.
   
   const parseQuestionsFromText = (text: string): string[] => {
@@ -144,17 +185,19 @@ export function ContextChat({ onComplete }: ContextChatProps) {
   }, []);
 
   const handleSendMessage = async () => {
-    if (!currentInput.trim()) return;
+    if (!currentInput.trim() || isInitializing || isProcessing) return; // Prevent sending during init or processing
 
-    addChatMessage({
-      sender: 'user',
-      content: currentInput
-    });
-    
     const userInput = currentInput; // Capture input before clearing
     setCurrentInput('');
-    setIsProcessing(true);
     setHasNewMessages(false); // Reset notification when user sends a message
+
+    // Add user message immediately
+    addChatMessage({
+      sender: 'user',
+      content: userInput
+    });
+    
+    setIsProcessing(true); // Start processing indicator for AI response
 
     // Recalculate websiteFindings based on current store state before sending message
     let currentWebsiteFindings: WebsiteFindings | null = null;
@@ -174,16 +217,10 @@ export function ContextChat({ onComplete }: ContextChatProps) {
     }
 
     try {
-      // Add user message *after* calculating findings, before AI response
-      addChatMessage({
-        sender: 'user',
-        content: userInput
-      });
-      
       const response = await generateChatResponse(
         // Pass the updated messages array from the store
-        useOfferStore.getState().contextChat.messages,
-        initialContext,
+        useOfferStore.getState().contextChat.messages, 
+        initialContext, 
         currentWebsiteFindings // Use the locally calculated findings
       );
       
@@ -233,7 +270,7 @@ Are you ready to continue building your offer?`
         }, 1000);
       }
     } finally {
-      setIsProcessing(false);
+      setIsProcessing(false); // Stop processing indicator
     }
   };
 
@@ -243,7 +280,6 @@ Are you ready to continue building your offer?`
       handleSendMessage();
     }
   };
-
 
 
   return (
@@ -267,22 +303,26 @@ Are you ready to continue building your offer?`
                   ? 'bg-[#FFD23F] text-[#1C1C1C]' 
                   : message.sender === 'ai'
                     ? 'bg-[#3A3A3A] text-white'
-                    : 'bg-[#2A2A2A] text-white'
+                    : 'bg-[#2A2A2A] text-white' // System messages
               }`}
             >
               <div className="whitespace-pre-line">{message.content}</div>
-              <div className="text-xs opacity-50 mt-1 text-right">
-                {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-              </div>
+              {/* Only show timestamp for non-system messages */}
+              {message.sender !== 'system' && (
+                 <div className="text-xs opacity-50 mt-1 text-right">
+                   {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                 </div>
+              )}
             </div>
           </div>
         ))}
-        {isProcessing && (
+        {/* Show thinking indicator during initial question generation OR AI response generation */}
+        {(isInitializing || isProcessing) && ( 
           <div className="flex justify-start">
             <div className="bg-[#3A3A3A] text-white rounded-lg p-3">
               <div className="flex items-center">
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                <span>Thinking...</span>
+                <span>{isInitializing ? 'Initializing...' : 'Thinking...'}</span>
               </div>
             </div>
           </div>
@@ -317,12 +357,13 @@ Are you ready to continue building your offer?`
             placeholder="Type your message here..."
             className="flex-1 p-3 bg-[#1C1C1C] border border-[#333333] rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent resize-none"
             rows={2}
+            disabled={isInitializing || isProcessing} // Disable input during init and processing
           />
           <button
             onClick={handleSendMessage}
-            disabled={!currentInput.trim() || isProcessing}
+            disabled={!currentInput.trim() || isInitializing || isProcessing} // Disable send during init and processing
             className={`p-3 rounded-lg ${
-              !currentInput.trim() || isProcessing
+              !currentInput.trim() || isInitializing || isProcessing
                 ? 'bg-[#333333] text-gray-500 cursor-not-allowed'
                 : 'bg-[#FFD23F] text-[#1C1C1C] hover:bg-[#FFD23F]/90'
             }`}
@@ -335,6 +376,7 @@ Are you ready to continue building your offer?`
           <button
             onClick={onComplete}
             className="px-4 py-2 bg-[#FFD23F] text-[#1C1C1C] rounded-lg hover:bg-opacity-90"
+            disabled={isInitializing} // Disable continue button during initialization
           >
             Continue to Next Step
           </button>
