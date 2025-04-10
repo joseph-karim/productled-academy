@@ -17,21 +17,35 @@ export function ContextGatheringForm({ onNext }: ContextGatheringFormProps) {
   } = useOfferStore();
   
   const [isValidUrl, setIsValidUrl] = useState(false);
-  const [showUrlFormatMessage, setShowUrlFormatMessage] = useState(false);
+  // Removed showUrlFormatMessage state
 
   const handleUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const url = e.target.value;
-    setWebsiteUrl(url);
+    setWebsiteUrl(url); // Store the raw input
+
+    // Normalize URL for validation (prepend https:// if missing protocol)
+    let normalizedUrl = url;
+    if (url.length > 0 && !url.match(/^(http|https):\/\//i)) {
+      normalizedUrl = `https://${url}`;
+    }
     
-    const isValid = url.match(/^(http|https):\/\/[a-zA-Z0-9-_.]+\.[a-zA-Z]{2,}(\/.*)?$/) !== null;
+    // Validate the potentially normalized URL
+    const isValid = normalizedUrl.match(/^(http|https):\/\/[a-zA-Z0-9-_.]+\.[a-zA-Z]{2,}(\/.*)?$/) !== null;
     setIsValidUrl(isValid);
     
-    setShowUrlFormatMessage(url.length > 0 && !url.match(/^(http|https):\/\//));
+    // Removed setShowUrlFormatMessage logic
   };
 
   const handleStartScraping = async () => {
-    if (isValidUrl && websiteUrl) {
-      await startWebsiteScraping(websiteUrl);
+    // Normalize URL before scraping
+    let urlToScrape = websiteUrl;
+    if (websiteUrl.length > 0 && !websiteUrl.match(/^(http|https):\/\//i)) {
+      urlToScrape = `https://${websiteUrl}`;
+    }
+
+    // Use the potentially normalized URL for validation check and scraping call
+    if (isValidUrl && urlToScrape) {
+      await startWebsiteScraping(urlToScrape);
       if (onNext) {
         setTimeout(onNext, 1000); // Give a moment for scraping to start
       }
@@ -102,11 +116,7 @@ export function ContextGatheringForm({ onNext }: ContextGatheringFormProps) {
             </p>
           )}
           
-          {showUrlFormatMessage && (
-            <p className="text-sm text-red-500">
-              Please include the full URL with "https://" prefix (e.g., https://example.com)
-            </p>
-          )}
+          {/* Removed URL format error message */}
           
           <p className="text-sm text-gray-400">
             (Optional) Providing your website helps us give more relevant suggestions.
