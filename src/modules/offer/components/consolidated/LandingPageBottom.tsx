@@ -4,15 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../../components
 import { CheckCircle2 } from 'lucide-react';
 import { TestimonialsBuilder } from '../TestimonialsBuilder';
 import { CtaSectionBuilder } from '../CtaSectionBuilder';
-
-// Placeholder component to be replaced with actual implementation
-const RiskReversalBuilder = ({ modelData, readOnly = false }: { modelData?: any; readOnly?: boolean }) => (
-  <div className="p-4 bg-[#2A2A2A] rounded-lg">
-    <h2 className="text-2xl font-bold text-white mb-4">Risk Reversal Builder</h2>
-    <p className="text-gray-300">This component will help you create effective risk reversals that address user concerns.</p>
-    {readOnly && <p className="text-yellow-500 mt-2">This view is read-only</p>}
-  </div>
-);
+import { RiskReversalBuilder } from '../RiskReversalBuilder'; // Import the actual component
 
 interface LandingPageBottomProps {
   modelData?: any;

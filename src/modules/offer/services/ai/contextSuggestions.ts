@@ -169,3 +169,67 @@ export async function generateTopResultsSuggestions(
     return [];
   }
 }
+
+export async function generateRiskReversalSuggestions(
+  riskText: string
+): Promise<Omit<AISuggestion, 'id' | 'createdAt'>[]> {
+  try {
+    return handleOpenAIRequest(
+      openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "system",
+            content: "You're an assistant helping craft compelling risk reversals for a product offer. Given a specific customer risk/hesitation, generate 1-2 concise suggestions to mitigate or reverse that risk. Focus on guarantees, clear processes, support, security, ease of use, etc."
+          },
+          {
+            role: "user",
+            content: `
+            The customer's potential risk/hesitation is: "${riskText}"
+            
+            Generate 1-2 concise risk reversal statements to address this specific concern. Format each as a JSON object with a "text" field.`
+          }
+        ],
+        functions: [
+          {
+            name: "provide_risk_reversal_suggestions",
+            description: "Provide risk reversal suggestions",
+            parameters: {
+              type: "object",
+              properties: {
+                suggestions: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      text: { type: "string" }
+                    },
+                    required: ["text"]
+                  }
+                }
+              },
+              required: ["suggestions"]
+            }
+          }
+        ],
+        function_call: { name: "provide_risk_reversal_suggestions" }
+      }).then(completion => {
+        const result = completion.choices[0].message.function_call?.arguments;
+        if (!result) throw new Error("No suggestions received");
+        
+        const parsed = JSON.parse(result);
+        // Ensure suggestions is always an array, even if only one is returned
+        const suggestionsArray = Array.isArray(parsed.suggestions) ? parsed.suggestions : [parsed.suggestions].filter(Boolean);
+        
+        return suggestionsArray.map((s: any) => ({
+          type: 'riskReversal', // Assuming this type exists or is appropriate
+          text: s.text
+        }));
+      }),
+      'generating risk reversal suggestions'
+    );
+  } catch (error) {
+    console.error('Error generating risk reversal suggestions:', error);
+    return [];
+  }
+}
