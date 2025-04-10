@@ -28,9 +28,8 @@ export function ContextChat({ onComplete }: ContextChatProps) {
   useEffect(() => {
     // Wait until scraping is finished (or wasn't started) before initializing chat
     if (websiteScraping.status === 'processing') {
-      // Optionally clear messages or show a waiting indicator
-      // clearChatMessages();
-      // addChatMessage({ sender: 'system', content: 'Analyzing website...' });
+      clearChatMessages(); // Clear previous messages
+      addChatMessage({ sender: 'system', content: 'Reviewing website content...' });
       return; // Exit effect if still processing
     }
 
@@ -145,6 +144,7 @@ export function ContextChat({ onComplete }: ContextChatProps) {
       }
     };
 
+    // *** Call the function to actually initialize the chat ***
     initializeChat();
 
   // Rerun when scraping status changes or initial context changes
