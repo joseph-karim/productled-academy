@@ -16,6 +16,7 @@ export function ContextChat({ onComplete }: ContextChatProps) {
     addChatMessage,
     clearChatMessages
   } = useOfferStore();
+  
   const [currentInput, setCurrentInput] = useState('');
   const [isProcessing, setIsProcessing] = useState(false); // For AI response generation
   const [isInitializing, setIsInitializing] = useState(true); // For initial loading/question generation
@@ -24,8 +25,7 @@ export function ContextChat({ onComplete }: ContextChatProps) {
   const [hasNewMessages, setHasNewMessages] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
-  // Removed websiteFindings useMemo hook
-
+  // This useEffect handles the initialization logic based on scraping status
   useEffect(() => {
     // Show loading message if scraping is in progress
     if (websiteScraping.status === 'processing') {
@@ -109,7 +109,7 @@ export function ContextChat({ onComplete }: ContextChatProps) {
       
       const summaryContent = summaryLines.join('\n').trim(); // Trim potential trailing newline
 
-      // Only add summary if it has meaningful context beyond the opening line
+      // Only add summary if it has meaningful content beyond the opening line
       if (summaryContent.length > summaryLines[0].length + 1) { 
           addChatMessage({ sender: 'ai', content: summaryContent });
       } else {
@@ -118,7 +118,6 @@ export function ContextChat({ onComplete }: ContextChatProps) {
       }
 
       // Generate and ask questions
-      // setIsProcessing(true); // Already handled by isInitializing
       try {
         const questionsText = await generateClarifyingQuestions(initialContext, currentWebsiteFindings);
         const parsedQuestions = parseQuestionsFromText(questionsText);
@@ -153,11 +152,11 @@ export function ContextChat({ onComplete }: ContextChatProps) {
       }
     };
 
-    initializeChat();
+    initializeChat(); // Call the initialization function
 
-  // Rerun when scraping status changes or initial context changes
-  }, [initialContext, websiteScraping.status, websiteUrl, addChatMessage, clearChatMessages]); 
-  // Note: Removed specific scraping fields from deps, status change handles it.
+  // Rerun initialization logic only when scraping status changes from processing to something else,
+  // or if relevant initial context changes (though re-init on context change might need refinement later)
+  }, [websiteScraping.status, initialContext, websiteUrl, addChatMessage, clearChatMessages]); 
   
   const parseQuestionsFromText = (text: string): string[] => {
     const numberedQuestionsRegex = /\d+\.\s+([^\d]+?)(?=\d+\.|$)/g;
@@ -172,17 +171,17 @@ export function ContextChat({ onComplete }: ContextChatProps) {
       .filter(line => line.length > 0 && line.endsWith('?'));
   };
 
+  // Effect for scrolling
   useEffect(() => {
-    if (contextChat.messages.length > 3) {
+    if (!isInitializing && messagesEndRef.current) {
+        messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+    // Update hasNewMessages flag
+    if (contextChat.messages.length > 3) { 
       setHasNewMessages(true);
     }
-  }, [contextChat.messages.length]);
+  }, [contextChat.messages, isInitializing]);
   
-  useEffect(() => {
-    if (messagesEndRef.current && contextChat.messages.length <= 3) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, []);
 
   const handleSendMessage = async () => {
     if (!currentInput.trim() || isInitializing || isProcessing) return; // Prevent sending during init or processing
@@ -283,7 +282,18 @@ Are you ready to continue building your offer?`
 
 
   return (
-    <div className="bg-[#2A2A2A] rounded-lg shadow-xl overflow-hidden flex flex-col h-[70vh] w-full">
+    <div className="bg-[#2A2A2A] rounded-lg shadow-xl overflow-hidden flex flex-col h-[70vh] w-full relative"> {/* Added relative positioning */}
+      {/* Loader Overlay */}
+      {isInitializing && (
+        <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-10">
+          <div className="flex flex-col items-center text-white">
+            <Loader2 className="w-8 h-8 animate-spin mb-2" />
+            <span>{websiteScraping.status === 'processing' ? 'Reviewing website...' : 'Initializing chat...'}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Chat Header */}
       <div className="bg-[#1C1C1C] border-b border-[#333333] px-6 py-4 flex justify-between items-center">
         <div className="flex items-center space-x-2">
           <MessageSquare className="w-5 h-5 text-[#FFD23F]" />
@@ -291,6 +301,7 @@ Are you ready to continue building your offer?`
         </div>
       </div>
       
+      {/* Message List */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#1C1C1C]">
         {contextChat.messages.map((message) => (
           <div 
@@ -316,21 +327,21 @@ Are you ready to continue building your offer?`
             </div>
           </div>
         ))}
-        {/* Show thinking indicator during initial question generation OR AI response generation */}
-        {(isInitializing || isProcessing) && ( 
+        {/* Show thinking indicator ONLY for AI response generation, not init */}
+        {isProcessing && !isInitializing && ( 
           <div className="flex justify-start">
             <div className="bg-[#3A3A3A] text-white rounded-lg p-3">
               <div className="flex items-center">
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                <span>{isInitializing ? 'Initializing...' : 'Thinking...'}</span>
+                <span>Thinking...</span>
               </div>
             </div>
           </div>
         )}
         <div ref={messagesEndRef} />
         
-        {/* Scroll to bottom button with notification indicator */}
-        {contextChat.messages.length > 3 && (
+        {/* Scroll to bottom button */}
+        {contextChat.messages.length > 3 && !isInitializing && ( // Hide during init
           <div className="flex justify-center mt-4">
             <button
               onClick={() => {
@@ -348,6 +359,7 @@ Are you ready to continue building your offer?`
         )}
       </div>
       
+      {/* Input Area */}
       <div className="border-t border-[#333333] p-4 bg-[#2A2A2A]">
         <div className="flex space-x-2">
           <textarea
