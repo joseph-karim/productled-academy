@@ -40,39 +40,72 @@ export function ContextChat({ onComplete }: ContextChatProps) {
     setQuestions([]); // Clear previous questions
 
     const initializeChat = async () => {
-      let summaryContent = "Okay, let's refine your offer. Here's the context I have:\n\n";
-      summaryContent += `Current Offer: ${initialContext.currentOffer || 'Not specified'}\n`;
-      summaryContent += `Target Audience: ${initialContext.targetAudience || 'Not specified'}\n`;
-      summaryContent += `Problem Solved: ${initialContext.problemSolved || 'Not specified'}\n`;
-
+      let summaryLines: string[] = [];
       let currentWebsiteFindings: WebsiteFindings | null = null;
+      let analysisPerformed = false;
+
+      // Prepare website findings if completed
       if (websiteScraping.status === 'completed' && websiteScraping.coreOffer) {
-        // Calculate findings based on current scraping status
+        analysisPerformed = true;
         currentWebsiteFindings = {
           coreOffer: websiteScraping.coreOffer,
           targetAudience: websiteScraping.targetAudience,
           problemSolved: websiteScraping.keyProblem,
-          // Use the corrected mapping for keyBenefits
           keyBenefits: Array.isArray(websiteScraping.keyFeatures)
             ? websiteScraping.keyFeatures.map(feature =>
                 typeof feature === 'string' ? feature : feature.benefit
               )
             : [],
           valueProposition: websiteScraping.valueProposition,
-          cta: null, tone: null, missingInfo: null // Match WebsiteFindings type
+          cta: null, tone: null, missingInfo: null
         };
-        summaryContent += `\nWebsite Analysis:\n`;
-        summaryContent += `  Core Offer: ${currentWebsiteFindings.coreOffer || 'Not found'}\n`;
-        summaryContent += `  Target Audience: ${currentWebsiteFindings.targetAudience || 'Not found'}\n`;
-        summaryContent += `  Problem Solved: ${currentWebsiteFindings.problemSolved || 'Not found'}\n`;
-        summaryContent += `  Value Proposition: ${currentWebsiteFindings.valueProposition || 'Not found'}\n`;
-        // Optionally add key benefits summary
-        if (currentWebsiteFindings.keyBenefits && currentWebsiteFindings.keyBenefits.length > 0) {
-           summaryContent += `  Key Benefits: ${currentWebsiteFindings.keyBenefits.slice(0, 3).join(', ')}...\n`;
-        }
-      } else if (websiteUrl) {
-        summaryContent += `\nWebsite URL: ${websiteUrl} (Analysis skipped, failed, or pending)\n`;
       }
+
+      // Construct the opening line
+      if (analysisPerformed) {
+        summaryLines.push(`Hello! I've reviewed your website (${websiteUrl}) and the initial context you provided. Let's refine your offer based on this information:`);
+      } else {
+        summaryLines.push("Okay, let's refine your offer based on the initial context you provided:");
+      }
+      summaryLines.push(""); // Add a blank line
+
+      // Add manual inputs only if they have content
+      let manualInputAdded = false;
+      if (initialContext.currentOffer?.trim()) {
+        summaryLines.push(`Current Offer: ${initialContext.currentOffer}`);
+        manualInputAdded = true;
+      }
+      if (initialContext.targetAudience?.trim()) {
+        summaryLines.push(`Target Audience: ${initialContext.targetAudience}`);
+        manualInputAdded = true;
+      }
+      if (initialContext.problemSolved?.trim()) {
+        summaryLines.push(`Problem Solved: ${initialContext.problemSolved}`);
+        manualInputAdded = true;
+      }
+      if (manualInputAdded) {
+         summaryLines.push(""); // Add blank line after manual inputs if any were added
+      }
+
+
+      // Add website analysis section if successful
+      if (analysisPerformed && currentWebsiteFindings) {
+        summaryLines.push("Website Analysis Findings:");
+        summaryLines.push(`  Core Offer: ${currentWebsiteFindings.coreOffer || 'Not clearly identified'}`);
+        summaryLines.push(`  Target Audience: ${currentWebsiteFindings.targetAudience || 'Not clearly identified'}`);
+        summaryLines.push(`  Problem Solved: ${currentWebsiteFindings.problemSolved || 'Not clearly identified'}`);
+        summaryLines.push(`  Value Proposition: ${currentWebsiteFindings.valueProposition || 'Not clearly identified'}`);
+        if (currentWebsiteFindings.keyBenefits && currentWebsiteFindings.keyBenefits.length > 0) {
+           summaryLines.push(`  Key Benefits: ${currentWebsiteFindings.keyBenefits.slice(0, 3).join(', ')}...`);
+        }
+         summaryLines.push(""); // Add blank line after analysis
+      } else if (websiteUrl) {
+         // Mention if URL was provided but analysis wasn't successful/used
+         summaryLines.push(`Website URL Provided: ${websiteUrl} (Analysis was skipped, failed, or is pending)`);
+         summaryLines.push("");
+      }
+      
+      const summaryContent = summaryLines.join('\n');
 
       addChatMessage({ sender: 'ai', content: summaryContent });
 
