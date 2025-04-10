@@ -29,7 +29,7 @@ import { FinalReview } from './FinalReview';
 // import { RefinementFinalization } from './consolidated/RefinementFinalization';
 
 // Context components for sidebar
-import { ContextChat } from './ContextChat';
+// import { ContextChat } from './ContextChat';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -334,8 +334,8 @@ export function MultiStepForm({ readOnly = false, analysisId: propAnalysisId }: 
           </div>
         </div>
 
-        <div className="flex-1 min-h-0">
-          <ContextChat />
+        <div className="flex-1 min-h-0 text-center text-gray-500 italic pt-10">
+          (Offer context chat available via floating button)
         </div>
       </div>
 
