@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import { generateUUID } from '../utils/uuid';
-import { WebsiteScrapingData, InitialContext, AISuggestion, ConversationalCheckpoint } from '../services/ai/types';
+import { WebsiteScrapingData, InitialContext } from '../services/ai/types';
 import { scrapeWebsite, getScrapingResult } from '../services/webscraping';
 
 export interface ChatMessage {
@@ -171,6 +171,26 @@ interface ProcessingState {
   valueProposition: boolean; // Added
 }
 
+// Define missing types simply locally
+export interface AISuggestion {
+  id: string;
+  type: string; // Keep it simple
+  text: string;
+  description?: string;
+  metadata?: Record<string, any>;
+  createdAt: Date;
+}
+
+export interface ConversationalCheckpoint {
+  id: string;
+  type: string; // Keep it simple
+  triggerCondition: string;
+  message: string;
+  suggestions: AISuggestion[];
+  createdAt: Date;
+}
+
+// --- State Structure ---
 interface OfferStateData {
   title: string;
   websiteUrl: string;
@@ -202,8 +222,8 @@ interface OfferStateData {
     selected: string[]; 
   };
   
-  aiSuggestions: AISuggestion[];
-  conversationalCheckpoints: ConversationalCheckpoint[];
+  aiSuggestions: AISuggestion[]; // Use local type
+  conversationalCheckpoints: ConversationalCheckpoint[]; // Use local type
   activeCheckpoint: string | null;
   
   // Analysis data
@@ -343,8 +363,6 @@ export const initialState: OfferStateData = { // Export initialState
     keyProblem: '',
     valueProposition: '',
     keyFeatures: [],
-    keyPhrases: [],
-    competitiveAdvantages: [],
     error: null
   },
   contextChat: {
@@ -425,8 +443,8 @@ export const initialState: OfferStateData = { // Export initialState
     valueProposition: false, // Added
   },
   
-  aiSuggestions: [],
-  conversationalCheckpoints: [],
+  aiSuggestions: [], 
+  conversationalCheckpoints: [], 
   activeCheckpoint: null,
   underlyingResult: '', // Added
   underlyingReasonBetter: '', // Added
@@ -747,35 +765,13 @@ export const useOfferStore = create<OfferState>()(
       
       setAnalysisError: (error) => set({ analysisError: error }),
       
-      addAISuggestion: (suggestion) => set((state) => ({
-        aiSuggestions: [
-          ...state.aiSuggestions,
-          {
-            id: crypto.randomUUID(),
-            ...suggestion,
-            createdAt: new Date()
-          }
-        ]
-      })),
+      addAISuggestion: (suggestion: Omit<AISuggestion, 'id' | 'createdAt'>) => set((state) => ({ aiSuggestions: [ ...state.aiSuggestions, { id: generateUUID(), ...suggestion, createdAt: new Date() } ] })),
       
-      removeAISuggestion: (id) => set((state) => ({
-        aiSuggestions: state.aiSuggestions.filter(suggestion => suggestion.id !== id)
-      })),
+      removeAISuggestion: (id: string) => set((state) => ({ aiSuggestions: state.aiSuggestions.filter(s => s.id !== id) })),
       
-      addConversationalCheckpoint: (checkpoint) => set((state) => ({
-        conversationalCheckpoints: [
-          ...state.conversationalCheckpoints,
-          {
-            id: crypto.randomUUID(),
-            ...checkpoint,
-            createdAt: new Date()
-          }
-        ]
-      })),
+      addConversationalCheckpoint: (checkpoint: Omit<ConversationalCheckpoint, 'id' | 'createdAt'>) => set((state) => ({ conversationalCheckpoints: [ ...state.conversationalCheckpoints, { id: generateUUID(), ...checkpoint, createdAt: new Date() } ] })),
       
-      setActiveCheckpoint: (id) => set({
-        activeCheckpoint: id
-      }),
+      setActiveCheckpoint: (id: string | null) => set({ activeCheckpoint: id }),
 
       // Added Setters
       setUnderlyingResult: (text) => set({ underlyingResult: text }),
