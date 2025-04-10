@@ -36,3 +36,4 @@ CREATE POLICY "Anonymous users can read their records"
 
 CREATE INDEX IF NOT EXISTS website_scraping_user_id_idx 
   ON website_scraping(user_id);
+ 

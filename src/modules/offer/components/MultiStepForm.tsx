@@ -1,18 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, Save, Loader2 } from 'lucide-react';
-import { useOfferStore } from '../store/offerStore';
+import { useOfferStore, initialState as offerInitialState } from '../store/offerStore';
 import { getModuleData, saveModuleData } from '@/core/services/supabase';
 import { useAuth } from '@/core/auth/AuthProvider';
 import { AuthModal } from '@/core/auth/AuthModal';
 import { ErrorBoundary } from 'react-error-boundary';
 
-// Import our consolidated components
-import { CoreOfferDevelopment } from './consolidated/CoreOfferDevelopment';
-import { RiskManagement } from './consolidated/RiskManagement';
-import { LandingPageTop } from './consolidated/LandingPageTop';
-import { LandingPageBottom } from './consolidated/LandingPageBottom';
-import { RefinementFinalization } from './consolidated/RefinementFinalization';
+// --- Blended Flow Step Components ---
+// Import the actual components now
+import { DefineCoreOfferNucleusStep } from './steps/DefineCoreOfferNucleusStep'; 
+import { ReviewOfferCanvasStep } from './steps/ReviewOfferCanvasStep'; 
+import { AddEnhancersStep } from './steps/AddEnhancersStep'; 
+import { RefineLandingPageCopyStep } from './steps/RefineLandingPageCopyStep'; 
+import { FinalReviewStep } from './steps/FinalReviewStep'; 
+
+// --- Remove Placeholder Components --- 
+// const PlaceholderStep = ...
+// const DefineCoreOfferNucleusStep = ...
+// const ReviewOfferCanvasStep = ...
+// const AddEnhancersStep = ...
+// const RefineLandingPageCopyStep = ...
+// const FinalReviewStep = ...
 
 // ErrorFallback component
 const ErrorFallback = ({ error, resetErrorBoundary }: { error: Error; resetErrorBoundary: () => void }) => {
@@ -35,73 +44,75 @@ interface MultiStepFormProps {
   analysisId?: string;
 }
 
-// New consolidated step definitions
-const steps = [
-  { 
-    title: 'Core Offer Development',
-    component: CoreOfferDevelopment,
-    isUnlocked: (state: ReturnType<typeof useOfferStore.getState>) => true,
-    isComplete: (state: ReturnType<typeof useOfferStore.getState>) => 
-      state.offerRating !== null &&
-      state.userSuccess.statement.length >= 10 &&
-      state.topResults.tangible.length > 0 && 
-      state.topResults.intangible.length > 0 && 
-      state.topResults.improvement.length > 0 &&
-      state.advantages.length >= 1
+type OfferPhase = 'Core Offer' | 'Enhancers' | 'Structure & Finalize';
+
+interface StepDefinition {
+  title: string;
+  component: React.ComponentType<{ readOnly?: boolean }>;
+  phase: OfferPhase;
+  isUnlocked: (state: ReturnType<typeof useOfferStore.getState>) => boolean;
+  isComplete: (state: ReturnType<typeof useOfferStore.getState>) => boolean;
+}
+
+// --- NEW Blended Flow Step Definitions (uses actual imports) ---
+const steps: StepDefinition[] = [
+  { // Step 1: Define Core RARA
+    title: 'Define Core Offer',
+    component: DefineCoreOfferNucleusStep, // Use actual component
+    phase: 'Core Offer',
+    isUnlocked: () => true,
+    isComplete: (state) =>
+      (state.initialContext?.targetAudience?.trim() ?? '').length > 0 && 
+      (state.coreResult?.trim() ?? '').length > 0 &&
+      (state.keyAdvantage?.trim() ?? '').length > 0 &&
+      (state.topRisk?.trim() ?? '').length > 0 &&
+      (state.primaryAssurance?.trim() ?? '').length > 0,
   },
-  {
-    title: 'Risk Management & Offer Canvas',
-    component: RiskManagement,
-    isUnlocked: (state: ReturnType<typeof useOfferStore.getState>) => 
-      state.advantages.length >= 1,
-    isComplete: (state: ReturnType<typeof useOfferStore.getState>) => 
-      state.risks.length >= 1 && 
-      state.assurances.length >= 1
+  { // Step 2: Review Canvas Checkpoint
+    title: 'Review Core Offer',
+    component: ReviewOfferCanvasStep, // Use actual component
+    phase: 'Core Offer',
+    isUnlocked: (state) => steps[0].isComplete(state),
+    isComplete: (state) => state.offerCanvasConfirmed === true,
   },
-  {
-    title: 'Landing Page Top Section',
-    component: LandingPageTop,
-    isUnlocked: (state: ReturnType<typeof useOfferStore.getState>) => 
-      state.assurances.length >= 1,
-    isComplete: (state: ReturnType<typeof useOfferStore.getState>) => 
-      state.heroSection.tagline.length > 0 && 
-      state.heroSection.subCopy.length > 0 && 
-      state.heroSection.ctaText.length > 0 &&
-      state.problemSection.alternativesProblems.length > 0 && 
-      state.problemSection.underlyingProblem.length > 0 &&
-      state.solutionSection.steps.length > 0
+  { // Step 3: Add Enhancers
+    title: 'Add Enhancers',
+    component: AddEnhancersStep, // Use actual component
+    phase: 'Enhancers',
+    isUnlocked: (state) => steps[1].isComplete(state),
+    isComplete: () => true, // Optional step
   },
-  {
-    title: 'Landing Page Bottom Section',
-    component: LandingPageBottom,
-    isUnlocked: (state: ReturnType<typeof useOfferStore.getState>) => 
-      state.heroSection.tagline.length > 0 && 
-      state.solutionSection.steps.length > 0,
-    isComplete: (state: ReturnType<typeof useOfferStore.getState>) => 
-      state.riskReversals.length >= 1 &&
-      (state.socialProof.testimonials.length > 0 || 
-       state.socialProof.caseStudies.length > 0 || 
-       state.socialProof.logos.length > 0 || 
-       state.socialProof.numbers.length > 0) &&
-      state.ctaSection.mainCtaText.length > 0
+  { // Step 4: Refine Landing Page Copy
+    title: 'Draft Landing Page',
+    component: RefineLandingPageCopyStep, // Use actual component
+    phase: 'Structure & Finalize',
+    isUnlocked: (state) => steps[2].isComplete(state), 
+    isComplete: (state) => {
+        // Basic check: ensure at least one section has been started/saved
+        return Object.keys(state.landingPageCopy || {}).length > 0;
+        // More robust check: Ensure key sections have minimal content
+        // const sections = ['hero', 'problem', 'solution']; 
+        // return sections.every(key => state.landingPageCopy?.[key] && Object.values(state.landingPageCopy[key]).some(val => (val ?? '').trim().length > 0));
+    },
   },
-  {
-    title: 'Refinement & Finalization',
-    component: RefinementFinalization,
-    isUnlocked: (state: ReturnType<typeof useOfferStore.getState>) => 
-      state.riskReversals.length >= 1 && 
-      state.ctaSection.mainCtaText.length > 0,
-    isComplete: (state: ReturnType<typeof useOfferStore.getState>) => 
-      ((state.refinedHeadlines.hero.length > 0 || 
-        state.refinedHeadlines.problem.length > 0 || 
-        state.refinedHeadlines.solution.length > 0) &&
-       (state.refinedBodyCopy.hero.length > 0 || 
-        state.refinedBodyCopy.problem.length > 0 || 
-        state.refinedBodyCopy.solution.length > 0)) &&
-      state.aestheticsChecklistCompleted &&
-      state.offerScorecard !== null
-  }
+   { // Step 5: Final Review
+    title: 'Review Landing Page Copy',
+    component: FinalReviewStep, // Use actual component
+    phase: 'Structure & Finalize',
+    isUnlocked: (state) => steps[3].isComplete(state),
+    isComplete: () => true, // Display step
+  },
 ];
+
+// --- OLD Step Flow Definitions (Commented Out) ---
+/*
+const steps: StepDefinition[] = [
+  // ... (Original 14 steps definition) ...
+];
+*/
+
+// Helper function to get phase details (Keep)
+const getPhaseInfo = (currentPhase: OfferPhase) => { /* ... */ };
 
 export function MultiStepForm({ readOnly = false, analysisId: propAnalysisId }: MultiStepFormProps) {
   const [currentStep, setCurrentStep] = useState(0);
@@ -118,9 +129,16 @@ export function MultiStepForm({ readOnly = false, analysisId: propAnalysisId }: 
   const { user } = useAuth();
   const { id: routeId } = useParams();
   const navigate = useNavigate();
-  const CurrentStepComponent = steps[currentStep].component;
 
-  // Load data effect
+  useEffect(() => {
+    if (currentStep >= steps.length) {
+      setCurrentStep(steps.length - 1);
+    }
+  }, [currentStep]);
+
+  const safeCurrentStep = Math.min(currentStep, steps.length - 1);
+  const CurrentStepComponent = steps[safeCurrentStep]?.component;
+
   useEffect(() => {
     const idToLoad = routeId || propAnalysisId;
     
@@ -159,139 +177,56 @@ export function MultiStepForm({ readOnly = false, analysisId: propAnalysisId }: 
       // Reset store before loading new data
       store.resetState();
       
-      if (idToLoad && moduleData.offers) {
-        const specificOffer = moduleData.offers.find((offer: any) => offer.id === idToLoad);
-        
-        if (specificOffer) {
-          console.log(`Loading specific offer with ID: ${idToLoad}`);
-          useOfferStore.setState(specificOffer);
-          return;
-        } else {
-          console.warn(`Offer with ID ${idToLoad} not found`);
-          setOfferNotFound(true);
-        }
+      // Prefer using setState for direct loading if structure matches
+      // Assuming moduleData might contain a structure that can be directly applied
+      if (idToLoad && moduleData) { 
+         // Check if the loaded data has the core fields we expect from the *new* structure
+         const hasNewFields = moduleData.coreResult !== undefined || moduleData.landingPageCopy !== undefined;
+         if (hasNewFields) {
+            console.log(`Loading specific offer with ID ${idToLoad} using direct setState.`);
+            // Use setState to load the entire offer object if structure is suitable
+            useOfferStore.setState(moduleData);
+            return; // Exit early if direct load worked
+         } else {
+            console.warn(`Loaded data for ${idToLoad} seems to be in old format. Attempting manual mapping...`);
+            // Fallback to manual mapping if structure doesn't match directly
+         }
+      } else {
+         console.warn("Offer ID not provided or no data found.");
+         store.resetState();
+         return;
       }
       
-      useOfferStore.setState(moduleData);
-
-      // Map data from Supabase to store
+      // --- Fallback Manual Mapping (If direct setState didn't apply) ---
+      console.log("Applying manual mapping for potentially old data structure...")
       store.setTitle(moduleData.title || 'Untitled Offer');
-      store.setOfferRating(moduleData.offerRating || null);
       
-      if (moduleData.userSuccess) {
-        store.setUserSuccess(moduleData.userSuccess.statement || '');
+      // Map initial context and core RARA fields
+      if(moduleData.initialContext) store.setInitialContext('targetAudience', moduleData.initialContext.targetAudience || '');
+      if(moduleData.coreResult) store.setCoreResult(moduleData.coreResult);
+      if(moduleData.keyAdvantage) store.setKeyAdvantage(moduleData.keyAdvantage);
+      if(moduleData.topRisk) store.setTopRisk(moduleData.topRisk);
+      if(moduleData.primaryAssurance) store.setPrimaryAssurance(moduleData.primaryAssurance);
+      if(moduleData.offerCanvasConfirmed) store.setOfferCanvasConfirmed(moduleData.offerCanvasConfirmed);
+
+      // Map enhancers
+      if(moduleData.exclusivity) store.setExclusivity(moduleData.exclusivity);
+      if (moduleData.bonuses && Array.isArray(moduleData.bonuses)) {
+        moduleData.bonuses.forEach((bonus: any) => store.addBonus(bonus));
+      }
+
+      // Map landing page copy (if it exists)
+      if(moduleData.landingPageCopy && typeof moduleData.landingPageCopy === 'object'){
+          Object.keys(moduleData.landingPageCopy).forEach(sectionKey => {
+              if(typeof moduleData.landingPageCopy[sectionKey] === 'object') {
+                 store.updateLandingPageCopySection(sectionKey, moduleData.landingPageCopy[sectionKey]);
+              }
+          });
       }
       
-      if (moduleData.topResults) {
-        store.setTopResults(moduleData.topResults);
-      }
-      
-      // Advantages
-      if (moduleData.advantages && Array.isArray(moduleData.advantages)) {
-        moduleData.advantages.forEach((adv: any) => {
-          store.addAdvantage(adv.text, adv.description);
-        });
-      }
-      
-      // Risks
-      if (moduleData.risks && Array.isArray(moduleData.risks)) {
-        moduleData.risks.forEach((risk: any) => {
-          store.addRisk(risk.text);
-        });
-      }
-      
-      // Assurances
-      if (moduleData.assurances && Array.isArray(moduleData.assurances)) {
-        moduleData.assurances.forEach((assurance: any) => {
-          store.addAssurance(assurance.riskId, assurance.text);
-        });
-      }
-      
-      // Hero Section
-      if (moduleData.heroSection) {
-        store.setHeroSection(moduleData.heroSection);
-      }
-      
-      // Problem Section
-      if (moduleData.problemSection) {
-        store.setProblemSection(moduleData.problemSection);
-      }
-      
-      // Solution Section
-      if (moduleData.solutionSection && moduleData.solutionSection.steps) {
-        moduleData.solutionSection.steps.forEach((step: any) => {
-          store.addSolutionStep(step.title, step.description);
-        });
-      }
-      
-      // Risk Reversals
-      if (moduleData.riskReversals && Array.isArray(moduleData.riskReversals)) {
-        moduleData.riskReversals.forEach((reversal: any) => {
-          store.addRiskReversal(reversal.riskId, reversal.text);
-        });
-      }
-      
-      // Social Proof
-      if (moduleData.socialProof) {
-        const socialProof = moduleData.socialProof;
-        
-        (['testimonials', 'caseStudies', 'logos', 'numbers'] as const).forEach((type) => {
-          if (socialProof[type] && Array.isArray(socialProof[type])) {
-            socialProof[type].forEach((item: string) => {
-              store.addSocialProof(type, item);
-            });
-          }
-        });
-      }
-      
-      // CTA Section
-      if (moduleData.ctaSection) {
-        store.setCtaSection(moduleData.ctaSection);
-      }
-      
-      // Refined Headlines
-      if (moduleData.refinedHeadlines) {
-        const headlines = moduleData.refinedHeadlines;
-        
-        (['hero', 'problem', 'solution'] as const).forEach((type) => {
-          if (headlines[type] && Array.isArray(headlines[type])) {
-            headlines[type].forEach((headline: string) => {
-              store.addHeadline(type, headline);
-            });
-          }
-        });
-      }
-      
-      // Refined Body Copy
-      if (moduleData.refinedBodyCopy) {
-        if (moduleData.refinedBodyCopy.hero) {
-          store.setBodyCopy('hero', moduleData.refinedBodyCopy.hero);
-        }
-        if (moduleData.refinedBodyCopy.problem) {
-          store.setBodyCopy('problem', moduleData.refinedBodyCopy.problem);
-        }
-        if (moduleData.refinedBodyCopy.solution) {
-          store.setBodyCopy('solution', moduleData.refinedBodyCopy.solution);
-        }
-      }
-      
-      // Aesthetics Checklist
-      if (moduleData.aestheticsChecklistCompleted !== undefined) {
-        store.setAestheticsChecklistCompleted(moduleData.aestheticsChecklistCompleted);
-      }
-      
-      // Analysis data
-      if (moduleData.offerScorecard) {
-        store.setOfferScorecard(moduleData.offerScorecard);
-      }
-      
-      if (moduleData.offerAnalysisFeedback) {
-        store.setOfferAnalysisFeedback(moduleData.offerAnalysisFeedback);
-      }
-      
-      if (moduleData.suggestedNextSteps) {
-        store.setSuggestedNextSteps(moduleData.suggestedNextSteps);
-      }
+      // Map other potentially relevant old fields (optional, for backward compatibility view)
+      if (moduleData.userSuccess) store.setUserSuccess(moduleData.userSuccess.statement || '');
+      if (moduleData.topResults) store.setTopResults(moduleData.topResults);
       
     } catch (err) {
       console.error('Error loading offer data:', err);
@@ -327,32 +262,24 @@ export function MultiStepForm({ readOnly = false, analysisId: propAnalysisId }: 
     setError(null);
 
     try {
-      // Get the current state from the store to save
       const storeState = useOfferStore.getState();
-      
       const dataToSave = {
         title: storeState.title,
-        offerRating: storeState.offerRating,
-        userSuccess: storeState.userSuccess,
-        topResults: storeState.topResults,
-        advantages: storeState.advantages,
-        risks: storeState.risks,
-        assurances: storeState.assurances,
-        heroSection: storeState.heroSection,
-        problemSection: storeState.problemSection,
-        solutionSection: storeState.solutionSection,
-        riskReversals: storeState.riskReversals,
-        socialProof: storeState.socialProof,
-        ctaSection: storeState.ctaSection,
-        refinedHeadlines: storeState.refinedHeadlines,
-        refinedBodyCopy: storeState.refinedBodyCopy,
-        aestheticsChecklistCompleted: storeState.aestheticsChecklistCompleted,
-        // Analysis data
-        offerScorecard: storeState.offerScorecard,
-        offerAnalysisFeedback: storeState.offerAnalysisFeedback,
-        suggestedNextSteps: storeState.suggestedNextSteps
+        websiteUrl: storeState.websiteUrl,
+        initialContext: storeState.initialContext, 
+        coreResult: storeState.coreResult,
+        keyAdvantage: storeState.keyAdvantage,
+        topRisk: storeState.topRisk,
+        primaryAssurance: storeState.primaryAssurance,
+        offerCanvasConfirmed: storeState.offerCanvasConfirmed,
+        exclusivity: storeState.exclusivity,
+        bonuses: storeState.bonuses,
+        landingPageCopy: storeState.landingPageCopy,
+        topResults: storeState.topResults, 
+        advantages: storeState.advantages, 
+        risks: storeState.risks, 
+        assurances: storeState.assurances, 
       };
-
       const savedData = await saveModuleData('offer', dataToSave);
       if (savedData) {
         setAnalysisId(savedData.id);
@@ -375,31 +302,15 @@ export function MultiStepForm({ readOnly = false, analysisId: propAnalysisId }: 
   };
 
   const goNext = () => {
-    if (currentStep < steps.length - 1) {
-      setCurrentStep(currentStep + 1);
+    if (safeCurrentStep < steps.length - 1) {
+      setCurrentStep(safeCurrentStep + 1);
     }
   };
 
   const goPrevious = () => {
-    if (currentStep > 0) {
-      setCurrentStep(currentStep - 1);
+    if (safeCurrentStep > 0) {
+      setCurrentStep(safeCurrentStep - 1);
     }
-  };
-
-  const isStepUnlocked = (index: number) => {
-    if (readOnly) {
-      return true;
-    }
-    
-    const step = steps[index];
-    const state = useOfferStore.getState();
-    return step.isUnlocked(state);
-  };
-
-  const isStepCompleted = (index: number) => {
-    const step = steps[index];
-    const state = useOfferStore.getState();
-    return step.isComplete(state);
   };
 
   if (offerNotFound) {
@@ -416,26 +327,27 @@ export function MultiStepForm({ readOnly = false, analysisId: propAnalysisId }: 
 
   return (
     <div className="min-h-[80vh] flex flex-col">
-      {/* Progress indicator */}
-      <div className="mb-8">
-        <div className="flex justify-between items-center mb-2">
+      <div className="mb-8 space-y-3">
+        <h3 className="text-lg font-semibold text-[#FFD23F]">
+          Phase: {steps[safeCurrentStep]?.phase || 'Loading...'}
+        </h3>
+        <div className="flex justify-between items-center">
           <h2 className="text-xl font-bold text-white">
-            {steps[currentStep].title}
+            {steps[safeCurrentStep]?.title || 'Loading...'}
           </h2>
           <div className="text-sm text-gray-400">
-            Step {currentStep + 1} of {steps.length}
+            Step {safeCurrentStep + 1} of {steps.length}
           </div>
         </div>
         
         <div className="w-full bg-[#333333] rounded-full h-2">
           <div 
             className="bg-[#FFD23F] h-2 rounded-full" 
-            style={{ width: `${((currentStep + 1) / steps.length) * 100}%` }}
+            style={{ width: `${((safeCurrentStep + 1) / steps.length) * 100}%` }}
           />
         </div>
       </div>
 
-      {/* Title prompt dialog */}
       {showTitlePrompt && (
         <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex items-center justify-center p-4">
           <div className="bg-[#222222] rounded-lg p-6 max-w-md w-full">
@@ -473,7 +385,6 @@ export function MultiStepForm({ readOnly = false, analysisId: propAnalysisId }: 
         </div>
       )}
 
-      {/* Auth modal */}
       {showAuthModal && (
         <AuthModal
           onClose={() => {
@@ -490,28 +401,25 @@ export function MultiStepForm({ readOnly = false, analysisId: propAnalysisId }: 
         />
       )}
 
-      {/* Current step */}
       <div className="flex-grow">
         <ErrorBoundary
           FallbackComponent={ErrorFallback}
           onReset={() => setError(null)}
         >
-          <CurrentStepComponent modelData={modelData} readOnly={readOnly} />
+          <CurrentStepComponent readOnly={readOnly} />
         </ErrorBoundary>
       </div>
 
-      {/* Error message */}
       {error && (
         <div className="mt-4 p-3 bg-red-500 bg-opacity-20 border border-red-500 rounded-md text-red-300">
           {error}
         </div>
       )}
 
-      {/* Navigation and actions */}
       <div className="mt-8 flex justify-between">
         <button
-          onClick={() => setCurrentStep(prev => Math.max(0, prev - 1))}
-          disabled={currentStep === 0}
+          onClick={goPrevious}
+          disabled={safeCurrentStep === 0}
           className="flex items-center px-4 py-2 bg-[#333333] text-white rounded-lg hover:bg-[#444444] disabled:opacity-50"
         >
           <ChevronLeft className="w-5 h-5 mr-1" />
@@ -521,7 +429,7 @@ export function MultiStepForm({ readOnly = false, analysisId: propAnalysisId }: 
         <div className="flex space-x-2">
           {!readOnly && (
             <button
-              onClick={() => handleSave()}
+              onClick={handleSave}
               disabled={isSaving}
               className="flex items-center px-4 py-2 bg-[#333333] text-white rounded-lg hover:bg-[#444444] disabled:opacity-50"
             >
@@ -540,11 +448,10 @@ export function MultiStepForm({ readOnly = false, analysisId: propAnalysisId }: 
           )}
           
           <button
-            onClick={() => setCurrentStep(prev => Math.min(steps.length - 1, prev + 1))}
+            onClick={goNext}
             disabled={
-              currentStep === steps.length - 1 ||
-              !steps[currentStep].isComplete(store) ||
-              (currentStep + 1 < steps.length && !steps[currentStep + 1].isUnlocked(store))
+              safeCurrentStep === steps.length - 1 ||
+              !steps[safeCurrentStep]?.isComplete(store)
             }
             className="flex items-center px-4 py-2 bg-[#FFD23F] text-[#1C1C1C] rounded-lg hover:bg-opacity-90 disabled:opacity-50"
           >
