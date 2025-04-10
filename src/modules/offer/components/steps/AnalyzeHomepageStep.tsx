@@ -1,33 +1,38 @@
 import React, { useState, useEffect } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Loader2, RefreshCw } from 'lucide-react';
 import { useOfferStore } from '../../store/offerStore';
-import OfferRefinementChat, { ChatMessage } from '../OfferRefinementChat'; // Added import
+import { ContextChat } from '../ContextChat';
+import { InitialContext } from '../../services/ai/types';
+import { WebsiteFindings } from '../../services/ai/contextChat';
 // Re-implementing based on the working logic from the old ContextGatheringForm (commit 3a7ca06)
 // This step is optional, progression is handled by the main MultiStepForm buttons.
 
 export function AnalyzeHomepageStep({ readOnly = false }: { readOnly?: boolean }) {
-  // Select specific state slices for better re-render tracking
+  // Select necessary state slices from store
   const websiteUrl = useOfferStore((state) => state.websiteUrl);
   const setWebsiteUrl = useOfferStore((state) => state.setWebsiteUrl);
   const startWebsiteScraping = useOfferStore((state) => state.startWebsiteScraping);
-  // Select nested properties individually
+  const checkScrapingStatus = useOfferStore((state) => state.checkScrapingStatus);
   const scrapingStatus = useOfferStore((state) => state.websiteScraping.status);
+  const scrapingId = useOfferStore((state) => state.websiteScraping.scrapingId);
   const coreOffer = useOfferStore((state) => state.websiteScraping.coreOffer);
   const scrapingError = useOfferStore((state) => state.websiteScraping.error);
-  // Keep the whole object for the API payload if needed, but don't use it for dependencies
-  const websiteScraping = useOfferStore((state) => state.websiteScraping); 
+  const initialContext = useOfferStore((state) => state.initialContext);
+  
+  // Prepare websiteFindings prop for ContextChat
+  const websiteFindings = useOfferStore((state) => {
+      if (state.websiteScraping.status === 'completed') {
+          return { /* ... (map findings as before) ... */ };
+      }
+      return null;
+  }) as WebsiteFindings | null;
 
-  // Use local state for validation, mirroring the old form's approach
+  // Local state for this step
   const [isValidUrl, setIsValidUrl] = useState(false);
-  const [messages, setMessages] = useState<ChatMessage[]>([]); // Added chat messages state
-  const [isChatLoading, setIsChatLoading] = useState(false); // Added chat loading state
+  const [showChat, setShowChat] = useState(false); 
+  const [isRefreshing, setIsRefreshing] = useState(false); 
 
-  // Add debug log at the start of the component
-  useEffect(() => {
-    console.log("[Debug] Component mounted. Initial Status:", scrapingStatus);
-  }, []); // Empty dependency array ensures this runs only once on mount
-
-  // Effect to validate the URL whenever it changes in the store or locally
+  // URL Validation Effect
   useEffect(() => {
     let normalizedUrl = websiteUrl || '';
     if (normalizedUrl.length > 0 && !normalizedUrl.match(/^https?:\/\//i)) {
@@ -38,224 +43,98 @@ export function AnalyzeHomepageStep({ readOnly = false }: { readOnly?: boolean }
   }, [websiteUrl]);
 
   const handleUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Update the store directly, useEffect above will handle validation state
-    setWebsiteUrl(e.target.value); 
+    setWebsiteUrl(e.target.value);
   };
 
+  // Start/Re-Analyze Handler
   const handleStartScraping = async () => {
-    // Reset messages when starting a new scrape
-    setMessages([]); 
-    
-    // Normalize URL just before scraping, similar to the old logic
+    setShowChat(false); 
+    setIsRefreshing(false);
     let urlToScrape = websiteUrl;
     if (websiteUrl && websiteUrl.length > 0 && !websiteUrl.match(/^https?:\/\//i)) {
       urlToScrape = `https://${websiteUrl}`;
-      // DO NOT update the store here, only use normalized URL for the scraping call
     }
-
-    // Rely on the isValidUrl state, which is updated by the useEffect based on normalization
-    if (isValidUrl && urlToScrape) { // Check isValidUrl state and ensure urlToScrape is defined
-      try {
-        await startWebsiteScraping(urlToScrape);
-        // No onNext callback needed here in the new structure
-      } catch (err) {
-         console.error("Error initiating scraping:", err); 
-         // Error state is handled within the websiteScraping object in the store
-      }
+    if (isValidUrl && urlToScrape) {
+      await startWebsiteScraping(urlToScrape);
     } else {
-       console.warn("Attempted to scrape invalid URL:", urlToScrape);
-       // Optionally set a local error state here if needed for immediate feedback
+      console.warn("Attempted to scrape invalid URL:", urlToScrape);
     }
   };
-
-  // --- Function to call the backend API for chat responses ---
-  // Modified callOfferChatAPI function
-  const callOfferChatAPI = async (currentMessages: ChatMessage[]) => {
-    // Prevent multiple simultaneous calls
-    if (isChatLoading) {
-        console.log("[Debug] API call skipped, already loading.");
-        return;
-    }
-    setIsChatLoading(true);
+  
+  // Manual Status Refresh Handler
+  const handleRefreshStatus = async () => {
+    if (!scrapingId || isRefreshing) return;
+    setIsRefreshing(true);
     try {
-      // Prepare data for the backend
-      const payload = {
-        // Use the full websiteScraping object here for the payload
-        scrapingResults: websiteScraping, 
-        chatHistory: currentMessages,
-        // Potentially add other context from offerStore if needed
-      };
-
-      console.log("[Debug] Calling backend API /api/offer-chat with payload:", payload); // DEBUG LOG
-
-      // --- Actual fetch call to the backend endpoint ---
-      const response = await fetch('/api/offer-chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        const errorBody = await response.text(); // Get error details if possible
-        throw new Error(`API Error: ${response.status} ${response.statusText} - ${errorBody}`);
-      }
-
-      const result = await response.json();
-      console.log("[Debug] API call successful, result:", result); // DEBUG LOG
-      
-      // --- Adjust based on the actual structure of your backend API response ---
-      const aiMessageText = result.aiResponse || result.message || result.response || "Sorry, I couldn't generate a response.";
-      // --- End Adjustment ---
-
-      const newAiMessage: ChatMessage = { sender: 'ai', text: aiMessageText };
-      // Use functional update to ensure we have the latest messages state
-      setMessages(prev => [...prev, newAiMessage]); 
-
-    } catch (error) {
-      console.error("[Debug] Error calling chat API:", error); // DEBUG LOG
-      
-      // Add fallback message to UI even if API fails
-      const errorMessage: ChatMessage = {
-        sender: 'ai',
-        text: `I'm having trouble analyzing your website. Let's continue with the offer creation process. You can provide details manually in the next steps. ${error instanceof Error ? `(Error: ${error.message})` : ''}`
-      };
-       // Use functional update here too
-      setMessages(prev => [...prev, errorMessage]);
-      
-      // Continue with the process despite the error
+        await checkScrapingStatus(scrapingId); 
+    } catch (err) {
+        console.error("Error refreshing status:", err);
     } finally {
-      setIsChatLoading(false);
+        setIsRefreshing(false);
     }
   };
-  // --- End API call function ---
 
+  // Variables for rendering status
+  const isProcessing = scrapingStatus === 'processing';
+  const isCompleted = scrapingStatus === 'completed';
+  const isFailed = scrapingStatus === 'failed';
 
-  // Handle sending user messages
-  const handleSendMessage = (messageText: string) => {
-    const newUserMessage: ChatMessage = { sender: 'user', text: messageText };
-    // Use functional update
-    setMessages(prev => [...prev, newUserMessage]); 
-    // Pass the updated messages directly to the API call
-    // Note: state updates might not be synchronous, so read 'messages' state inside callOfferChatAPI if needed
-    callOfferChatAPI([...messages, newUserMessage]); // Pass potentially updated messages
-  };
-
-
-  // Effect to trigger initial AI message when scraping completes
-  // Using selected state slices in dependency array
-  useEffect(() => {
-    console.log("[Debug] Effect Check (Selected State):", { 
-      status: scrapingStatus, 
-      coreOfferExists: !!coreOffer, 
-      messagesLength: messages.length, 
-      isChatLoading 
-    });
-    
-    // Reinstate messages.length check
-    if (scrapingStatus === 'completed' && messages.length === 0 && !isChatLoading) {
-       console.log("[Debug] Conditions met (completed, no messages, not loading). Checking coreOffer..."); // DEBUG LOG
-      if (coreOffer) {
-        console.log("[Debug] coreOffer exists. Calling API."); // DEBUG LOG
-        callOfferChatAPI([]); // Call API only if coreOffer exists
-      } else {
-        console.log("[Debug] coreOffer does NOT exist. API call skipped."); // DEBUG LOG
-        // Optionally set a message indicating coreOffer is missing if needed
-        // setMessages([{ sender: 'ai', text: "Analysis complete, but couldn't extract core offer details." }]);
-      }
-    } else {
-      console.log("[Debug] Conditions NOT met or already loading/has messages."); // DEBUG LOG
-    }
-  // Depend on the selected state slices and local state
-  }, [scrapingStatus, coreOffer, messages.length, isChatLoading]); 
-
-
-  const isProcessing = scrapingStatus === 'processing'; // Use selected status
   return (
     <div className="space-y-6">
+      {/* Title Section */}
       <div>
         <h2 className="text-2xl font-bold text-white mb-2">Step 1: Analyze Homepage Context (Optional)</h2>
-        <p className="text-gray-400">
-          Enter your website URL below. Analyzing it can help us understand your current positioning and provide better suggestions later.
-        </p>
-        <p className="text-sm text-gray-500">
-          This step is optional. Click "Next Step" below to skip.
-        </p>
+        <p className="text-gray-400">Enter your website URL below...</p>
+        <p className="text-sm text-gray-500">This step is optional...</p>
       </div>
 
+      {/* URL Input & Actions Section */}
       <div className="bg-[#222222] p-6 rounded-lg space-y-4">
         <label htmlFor="websiteUrlInput" className="block text-sm font-medium text-gray-300">Website URL</label>
-        <div className="flex space-x-2">
-          {/* Use standard input styled with Tailwind */}
+        <div className="flex space-x-2 items-start"> 
           <input
-            id="websiteUrlInput"
-            type="url"
-            value={websiteUrl || ''} // Bind directly to store value
-            onChange={handleUrlChange}
-            placeholder="https://yourwebsite.com"
+            id="websiteUrlInput" type="url" value={websiteUrl || ''}
+            onChange={handleUrlChange} placeholder="https://yourwebsite.com"
             disabled={isProcessing || readOnly}
             className="flex-1 p-3 bg-[#1A1A1A] text-white border border-[#333333] rounded-lg placeholder-gray-500 focus:border-[#FFD23F] focus:outline-none disabled:opacity-70" 
           />
-          {/* Use standard button styled with Tailwind */}
-          <button
-            onClick={handleStartScraping}
-            disabled={!isValidUrl || isProcessing || readOnly} // Disable based on validation state
-            className="flex items-center justify-center px-4 py-2 bg-[#333333] text-white rounded-lg hover:bg-[#444444] disabled:opacity-50"
-          >
-            {isProcessing ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Analyzing...
-              </>
-            ) : scrapingStatus === 'completed' ? ( // Use selected status
-                 'Analyzed'
-            ) : (
-              'Analyze'
+          <div className="flex flex-col space-y-2"> 
+            {/* Analyze / Re-Analyze Button */}
+            <button onClick={handleStartScraping} disabled={!isValidUrl || isProcessing || readOnly} className="flex items-center justify-center px-4 py-2 bg-[#333333] text-white rounded-lg hover:bg-[#444444] disabled:opacity-50">
+              {isProcessing ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Analyzing...</> : isCompleted ? 'Re-Analyze' : 'Analyze'}
+            </button>
+            {/* Manual Refresh Button */} 
+            {isProcessing && !readOnly && (
+                 <button onClick={handleRefreshStatus} disabled={isRefreshing} className="px-4 py-2 bg-[#333333] text-white rounded-lg hover:bg-[#444444] disabled:opacity-50">
+                   <RefreshCw className={`w-3 h-3 mr-1 ${isRefreshing ? 'animate-spin' : ''}`} /> Refresh Status
+                 </button>
             )}
-          </button>
+          </div>
         </div>
         
-        {/* Display scraping status from store */}
-        {scrapingStatus === 'processing' && ( // Use selected status
-             <p className="text-sm text-[#FFD23F] mt-2">Analyzing your website. This may take a minute...</p>
+        {/* Status Display */}
+        {isProcessing && <p className="text-sm text-[#FFD23F] mt-2">Analyzing your website. This may take a minute...</p>}
+        {isCompleted && !showChat && (
+             <div className="text-green-500 text-sm mt-2">
+                <span>Website analysis complete.</span>
+                {!readOnly && <button onClick={() => setShowChat(true)} className="text-blue-500 hover:underline">Start AI Chat</button>}
+             </div>
          )}
-        {scrapingStatus === 'completed' && ( // Use selected status
-             <p className="text-green-500 text-sm mt-2">Website analysis complete.</p>
-         )}
-        {scrapingStatus === 'failed' && ( // Use selected status
-          <div className="mt-2 p-3 bg-red-900 border border-red-700 rounded-md text-red-200 text-sm">
-            Failed to analyze website: {scrapingError || 'Unknown error'} {/* Use selected error */}
-          </div>
-        )}
+        {isFailed && <div className="mt-2 p-3 bg-red-900 border border-red-700 rounded-md text-red-200 text-sm">Failed to analyze website: {scrapingError || 'Unknown error'}</div>}
       </div>
 
-      {/* Conditionally render the chat component after analysis is complete */}
-      {/* Use selected status */}
-      {scrapingStatus === 'completed' && !readOnly && ( 
+      {/* Conditionally render ContextChat */} 
+      {showChat && isCompleted && !readOnly && (
         <div className="mt-6 bg-[#222222] p-6 rounded-lg space-y-4">
            <h3 className="text-xl font-semibold text-white mb-3">Refine Your Offer with AI</h3>
-           {/* Use selected coreOffer */}
-           {!coreOffer && ( 
-             <p className="text-yellow-500 mb-3">Note: Some offer details may be missing from the analysis.</p>
-           )}
-           <OfferRefinementChat
-             messages={messages}
-             onSendMessage={handleSendMessage}
-             isLoading={isChatLoading}
+           {!coreOffer && <p className="text-yellow-500 mb-3">Note: Some offer details may be missing from the analysis.</p>}
+           <ContextChat
+             websiteUrl={websiteUrl}
+             initialContext={initialContext}
+             websiteScrapingStatus={scrapingStatus} 
+             websiteFindings={websiteFindings} 
+             onComplete={() => { setShowChat(false); }}
            />
-           {/* Add manual trigger button */}
-           {messages.length === 0 && !isChatLoading && (
-             <div className="mt-3 flex justify-center">
-               <button
-                 onClick={() => callOfferChatAPI([])}
-                 disabled={isChatLoading}
-                 className="px-4 py-2 bg-[#333333] text-white rounded-lg hover:bg-[#444444] disabled:opacity-50"
-               >
-                 {isChatLoading ? 'Loading...' : 'Start AI Analysis Manually'}
-               </button>
-             </div>
-           )}
         </div>
       )}
 
