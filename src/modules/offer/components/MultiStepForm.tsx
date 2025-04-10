@@ -7,12 +7,24 @@ import { useAuth } from '@/core/auth/AuthProvider';
 import { AuthModal } from '@/core/auth/AuthModal';
 import { ErrorBoundary } from 'react-error-boundary';
 
+// Import the actual component for Step 1
+import { DefineCoreOffer } from './DefineCoreOffer';
+// Import the actual component for Step 2
+import { AddEnhancers } from './AddEnhancers';
+// Import the actual component for Step 3
+import { GenerateRefineContent } from './GenerateRefineContent';
+// Import the actual component for Step 4
+import { FinalReview } from './FinalReview';
+
 // Import our consolidated components
 import { CoreOfferDevelopment } from './consolidated/CoreOfferDevelopment';
 import { RiskManagement } from './consolidated/RiskManagement';
 import { LandingPageTop } from './consolidated/LandingPageTop';
 import { LandingPageBottom } from './consolidated/LandingPageBottom';
 import { RefinementFinalization } from './consolidated/RefinementFinalization';
+
+// Import placeholder components (we'll create these later)
+// const GenerateRefineContent = (props: { modelData?: any, readOnly?: boolean }) => <div>Step 3: Generate & Refine Landing Page Content (Placeholder)</div>;
 
 // ErrorFallback component
 const ErrorFallback = ({ error, resetErrorBoundary }: { error: Error; resetErrorBoundary: () => void }) => {
@@ -35,71 +47,38 @@ interface MultiStepFormProps {
   analysisId?: string;
 }
 
-// New consolidated step definitions
+// Updated step definitions for the blended flow
 const steps = [
-  { 
-    title: 'Core Offer Development',
-    component: CoreOfferDevelopment,
+  {
+    title: 'Define Core Offer Nucleus',
+    component: DefineCoreOffer,
     isUnlocked: (state: ReturnType<typeof useOfferStore.getState>) => true,
     isComplete: (state: ReturnType<typeof useOfferStore.getState>) => 
-      state.offerRating !== null &&
-      state.userSuccess.statement.length >= 10 &&
-      state.topResults.tangible.length > 0 && 
-      state.topResults.intangible.length > 0 && 
-      state.topResults.improvement.length > 0 &&
-      state.advantages.length >= 1
+      state.coreOfferConfirmed
   },
   {
-    title: 'Risk Management & Offer Canvas',
-    component: RiskManagement,
+    title: 'Add Offer Enhancers',
+    component: AddEnhancers,
     isUnlocked: (state: ReturnType<typeof useOfferStore.getState>) => 
-      state.advantages.length >= 1,
+      state.coreOfferConfirmed,
     isComplete: (state: ReturnType<typeof useOfferStore.getState>) => 
-      state.risks.length >= 1 && 
-      state.assurances.length >= 1
+      state.enhancersConfirmed
   },
   {
-    title: 'Landing Page Top Section',
-    component: LandingPageTop,
+    title: 'Generate & Refine Landing Page Content',
+    component: GenerateRefineContent,
     isUnlocked: (state: ReturnType<typeof useOfferStore.getState>) => 
-      state.assurances.length >= 1,
+      state.enhancersConfirmed,
     isComplete: (state: ReturnType<typeof useOfferStore.getState>) => 
-      state.heroSection.tagline.length > 0 && 
-      state.heroSection.subCopy.length > 0 && 
-      state.heroSection.ctaText.length > 0 &&
-      state.problemSection.alternativesProblems.length > 0 && 
-      state.problemSection.underlyingProblem.length > 0 &&
-      state.solutionSection.steps.length > 0
+      state.landingPageContentRefined
   },
   {
-    title: 'Landing Page Bottom Section',
-    component: LandingPageBottom,
+    title: 'Final Review & Output',
+    component: FinalReview,
     isUnlocked: (state: ReturnType<typeof useOfferStore.getState>) => 
-      state.heroSection.tagline.length > 0 && 
-      state.solutionSection.steps.length > 0,
+      state.landingPageContentRefined,
     isComplete: (state: ReturnType<typeof useOfferStore.getState>) => 
-      state.riskReversals.length >= 1 &&
-      (state.socialProof.testimonials.length > 0 || 
-       state.socialProof.caseStudies.length > 0 || 
-       state.socialProof.logos.length > 0 || 
-       state.socialProof.numbers.length > 0) &&
-      state.ctaSection.mainCtaText.length > 0
-  },
-  {
-    title: 'Refinement & Finalization',
-    component: RefinementFinalization,
-    isUnlocked: (state: ReturnType<typeof useOfferStore.getState>) => 
-      state.riskReversals.length >= 1 && 
-      state.ctaSection.mainCtaText.length > 0,
-    isComplete: (state: ReturnType<typeof useOfferStore.getState>) => 
-      ((state.refinedHeadlines.hero.length > 0 || 
-        state.refinedHeadlines.problem.length > 0 || 
-        state.refinedHeadlines.solution.length > 0) &&
-       (state.refinedBodyCopy.hero.length > 0 || 
-        state.refinedBodyCopy.problem.length > 0 || 
-        state.refinedBodyCopy.solution.length > 0)) &&
-      state.aestheticsChecklistCompleted &&
-      state.offerScorecard !== null
+      state.finalReviewCompleted
   }
 ];
 

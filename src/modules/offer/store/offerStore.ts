@@ -134,6 +134,20 @@ interface ProcessingState {
   socialProof: boolean;
 }
 
+// Define Bonus interface (consider moving to a types file later)
+interface Bonus {
+  id: string;
+  name: string;
+  benefit: string;
+}
+
+// Define structure for section copy
+interface SectionCopy {
+  headline: string;
+  body: string;
+  // Add other relevant fields per section if needed (e.g., CTA text)
+}
+
 interface OfferStateData {
   title: string;
   websiteUrl: string;
@@ -168,9 +182,39 @@ interface OfferStateData {
   suggestedNextSteps: string[] | null;
   isAnalyzingOffer: boolean;
   analysisError: string | null;
+  
+  // Add new state properties for the blended flow
+  coreOfferNucleus: {
+    targetAudience: string;
+    desiredResult: string;
+    keyAdvantage: string;
+    biggestBarrier: string;
+    assurance: string;
+  };
+  exclusivity: {
+    hasLimit: boolean;
+    capacityLimit: string;
+    validReason: string;
+  };
+  bonuses: Bonus[];
+  
+  // Add flags for blended flow step completion
+  coreOfferConfirmed: boolean;
+  enhancersConfirmed: boolean;
+  landingPageContentRefined: boolean;
+  finalReviewCompleted: boolean;
+  
+  // Add state for refined landing page copy
+  refinedHeroCopy: SectionCopy;
+  refinedProblemCopy: SectionCopy;
+  refinedSolutionCopy: SectionCopy;
+  refinedRiskReversalCopy: SectionCopy; // Or could be simpler string if only text
+  refinedSocialProofNotes: string; // Notes/angles for social proof
+  refinedCtaCopy: SectionCopy; // For final CTA section
 }
 
-interface OfferState extends OfferStateData {
+// Export OfferState interface
+export interface OfferState extends OfferStateData {
   // Actions
   setTitle: (title: string) => void;
   setWebsiteUrl: (url: string) => void;
@@ -254,9 +298,31 @@ interface OfferState extends OfferStateData {
   
   // Reset
   resetState: () => void;
+  
+  // Add actions for the new flow
+  setCoreOfferNucleus: (nucleus: { targetAudience: string; desiredResult: string; keyAdvantage: string; biggestBarrier: string; assurance: string }) => void;
+  setExclusivity: (exclusivity: { hasLimit: boolean; capacityLimit: string; validReason: string }) => void;
+  addBonus: (bonus: Bonus) => void;
+  removeBonus: (index: number) => void;
+  setBonuses: (bonuses: Bonus[]) => void;
+  
+  // Add setters for blended flow flags
+  setCoreOfferConfirmed: (confirmed: boolean) => void;
+  setEnhancersConfirmed: (confirmed: boolean) => void;
+  setLandingPageContentRefined: (refined: boolean) => void;
+  setFinalReviewCompleted: (completed: boolean) => void;
+  
+  // Add setters for refined copy
+  setRefinedHeroCopy: (copy: SectionCopy) => void;
+  setRefinedProblemCopy: (copy: SectionCopy) => void;
+  setRefinedSolutionCopy: (copy: SectionCopy) => void;
+  setRefinedRiskReversalCopy: (copy: SectionCopy) => void;
+  setRefinedSocialProofNotes: (notes: string) => void;
+  setRefinedCtaCopy: (copy: SectionCopy) => void;
 }
 
 // Initial state
+const initialSectionCopy: SectionCopy = { headline: '', body: '' };
 const initialState: OfferStateData = {
   title: 'Untitled Offer',
   websiteUrl: '',
@@ -356,7 +422,36 @@ const initialState: OfferStateData = {
   
   aiSuggestions: [],
   conversationalCheckpoints: [],
-  activeCheckpoint: null
+  activeCheckpoint: null,
+  
+  // Add new state properties for the blended flow
+  coreOfferNucleus: {
+    targetAudience: '' as string,
+    desiredResult: '' as string,
+    keyAdvantage: '' as string,
+    biggestBarrier: '' as string,
+    assurance: '' as string
+  },
+  exclusivity: {
+    hasLimit: false as boolean,
+    capacityLimit: '' as string,
+    validReason: '' as string
+  },
+  bonuses: [] as Bonus[],
+  
+  // Initialize blended flow flags
+  coreOfferConfirmed: false,
+  enhancersConfirmed: false,
+  landingPageContentRefined: false,
+  finalReviewCompleted: false,
+  
+  // Initialize refined copy state
+  refinedHeroCopy: { ...initialSectionCopy },
+  refinedProblemCopy: { ...initialSectionCopy },
+  refinedSolutionCopy: { ...initialSectionCopy },
+  refinedRiskReversalCopy: { ...initialSectionCopy },
+  refinedSocialProofNotes: '' as string,
+  refinedCtaCopy: { ...initialSectionCopy },
 };
 
 export const useOfferStore = create<OfferState>()(
@@ -835,7 +930,28 @@ export const useOfferStore = create<OfferState>()(
       }),
       
       // Reset
-      resetState: () => set(initialState)
+      resetState: () => set(initialState),
+      
+      // Add actions for the new flow
+      setCoreOfferNucleus: (nucleus) => set({ coreOfferNucleus: nucleus }),
+      setExclusivity: (exclusivity) => set({ exclusivity }),
+      addBonus: (bonus) => set((state) => ({ bonuses: [...state.bonuses, bonus] })),
+      removeBonus: (index) => set((state) => ({ bonuses: state.bonuses.filter((_, i) => i !== index) })),
+      setBonuses: (bonuses) => set({ bonuses: bonuses }),
+      
+      // Add setters for blended flow flags
+      setCoreOfferConfirmed: (confirmed) => set({ coreOfferConfirmed: confirmed }),
+      setEnhancersConfirmed: (confirmed) => set({ enhancersConfirmed: confirmed }),
+      setLandingPageContentRefined: (refined) => set({ landingPageContentRefined: refined }),
+      setFinalReviewCompleted: (completed) => set({ finalReviewCompleted: completed }),
+      
+      // Add setters for refined copy
+      setRefinedHeroCopy: (copy) => set({ refinedHeroCopy: copy }),
+      setRefinedProblemCopy: (copy) => set({ refinedProblemCopy: copy }),
+      setRefinedSolutionCopy: (copy) => set({ refinedSolutionCopy: copy }),
+      setRefinedRiskReversalCopy: (copy) => set({ refinedRiskReversalCopy: copy }),
+      setRefinedSocialProofNotes: (notes) => set({ refinedSocialProofNotes: notes }),
+      setRefinedCtaCopy: (copy) => set({ refinedCtaCopy: copy }),
     }),
     { name: 'offer-store' }
   )
