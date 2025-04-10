@@ -5,33 +5,37 @@ import { generateClarifyingQuestions, generateChatResponse, WebsiteFindings } fr
 import { InitialContext } from '../services/ai/types';
 
 interface ContextChatProps {
-  onComplete: () => void;
-  websiteUrl: string;
-  initialContext: InitialContext;
-  websiteScrapingStatus: string;
-  websiteFindings: WebsiteFindings | null;
+  onComplete?: () => void;
 }
 
-export function ContextChat({ 
-  onComplete, 
-  websiteUrl, 
-  initialContext, 
-  websiteScrapingStatus,
-  websiteFindings
-}: ContextChatProps) {
+export function ContextChat({ onComplete }: ContextChatProps) {
   const { 
     contextChat,
     addChatMessage,
-    clearChatMessages
-  } = useOfferStore(
-     (state) => ({ 
-       contextChat: state.contextChat,
-       addChatMessage: state.addChatMessage,
-       clearChatMessages: state.clearChatMessages
-     }),
-     (oldState, newState) => oldState.contextChat === newState.contextChat
-  );
+    clearChatMessages,
+    websiteUrl,
+    initialContext,
+    websiteScraping,
+  } = useOfferStore();
   
+  const websiteFindings: WebsiteFindings | null = 
+    websiteScraping.status === 'completed' && websiteScraping.coreOffer
+    ? {
+        coreOffer: websiteScraping.coreOffer,
+        targetAudience: websiteScraping.targetAudience,
+        problemSolved: websiteScraping.keyProblem,
+        keyBenefits: Array.isArray(websiteScraping.keyFeatures)
+          ? websiteScraping.keyFeatures.map(feature =>
+              typeof feature === 'string' ? feature : feature.benefit || ''
+            ).filter(Boolean)
+          : [],
+        valueProposition: websiteScraping.valueProposition,
+        cta: null,
+        tone: null,
+        missingInfo: null 
+      }
+    : null;
+
   const [currentInput, setCurrentInput] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [hasNewMessages, setHasNewMessages] = useState(false);
@@ -45,7 +49,7 @@ export function ContextChat({
       let summaryLines: string[] = [];
       let analysisPerformed = false;
 
-      if (websiteScrapingStatus === 'completed' && websiteFindings?.coreOffer) {
+      if (websiteScraping.status === 'completed' && websiteFindings?.coreOffer) {
         analysisPerformed = true;
         summaryLines.push(`Hello! I've reviewed your website (${websiteUrl}) and the initial context. Let's refine your offer based on this:`);
         summaryLines.push("");
@@ -63,6 +67,23 @@ export function ContextChat({
         summaryLines.push(""); 
       }
       
+      let manualInputAdded = false;
+      if (initialContext.currentOffer?.trim()) {
+        summaryLines.push(`Current Offer: ${initialContext.currentOffer}`);
+        manualInputAdded = true;
+      }
+      if (initialContext.targetAudience?.trim()) {
+        summaryLines.push(`Target Audience: ${initialContext.targetAudience}`);
+        manualInputAdded = true;
+      }
+      if (initialContext.problemSolved?.trim()) {
+        summaryLines.push(`Problem Solved: ${initialContext.problemSolved}`);
+        manualInputAdded = true;
+      }
+      if (manualInputAdded) {
+         summaryLines.push("");
+      }
+
       const summaryContent = summaryLines.join('\n').trim();
       addChatMessage({ sender: 'ai', content: summaryContent });
 
@@ -93,7 +114,7 @@ export function ContextChat({
 
     getInitialQuestion();
 
-  }, []);
+  }, [websiteScraping.status, websiteUrl, initialContext]);
   
   const parseQuestionsFromText = (text: string): string[] => {
     const numberedQuestionsRegex = /\d+\.\s+([^\d]+?)(?=\d+\.|$)/g;
@@ -133,10 +154,26 @@ export function ContextChat({
     setIsProcessing(true); 
 
     try {
+      const currentFindings = 
+         useOfferStore.getState().websiteScraping.status === 'completed' && useOfferStore.getState().websiteScraping.coreOffer
+         ? {
+             coreOffer: useOfferStore.getState().websiteScraping.coreOffer,
+             targetAudience: useOfferStore.getState().websiteScraping.targetAudience,
+             problemSolved: useOfferStore.getState().websiteScraping.keyProblem,
+             keyBenefits: Array.isArray(useOfferStore.getState().websiteScraping.keyFeatures)
+               ? useOfferStore.getState().websiteScraping.keyFeatures.map(feature =>
+                   typeof feature === 'string' ? feature : feature.benefit || ''
+                 ).filter(Boolean)
+               : [],
+             valueProposition: useOfferStore.getState().websiteScraping.valueProposition,
+             cta: null, tone: null, missingInfo: null 
+           }
+         : null;
+
       const response = await generateChatResponse(
         useOfferStore.getState().contextChat.messages, 
-        initialContext, 
-        websiteFindings
+        useOfferStore.getState().initialContext, 
+        currentFindings
       );
       
       addChatMessage({
@@ -165,7 +202,7 @@ export function ContextChat({
 
 
   return (
-    <div className="bg-[#2A2A2A] rounded-lg shadow-xl overflow-hidden flex flex-col h-[70vh] w-full relative">
+    <div className="bg-[#2A2A2A] rounded-lg shadow-xl overflow-hidden flex flex-col h-full w-full relative">
       <div className="bg-[#1C1C1C] border-b border-[#333333] px-6 py-4 flex justify-between items-center">
         <div className="flex items-center space-x-2">
           <MessageSquare className="w-5 h-5 text-[#FFD23F]" />
@@ -251,15 +288,17 @@ export function ContextChat({
             <Send className="w-5 h-5" />
           </button>
         </div>
-        <div className="flex justify-end mt-4">
-          <button
-            onClick={onComplete}
-            className="px-4 py-2 bg-[#FFD23F] text-[#1C1C1C] rounded-lg hover:bg-opacity-90"
-            disabled={isProcessing}
-          >
-            Continue to Next Step
-          </button>
-        </div>
+        {onComplete && (
+          <div className="flex justify-end mt-4 p-4 border-t border-[#333333]">
+            <button
+              onClick={onComplete}
+              className="px-4 py-2 bg-[#FFD23F] text-[#1C1C1C] rounded-lg hover:bg-opacity-90"
+              disabled={isProcessing}
+            >
+              Continue to Offer Builder
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
