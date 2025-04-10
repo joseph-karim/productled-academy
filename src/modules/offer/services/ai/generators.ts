@@ -545,4 +545,115 @@ Provide concise feedback as a bulleted list (max 2-3 points), focusing on whethe
     }),
     'analyzing problem section'
   );
+}
+
+// Export necessary types
+export interface CoreOfferNucleus {
+  targetAudience: string;
+  desiredResult: string;
+  keyAdvantage: string;
+  biggestBarrier: string;
+  assurance: string;
+}
+
+export interface Exclusivity {
+  hasLimit: boolean;
+  capacityLimit: string;
+  validReason: string;
+}
+
+export interface Bonus {
+  id: string;
+  name: string;
+  benefit: string;
+}
+
+export interface SectionCopy {
+  headline: string;
+  body: string;
+}
+
+export type LandingPageSection = 'Hero' | 'Problem' | 'Solution' | 'Risk Reversal' | 'Social Proof' | 'CTA';
+
+/**
+ * Generate draft content (headline & body) for a specific landing page section
+ */
+export async function generateSectionDraft(
+  sectionType: LandingPageSection,
+  coreOffer: CoreOfferNucleus,
+  exclusivity: Exclusivity,
+  bonuses: Bonus[]
+): Promise<SectionCopy> {
+  // Construct a detailed prompt based on the inputs
+  let promptDetails = `Core Offer Nucleus:
+- Audience: ${coreOffer.targetAudience}
+- Result: ${coreOffer.desiredResult}
+- Advantage: ${coreOffer.keyAdvantage}
+- Barrier: ${coreOffer.biggestBarrier}
+- Assurance: ${coreOffer.assurance}
+`;
+
+  if (exclusivity.hasLimit) {
+    promptDetails += `\nExclusivity:
+- Limit: ${exclusivity.capacityLimit}
+- Reason: ${exclusivity.validReason}
+`;
+  }
+
+  if (bonuses.length > 0) {
+    promptDetails += `\nBonuses:
+${bonuses.map(b => `- ${b.name}: ${b.benefit}`).join('\n')}
+`;
+  }
+
+  // TODO: Refine system prompt and user instruction based on sectionType
+  const systemPrompt = `You are an expert copywriter specializing in high-converting landing pages based on the ProductLed System™. Generate concise and compelling copy points.`;
+  const userInstruction = `Based on the following offer details, generate a draft headline and body copy specifically for the **${sectionType} Section** of a landing page:
+
+${promptDetails}
+
+Generate a headline (concise, impactful) and body copy (1-3 sentences, clear, benefit-focused) suitable for the ${sectionType} section. For 'Social Proof', generate notes/angles on what type of proof to use.`;
+
+  return handleOpenAIRequest(
+    openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userInstruction }
+      ],
+      functions: [
+        {
+          name: "generate_section_copy",
+          description: `Generate draft headline and body copy for the ${sectionType} section`, // Dynamic description
+          parameters: {
+            type: "object",
+            properties: {
+              headline: {
+                type: "string",
+                description: "Draft headline for the section"
+              },
+              body: {
+                type: "string",
+                description: "Draft body copy for the section (or notes for Social Proof)"
+              }
+            },
+            required: ["headline", "body"]
+          }
+        }
+      ],
+      function_call: { name: "generate_section_copy" }
+    }).then(completion => {
+      const result = completion.choices[0].message.function_call?.arguments;
+      if (!result) throw new Error(`Failed to generate draft for ${sectionType} section`);
+      // Basic parsing, might need refinement if AI returns non-JSON string sometimes
+      try {
+         return JSON.parse(result) as SectionCopy;
+      } catch (e) {
+         console.error("Error parsing AI response:", e, "Raw response:", result);
+         // Fallback or re-throw? For now, return empty draft
+         return { headline: '', body: 'Error parsing AI response.' };
+      }
+    }),
+    `generating ${sectionType} section draft` // Dynamic status message
+  );
 } 

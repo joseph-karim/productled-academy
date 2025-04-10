@@ -2,6 +2,9 @@ import { openai, handleOpenAIRequest } from './client';
 import type { ChatMessage } from '../../store/offerStore';
 import type { InitialContext } from './types';
 
+// Use console for logging
+const log = console.log;
+
 export interface WebsiteFindings {
   coreOffer: string | null;
   targetAudience: string | null;
@@ -20,6 +23,8 @@ export async function generateClarifyingQuestions(
   userContext: InitialContext,
   websiteFindings: WebsiteFindings | null
 ): Promise<string> {
+  log('generateClarifyingQuestions - userContext:', userContext);
+  log('generateClarifyingQuestions - websiteFindings:', websiteFindings);
   return handleOpenAIRequest(
     openai.chat.completions.create({
       model: "gpt-4o",
@@ -63,7 +68,11 @@ Start the conversation now.`
         }
       ]
     }).then(completion => {
+      log('generateClarifyingQuestions - API response:', completion);
       return completion.choices[0].message.content || "I couldn't generate clarifying questions. Let's continue with defining your offer.";
+    }).catch(error => {
+      log('generateClarifyingQuestions - API error:', error);
+      return "I couldn't generate clarifying questions. Let's continue with defining your offer.";
     }),
     'generating clarifying questions'
   );
@@ -77,6 +86,9 @@ export async function generateChatResponse(
   userContext: InitialContext,
   websiteFindings: WebsiteFindings | null
 ): Promise<string> {
+  log('generateChatResponse - messages:', messages);
+  log('generateChatResponse - userContext:', userContext);
+  log('generateChatResponse - websiteFindings:', websiteFindings);
   const systemMessage = {
     role: "system" as const,
     content: `You are a ProductLed Offer Coach AI. You are helping the user refine their offer based on their manual input and website analysis.
@@ -116,7 +128,11 @@ Be conversational, supportive, and specific in your advice. Focus on helping the
       model: "gpt-4o",
       messages: apiMessages
     }).then(completion => {
+      log('generateChatResponse - API response:', completion);
       return completion.choices[0].message.content || "I'm sorry, I couldn't generate a response. Let's continue with defining your offer.";
+    }).catch(error => {
+      log('generateChatResponse - API error:', error);
+      return "I'm sorry, I couldn't generate a response. Let's continue with defining your offer.";
     }),
     'generating chat response'
   );

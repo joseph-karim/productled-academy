@@ -1,28 +1,32 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, Save, Loader2 } from 'lucide-react';
-import { useOfferStore, initialState as offerInitialState } from '../store/offerStore';
+import { useOfferStore } from '../store/offerStore';
 import { getModuleData, saveModuleData } from '@/core/services/supabase';
 import { useAuth } from '@/core/auth/AuthProvider';
 import { AuthModal } from '@/core/auth/AuthModal';
 import { ErrorBoundary } from 'react-error-boundary';
 
-// --- Blended Flow Step Components ---
-// Import the actual components now
-import { DefineCoreOfferNucleusStep } from './steps/DefineCoreOfferNucleusStep'; 
-import { ReviewOfferCanvasStep } from './steps/ReviewOfferCanvasStep'; 
-import { AddEnhancersStep } from './steps/AddEnhancersStep'; 
-import { RefineLandingPageCopyStep } from './steps/RefineLandingPageCopyStep'; 
-import { FinalReviewStep } from './steps/FinalReviewStep'; 
-import { AnalyzeHomepageStep } from './steps/AnalyzeHomepageStep'; 
+// Keep imports for the blended flow components
+import { DefineCoreOffer } from './DefineCoreOffer';
+import { AddEnhancers } from './AddEnhancers';
+import { GenerateRefineContent } from './GenerateRefineContent';
+import { FinalReview } from './FinalReview';
 
-// --- Remove Placeholder Components --- 
-// const PlaceholderStep = ...
-// const DefineCoreOfferNucleusStep = ...
-// const ReviewOfferCanvasStep = ...
-// const AddEnhancersStep = ...
-// const RefineLandingPageCopyStep = ...
-// const FinalReviewStep = ...
+// Remove imports from HEAD branch
+// import { DefineCoreOfferNucleusStep } from './steps/DefineCoreOfferNucleusStep'; 
+// import { ReviewOfferCanvasStep } from './steps/ReviewOfferCanvasStep'; 
+// import { AddEnhancersStep } from './steps/AddEnhancersStep'; 
+// import { RefineLandingPageCopyStep } from './steps/RefineLandingPageCopyStep'; 
+// import { FinalReviewStep } from './steps/FinalReviewStep'; 
+// import { AnalyzeHomepageStep } from './steps/AnalyzeHomepageStep'; 
+
+// Remove other unused imports if any (like the old consolidated components)
+// import { CoreOfferDevelopment } from './consolidated/CoreOfferDevelopment';
+// import { RiskManagement } from './consolidated/RiskManagement';
+// import { LandingPageTop } from './consolidated/LandingPageTop';
+// import { LandingPageBottom } from './consolidated/LandingPageBottom';
+// import { RefinementFinalization } from './consolidated/RefinementFinalization';
 
 // ErrorFallback component
 const ErrorFallback = ({ error, resetErrorBoundary }: { error: Error; resetErrorBoundary: () => void }) => {
@@ -45,86 +49,46 @@ interface MultiStepFormProps {
   analysisId?: string;
 }
 
-type OfferPhase = 'Core Offer' | 'Enhancers' | 'Structure & Finalize';
-
-interface StepDefinition {
-  title: string;
-  component: React.ComponentType<{ readOnly?: boolean }>;
-  phase: OfferPhase;
-  isUnlocked: (state: ReturnType<typeof useOfferStore.getState>) => boolean;
-  isComplete: (state: ReturnType<typeof useOfferStore.getState>) => boolean;
-}
-
-// --- NEW Blended Flow Step Definitions (uses actual imports) ---
-const steps: StepDefinition[] = [
-  { // Step 0: Analyze Homepage (Optional)
-    title: 'Analyze Homepage (Optional)', 
-    component: AnalyzeHomepageStep, // Use actual component
-    phase: 'Core Offer', // Keep in Core Offer phase
-    isUnlocked: () => true,
-    isComplete: () => true, // Always considered complete for progression
+// Keep the step definitions for the blended flow
+const steps = [
+  {
+    title: 'Define Core Offer Nucleus',
+    component: DefineCoreOffer,
+    isUnlocked: (state: ReturnType<typeof useOfferStore.getState>) => true,
+    isComplete: (state: ReturnType<typeof useOfferStore.getState>) => 
+      state.coreOfferConfirmed
   },
-  { // Step 1: Define Core RARA
-    title: 'Define Core Offer',
-    component: DefineCoreOfferNucleusStep, 
-    phase: 'Core Offer',
-    isUnlocked: () => true, // Also starts unlocked
-    isComplete: (state) =>
-      (state.initialContext?.targetAudience?.trim() ?? '').length > 0 && 
-      (state.coreResult?.trim() ?? '').length > 0 &&
-      (state.keyAdvantage?.trim() ?? '').length > 0 &&
-      (state.topRisk?.trim() ?? '').length > 0 &&
-      (state.primaryAssurance?.trim() ?? '').length > 0,
+  {
+    title: 'Add Offer Enhancers',
+    component: AddEnhancers,
+    isUnlocked: (state: ReturnType<typeof useOfferStore.getState>) => 
+      state.coreOfferConfirmed,
+    isComplete: (state: ReturnType<typeof useOfferStore.getState>) => 
+      state.enhancersConfirmed
   },
-  { // Step 2: Review Canvas Checkpoint
-    title: 'Review Core Offer',
-    component: ReviewOfferCanvasStep, 
-    phase: 'Core Offer',
-    // Now depends on the previous step (Define Core Offer)
-    isUnlocked: (state) => steps[1].isComplete(state), 
-    isComplete: (state) => state.offerCanvasConfirmed === true,
+  {
+    title: 'Generate & Refine Landing Page Content',
+    component: GenerateRefineContent,
+    isUnlocked: (state: ReturnType<typeof useOfferStore.getState>) => 
+      state.enhancersConfirmed,
+    isComplete: (state: ReturnType<typeof useOfferStore.getState>) => 
+      state.landingPageContentRefined
   },
-  { // Step 3: Add Enhancers
-    title: 'Add Enhancers',
-    component: AddEnhancersStep, 
-    phase: 'Enhancers',
-    // Depends on step 2 (Review Canvas)
-    isUnlocked: (state) => steps[2].isComplete(state), 
-    isComplete: () => true, // Optional step
-  },
-  { // Step 4: Refine Landing Page Copy
-    title: 'Draft Landing Page',
-    component: RefineLandingPageCopyStep, 
-    phase: 'Structure & Finalize',
-    // Depends on step 3 (Enhancers)
-    isUnlocked: (state) => steps[3].isComplete(state), 
-    isComplete: (state) => {
-        // Basic check: ensure at least one section has been started/saved
-        return Object.keys(state.landingPageCopy || {}).length > 0;
-        // More robust check: Ensure key sections have minimal content
-        // const sections = ['hero', 'problem', 'solution']; 
-        // return sections.every(key => state.landingPageCopy?.[key] && Object.values(state.landingPageCopy[key]).some(val => (val ?? '').trim().length > 0));
-    },
-  },
-   { // Step 5: Final Review
-    title: 'Review Landing Page Copy',
-    component: FinalReviewStep, 
-    phase: 'Structure & Finalize',
-    // Depends on step 4 (Refine Copy)
-    isUnlocked: (state) => steps[4].isComplete(state), 
-    isComplete: () => true, // Display step
-  },
+  {
+    title: 'Final Review & Output',
+    component: FinalReview,
+    isUnlocked: (state: ReturnType<typeof useOfferStore.getState>) => 
+      state.landingPageContentRefined,
+    isComplete: (state: ReturnType<typeof useOfferStore.getState>) => 
+      state.finalReviewCompleted
+  }
 ];
 
-// --- OLD Step Flow Definitions (Commented Out) ---
-/*
-const steps: StepDefinition[] = [
-  // ... (Original 14 steps definition) ...
-];
-*/
+// Remove commented out old step definitions
+// /* const steps: StepDefinition[] = [ ... ]; */
 
-// Helper function to get phase details (Keep)
-const getPhaseInfo = (currentPhase: OfferPhase) => { /* ... */ };
+// Remove unused helper function if only used by old steps
+// const getPhaseInfo = (currentPhase: OfferPhase) => { /* ... */ };
 
 export function MultiStepForm({ readOnly = false, analysisId: propAnalysisId }: MultiStepFormProps) {
   const [currentStep, setCurrentStep] = useState(0);
@@ -150,27 +114,23 @@ export function MultiStepForm({ readOnly = false, analysisId: propAnalysisId }: 
 
   const safeCurrentStep = Math.min(currentStep, steps.length - 1);
   const CurrentStepComponent = steps[safeCurrentStep]?.component;
+  
+  if (!CurrentStepComponent) {
+    return <div>Loading step...</div>; 
+  }
 
   useEffect(() => {
     const idToLoad = routeId || propAnalysisId;
-    
-    // Only reset stores if we don't have an ID to load
     if (!idToLoad) {
       store.resetState();
       return;
     }
-
-    // If we have an ID and we're not in read-only mode, load the data
     if (!readOnly) {
       loadOfferData(idToLoad);
     }
-
-    // Update analysisId if we have a routeId but no analysisId
     if (routeId && !analysisId) {
       setAnalysisId(routeId);
     }
-    
-    // Try to load model data for context
     if (user) {
       loadModelData();
     }
@@ -180,70 +140,24 @@ export function MultiStepForm({ readOnly = false, analysisId: propAnalysisId }: 
     try {
       console.log(`Loading offer data with ID: ${idToLoad}`);
       const moduleData = await getModuleData('offer');
+      
       if (!moduleData) {
-        console.warn("No data found for offer module");
+        console.warn("No data found for offer module or ID");
         store.resetState();
+        setOfferNotFound(true);
         return;
       }
 
-      // Reset store before loading new data
       store.resetState();
       
-      // Prefer using setState for direct loading if structure matches
-      // Assuming moduleData might contain a structure that can be directly applied
-      if (idToLoad && moduleData) { 
-         // Check if the loaded data has the core fields we expect from the *new* structure
-         const hasNewFields = moduleData.coreResult !== undefined || moduleData.landingPageCopy !== undefined;
-         if (hasNewFields) {
-            console.log(`Loading specific offer with ID ${idToLoad} using direct setState.`);
-            // Use setState to load the entire offer object if structure is suitable
-            useOfferStore.setState(moduleData);
-            return; // Exit early if direct load worked
-         } else {
-            console.warn(`Loaded data for ${idToLoad} seems to be in old format. Attempting manual mapping...`);
-            // Fallback to manual mapping if structure doesn't match directly
-         }
-      } else {
-         console.warn("Offer ID not provided or no data found.");
-         store.resetState();
-         return;
-      }
-      
-      // --- Fallback Manual Mapping (If direct setState didn't apply) ---
-      console.log("Applying manual mapping for potentially old data structure...")
-      store.setTitle(moduleData.title || 'Untitled Offer');
-      
-      // Map initial context and core RARA fields
-      if(moduleData.initialContext) store.setInitialContext('targetAudience', moduleData.initialContext.targetAudience || '');
-      if(moduleData.coreResult) store.setCoreResult(moduleData.coreResult);
-      if(moduleData.keyAdvantage) store.setKeyAdvantage(moduleData.keyAdvantage);
-      if(moduleData.topRisk) store.setTopRisk(moduleData.topRisk);
-      if(moduleData.primaryAssurance) store.setPrimaryAssurance(moduleData.primaryAssurance);
-      if(moduleData.offerCanvasConfirmed) store.setOfferCanvasConfirmed(moduleData.offerCanvasConfirmed);
+      console.log(`Loading offer with ID ${idToLoad} using direct setState.`);
+      useOfferStore.setState(moduleData);
 
-      // Map enhancers
-      if(moduleData.exclusivity) store.setExclusivity(moduleData.exclusivity);
-      if (moduleData.bonuses && Array.isArray(moduleData.bonuses)) {
-        moduleData.bonuses.forEach((bonus: any) => store.addBonus(bonus));
-      }
-
-      // Map landing page copy (if it exists)
-      if(moduleData.landingPageCopy && typeof moduleData.landingPageCopy === 'object'){
-          Object.keys(moduleData.landingPageCopy).forEach(sectionKey => {
-              if(typeof moduleData.landingPageCopy[sectionKey] === 'object') {
-                 store.updateLandingPageCopySection(sectionKey, moduleData.landingPageCopy[sectionKey]);
-              }
-          });
-      }
-      
-      // Map other potentially relevant old fields (optional, for backward compatibility view)
-      if (moduleData.userSuccess) store.setUserSuccess(moduleData.userSuccess.statement || '');
-      if (moduleData.topResults) store.setTopResults(moduleData.topResults);
-      
     } catch (err) {
       console.error('Error loading offer data:', err);
       store.resetState();
       setError('Failed to load offer data');
+      setOfferNotFound(true);
     }
   };
   
@@ -276,26 +190,33 @@ export function MultiStepForm({ readOnly = false, analysisId: propAnalysisId }: 
     try {
       const storeState = useOfferStore.getState();
       const dataToSave = {
+        id: analysisId,
         title: storeState.title,
         websiteUrl: storeState.websiteUrl,
-        initialContext: storeState.initialContext, 
-        coreResult: storeState.coreResult,
-        keyAdvantage: storeState.keyAdvantage,
-        topRisk: storeState.topRisk,
-        primaryAssurance: storeState.primaryAssurance,
-        offerCanvasConfirmed: storeState.offerCanvasConfirmed,
+        initialContext: storeState.initialContext,
+        coreOfferNucleus: storeState.coreOfferNucleus,
         exclusivity: storeState.exclusivity,
         bonuses: storeState.bonuses,
-        landingPageCopy: storeState.landingPageCopy,
-        topResults: storeState.topResults, 
-        advantages: storeState.advantages, 
-        risks: storeState.risks, 
-        assurances: storeState.assurances, 
+        coreOfferConfirmed: storeState.coreOfferConfirmed,
+        enhancersConfirmed: storeState.enhancersConfirmed,
+        landingPageContentRefined: storeState.landingPageContentRefined,
+        finalReviewCompleted: storeState.finalReviewCompleted,
+        refinedHeroCopy: storeState.refinedHeroCopy,
+        refinedProblemCopy: storeState.refinedProblemCopy,
+        refinedSolutionCopy: storeState.refinedSolutionCopy,
+        refinedRiskReversalCopy: storeState.refinedRiskReversalCopy,
+        refinedSocialProofNotes: storeState.refinedSocialProofNotes,
+        refinedCtaCopy: storeState.refinedCtaCopy,
       };
+      
       const savedData = await saveModuleData('offer', dataToSave);
-      if (savedData) {
-        setAnalysisId(savedData.id);
-        navigate(`/app/offer/${savedData.id}`, { replace: true });
+      if (savedData && savedData.id) {
+        if (!analysisId) {
+          setAnalysisId(savedData.id);
+          navigate(`/app/offer/${savedData.id}`, { replace: true });
+        }
+      } else {
+         throw new Error("Save operation did not return expected data.");
       }
     } catch (err) {
       console.error('Error saving offer:', err);
@@ -340,9 +261,6 @@ export function MultiStepForm({ readOnly = false, analysisId: propAnalysisId }: 
   return (
     <div className="min-h-[80vh] flex flex-col">
       <div className="mb-8 space-y-3">
-        <h3 className="text-lg font-semibold text-[#FFD23F]">
-          Phase: {steps[safeCurrentStep]?.phase || 'Loading...'}
-        </h3>
         <div className="flex justify-between items-center">
           <h2 className="text-xl font-bold text-white">
             {steps[safeCurrentStep]?.title || 'Loading...'}
