@@ -17,7 +17,7 @@ interface FinalReviewProps {
 
 const SectionDisplay = ({ title, content }: { title: string, content: SectionCopy | string }) => {
   return (
-    <div className="mb-6 p-4 border rounded-md bg-gray-800">
+    <div className="mb-6 p-4 border border-[#444444] rounded-md bg-[#1C1C1C]">
       <h3 className="text-lg font-semibold text-gray-200 mb-2">{title}</h3>
       {typeof content === 'object' ? (
         <div className="space-y-3">
@@ -64,10 +64,10 @@ export function FinalReview({ readOnly = false }: FinalReviewProps) {
 
   return (
     <div className="space-y-8">
-      <Card>
+      <Card className="bg-[#2A2A2A] border-[#333333] text-white">
         <CardHeader>
           <CardTitle>Step 4: Final Review & Output</CardTitle>
-          <CardDescription>
+          <CardDescription className="text-gray-400">
             Review the complete set of landing page copy points you've refined.
           </CardDescription>
         </CardHeader>
@@ -84,6 +84,7 @@ export function FinalReview({ readOnly = false }: FinalReviewProps) {
               <Button 
                 onClick={handleFinalize} 
                 disabled={readOnly}
+                className="bg-[#FFD23F] text-[#1C1C1C] hover:bg-opacity-90"
               >
                 Finalize Landing Page Inputs
               </Button>

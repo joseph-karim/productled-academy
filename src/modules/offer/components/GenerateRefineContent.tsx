@@ -119,14 +119,14 @@ const SectionEditor = ({ title, value, onChange, readOnly, confirmed }:
   const sectionIdSuffix = title.toLowerCase().replace(/\s+/g, '-');
 
   return (
-    <Card className="mb-4">
+    <Card className="mb-4 bg-[#1C1C1C] border-[#333333] text-white">
       <CardHeader className="flex flex-row items-center justify-between">
         <div className="space-y-1">
-          <CardTitle className="flex items-center">
+          <CardTitle className="flex items-center text-gray-200">
              {isSectionComplete && !isEditing && <CheckCircle className="w-4 h-4 mr-2 text-green-500" />}
              {title}
           </CardTitle>
-          {!isEditing && <CardDescription>{isSectionComplete ? 'Content saved.' : 'Generate or edit content.'}</CardDescription>}
+          {!isEditing && <CardDescription className="text-gray-400">{isSectionComplete ? 'Content saved.' : 'Generate or edit content.'}</CardDescription>}
         </div>
         {!isEditing && !confirmed && (
           <div className="flex space-x-2">
@@ -135,11 +135,18 @@ const SectionEditor = ({ title, value, onChange, readOnly, confirmed }:
                size="sm" 
                onClick={handleGenerateDraft} 
                disabled={readOnly || isGenerating}
+               className="border-[#444444] text-gray-300 hover:bg-[#333333]"
              >
                {isGenerating ? <Loader2 className="w-4 h-4 mr-1 animate-spin"/> : null}
                {isGenerating ? 'Generating...' : 'Generate Draft'}
              </Button>
-             <Button variant="secondary" size="sm" onClick={handleEdit} disabled={readOnly || isGenerating}>
+             <Button 
+               variant="secondary" 
+               size="sm" 
+               onClick={handleEdit} 
+               disabled={readOnly || isGenerating}
+               className="bg-[#333333] text-gray-300 hover:bg-[#444444]"
+             >
                <Edit className="w-4 h-4 mr-1" /> Edit Manually
              </Button>
            </div>
@@ -155,7 +162,7 @@ const SectionEditor = ({ title, value, onChange, readOnly, confirmed }:
           {typeof draft === 'object' ? (
             <>
               <div>
-                <Label htmlFor={`${sectionIdSuffix}-headline`}>Headline</Label>
+                <Label htmlFor={`${sectionIdSuffix}-headline`} className="text-gray-300">Headline</Label>
                 <Textarea
                   id={`${sectionIdSuffix}-headline`}
                   value={draft.headline}
@@ -163,11 +170,11 @@ const SectionEditor = ({ title, value, onChange, readOnly, confirmed }:
                   placeholder={`Enter headline for ${title}`}
                   disabled={readOnly}
                   rows={2}
-                  className="mt-1"
+                  className="mt-1 bg-[#2A2A2A] border-[#444444] text-white placeholder:text-gray-500"
                 />
               </div>
               <div>
-                <Label htmlFor={`${sectionIdSuffix}-body`}>Body Copy</Label>
+                <Label htmlFor={`${sectionIdSuffix}-body`} className="text-gray-300">Body Copy</Label>
                 <Textarea
                   id={`${sectionIdSuffix}-body`}
                   value={draft.body}
@@ -175,13 +182,13 @@ const SectionEditor = ({ title, value, onChange, readOnly, confirmed }:
                   placeholder={`Enter body copy for ${title}`}
                   disabled={readOnly}
                   rows={5}
-                  className="mt-1"
+                  className="mt-1 bg-[#2A2A2A] border-[#444444] text-white placeholder:text-gray-500"
                 />
               </div>
             </>
           ) : (
             <div>
-               <Label htmlFor={`${sectionIdSuffix}-notes`}>Notes / Angles</Label>
+               <Label htmlFor={`${sectionIdSuffix}-notes`} className="text-gray-300">Notes / Angles</Label>
                <Textarea
                  id={`${sectionIdSuffix}-notes`}
                  value={draft}
@@ -189,13 +196,17 @@ const SectionEditor = ({ title, value, onChange, readOnly, confirmed }:
                  placeholder={`Enter notes/angles for ${title}`}
                  disabled={readOnly}
                  rows={4}
-                 className="mt-1"
+                 className="mt-1 bg-[#2A2A2A] border-[#444444] text-white placeholder:text-gray-500"
                />
             </div>
           )}
           <div className="flex justify-end space-x-2">
-            <Button variant="ghost" onClick={() => setIsEditing(false)}>Cancel</Button>
-            <Button onClick={handleSave} disabled={readOnly}>Save {title}</Button>
+            <Button variant="ghost" onClick={() => setIsEditing(false)} className="text-gray-400 hover:text-white">Cancel</Button>
+            <Button 
+              onClick={handleSave} 
+              disabled={readOnly}
+              className="bg-[#FFD23F] text-[#1C1C1C] hover:bg-opacity-90"
+            >Save {title}</Button>
           </div>
         </CardContent>
       )}
@@ -258,10 +269,10 @@ export function GenerateRefineContent({ readOnly = false }: GenerateRefineConten
 
   return (
     <div className="space-y-8">
-      <Card>
+      <Card className="bg-[#2A2A2A] border-[#333333] text-white">
         <CardHeader>
           <CardTitle>Step 3: Generate & Refine Landing Page Content</CardTitle>
-          <CardDescription>
+          <CardDescription className="text-gray-400">
             Use AI to generate draft copy points for each section based on your core offer and enhancers.
             Review and edit the drafts to match your voice and add specifics.
           </CardDescription>
@@ -316,6 +327,7 @@ export function GenerateRefineContent({ readOnly = false }: GenerateRefineConten
                 onClick={handleConfirm} 
                 disabled={readOnly || !allSectionsHaveContent} 
                 title={!allSectionsHaveContent ? "Please add content to all sections before confirming." : ""}
+                className="bg-[#FFD23F] text-[#1C1C1C] hover:bg-opacity-90 disabled:opacity-50"
               >
                 Confirm Landing Page Content & Proceed to Final Review
               </Button>

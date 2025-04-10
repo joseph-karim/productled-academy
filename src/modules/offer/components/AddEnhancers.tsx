@@ -72,17 +72,17 @@ export function AddEnhancers({ readOnly = false }: AddEnhancersProps) {
 
   return (
     <div className="space-y-8">
-      <Card>
+      <Card className="bg-[#2A2A2A] border-[#333333] text-white">
         <CardHeader>
           <CardTitle>Step 2: Add Offer Enhancers</CardTitle>
-          <CardDescription>Layer scarcity and added value onto your core offer.</CardDescription>
+          <CardDescription className="text-gray-400">Layer scarcity and added value onto your core offer.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Exclusivity / Scarcity Section */}
-          <div className="space-y-4 p-4 border rounded-md">
-            <h3 className="font-semibold">Exclusivity / Scarcity</h3>
+          {/* Exclusivity Section */}
+          <div className="space-y-4 p-4 border border-[#444444] rounded-md bg-[#1C1C1C]">
+            <h3 className="font-semibold text-gray-200">Exclusivity / Scarcity</h3>
             <div>
-              <Label>Is there a limit to how many people you can serve?</Label>
+              <Label className="text-gray-300">Is there a limit to how many people you can serve?</Label>
               <RadioGroup 
                 value={exclusivity.hasLimit ? 'yes' : 'no'} 
                 onValueChange={(value: string) => handleExclusivityChange('hasLimit', value === 'yes')}
@@ -91,36 +91,36 @@ export function AddEnhancers({ readOnly = false }: AddEnhancersProps) {
               >
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="yes" id="limit-yes" />
-                  <Label htmlFor="limit-yes">Yes</Label>
+                  <Label htmlFor="limit-yes" className="text-gray-300">Yes</Label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="no" id="limit-no" />
-                  <Label htmlFor="limit-no">No</Label>
+                  <Label htmlFor="limit-no" className="text-gray-300">No</Label>
                 </div>
               </RadioGroup>
             </div>
             {exclusivity.hasLimit && (
               <div className="space-y-4 pl-6 border-l-2 border-gray-600 ml-2">
                 <div>
-                  <Label htmlFor="capacityLimit">Capacity Limit</Label>
+                  <Label htmlFor="capacityLimit" className="text-gray-300">Capacity Limit</Label>
                   <Input
                     id="capacityLimit"
                     value={exclusivity.capacityLimit}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleExclusivityChange('capacityLimit', e.target.value)}
                     placeholder="e.g., 'Only 50 spots available'"
                     disabled={readOnly || enhancersConfirmed}
-                    className="mt-1"
+                    className="mt-1 bg-[#1C1C1C] border-[#333333] text-white placeholder:text-gray-500"
                   />
                 </div>
                 <div>
-                  <Label htmlFor="validReason">Valid Reason for Limit</Label>
+                  <Label htmlFor="validReason" className="text-gray-300">Valid Reason for Limit</Label>
                   <Textarea
                     id="validReason"
                     value={exclusivity.validReason}
                     onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => handleExclusivityChange('validReason', e.target.value)}
                     placeholder="e.g., 'To ensure personalized attention'"
                     disabled={readOnly || enhancersConfirmed}
-                    className="mt-1"
+                    className="mt-1 bg-[#1C1C1C] border-[#333333] text-white placeholder:text-gray-500"
                     rows={2}
                   />
                 </div>
@@ -129,26 +129,26 @@ export function AddEnhancers({ readOnly = false }: AddEnhancersProps) {
           </div>
 
           {/* Bonuses Section */}
-          <div className="space-y-4 p-4 border rounded-md">
-            <h3 className="font-semibold">Bonuses (Optional)</h3>
+          <div className="space-y-4 p-4 border border-[#444444] rounded-md bg-[#1C1C1C]">
+            <h3 className="font-semibold text-gray-200">Bonuses (Optional)</h3>
             <p className="text-sm text-gray-400">List 1-3 key bonuses and their primary benefit.</p>
             
             {bonuses.map((bonus, index) => (
-              <div key={bonus.id || index} className="flex items-start space-x-2 p-3 bg-gray-800 rounded">
+              <div key={bonus.id || index} className="flex items-start space-x-2 p-3 bg-[#2A2A2A] rounded border border-[#444444]">
                 <div className="flex-1 space-y-2">
                    <Input
                     value={bonus.name}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleUpdateBonus(index, 'name', e.target.value)}
                     placeholder="Bonus Name (e.g., Quick Start Guide)"
                     disabled={readOnly || enhancersConfirmed}
-                    className="bg-gray-700 border-gray-600"
+                    className="bg-[#1C1C1C] border-[#333333] text-white placeholder:text-gray-500"
                   />
                   <Textarea
                     value={bonus.benefit}
                     onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => handleUpdateBonus(index, 'benefit', e.target.value)}
                     placeholder="Primary Benefit (e.g., 'Get results in half the time')"
                     disabled={readOnly || enhancersConfirmed}
-                    className="bg-gray-700 border-gray-600"
+                    className="bg-[#1C1C1C] border-[#333333] text-white placeholder:text-gray-500"
                     rows={2}
                   />
                 </div>
@@ -165,19 +165,21 @@ export function AddEnhancers({ readOnly = false }: AddEnhancersProps) {
             ))}
 
             {!enhancersConfirmed && bonuses.length < 3 && (
-              <div className="flex items-start space-x-2 pt-4 border-t border-gray-700">
+              <div className="flex items-start space-x-2 pt-4 border-t border-gray-600">
                  <div className="flex-1 space-y-2">
                    <Input
                       value={currentBonusName}
                       onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCurrentBonusName(e.target.value)}
                       placeholder="New Bonus Name"
                       disabled={readOnly}
+                      className="bg-[#1C1C1C] border-[#333333] text-white placeholder:text-gray-500"
                     />
                     <Textarea
                       value={currentBonusBenefit}
                       onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setCurrentBonusBenefit(e.target.value)}
                       placeholder="Benefit of this bonus"
                       disabled={readOnly}
+                      className="bg-[#1C1C1C] border-[#333333] text-white placeholder:text-gray-500"
                       rows={2}
                     />
                  </div>
@@ -186,7 +188,7 @@ export function AddEnhancers({ readOnly = false }: AddEnhancersProps) {
                   size="icon" 
                   onClick={handleAddBonus} 
                   disabled={readOnly || !currentBonusName.trim() || !currentBonusBenefit.trim()}
-                  className="mt-1"
+                  className="mt-1 text-gray-300 border-[#444444] hover:bg-[#333333]"
                 >
                   <PlusCircle className="w-4 h-4" />
                 </Button>
@@ -195,7 +197,11 @@ export function AddEnhancers({ readOnly = false }: AddEnhancersProps) {
           </div>
 
           {!enhancersConfirmed && (
-            <Button onClick={handleConfirm} disabled={readOnly}>
+            <Button 
+              onClick={handleConfirm} 
+              disabled={readOnly}
+              className="bg-[#FFD23F] text-[#1C1C1C] hover:bg-opacity-90"
+            >
               Confirm Enhancers & Generate Landing Page Content
             </Button>
           )}

@@ -43,66 +43,66 @@ export function DefineCoreOffer({ readOnly = false }: DefineCoreOfferProps) {
 
   return (
     <div className="space-y-8">
-      <Card>
+      <Card className="bg-[#2A2A2A] border-[#333333] text-white">
         <CardHeader>
           <CardTitle>Step 1: Define Your Core Offer Nucleus (R-A-R-A)</CardTitle>
-          <CardDescription>Capture the essential components of your offer.</CardDescription>
+          <CardDescription className="text-gray-400">Capture the essential components of your offer.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div>
-            <Label htmlFor="targetAudience">Target Audience</Label>
+            <Label htmlFor="targetAudience" className="text-gray-300">Target Audience</Label>
             <Input
               id="targetAudience"
               value={coreOfferNucleus.targetAudience}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleInputChange('targetAudience', e.target.value)}
               placeholder="Who do you specifically help?"
               disabled={readOnly || coreOfferConfirmed}
-              className="mt-1"
+              className="mt-1 bg-[#1C1C1C] border-[#333333] text-white placeholder:text-gray-500"
             />
           </div>
           <div>
-            <Label htmlFor="desiredResult">Desired Result (#1 Result)</Label>
+            <Label htmlFor="desiredResult" className="text-gray-300">Desired Result (#1 Result)</Label>
             <Input
               id="desiredResult"
               value={coreOfferNucleus.desiredResult}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleInputChange('desiredResult', e.target.value)}
               placeholder="What's the #1 Result they achieve? (Inc. 'Aha moment')"
               disabled={readOnly || coreOfferConfirmed}
-              className="mt-1"
+              className="mt-1 bg-[#1C1C1C] border-[#333333] text-white placeholder:text-gray-500"
             />
           </div>
           <div>
-            <Label htmlFor="keyAdvantage">Key Advantage (Unique Way)</Label>
+            <Label htmlFor="keyAdvantage" className="text-gray-300">Key Advantage (Unique Way)</Label>
             <Textarea
               id="keyAdvantage"
               value={coreOfferNucleus.keyAdvantage}
               onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => handleInputChange('keyAdvantage', e.target.value)}
               placeholder="What's your single most compelling Advantage?"
               disabled={readOnly || coreOfferConfirmed}
-              className="mt-1"
+              className="mt-1 bg-[#1C1C1C] border-[#333333] text-white placeholder:text-gray-500"
               rows={3}
             />
           </div>
           <div>
-            <Label htmlFor="biggestBarrier">Biggest Barrier (#1 Risk/Objection)</Label>
+            <Label htmlFor="biggestBarrier" className="text-gray-300">Biggest Barrier (#1 Risk/Objection)</Label>
             <Input
               id="biggestBarrier"
               value={coreOfferNucleus.biggestBarrier}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleInputChange('biggestBarrier', e.target.value)}
               placeholder="What's the #1 Risk/Objection?"
               disabled={readOnly || coreOfferConfirmed}
-              className="mt-1"
+              className="mt-1 bg-[#1C1C1C] border-[#333333] text-white placeholder:text-gray-500"
             />
           </div>
           <div>
-            <Label htmlFor="assurance">Primary Assurance / Risk Reversal</Label>
+            <Label htmlFor="assurance" className="text-gray-300">Primary Assurance / Risk Reversal</Label>
             <Textarea
               id="assurance"
               value={coreOfferNucleus.assurance}
               onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => handleInputChange('assurance', e.target.value)}
               placeholder="What's your primary Assurance/Risk Reversal for the barrier?"
               disabled={readOnly || coreOfferConfirmed}
-              className="mt-1"
+              className="mt-1 bg-[#1C1C1C] border-[#333333] text-white placeholder:text-gray-500"
               rows={3}
             />
           </div>
@@ -111,7 +111,7 @@ export function DefineCoreOffer({ readOnly = false }: DefineCoreOfferProps) {
             <Button 
               onClick={() => setShowCanvas(true)} 
               disabled={!allFieldsFilled || readOnly}
-              className="mt-4"
+              className="mt-4 bg-[#FFD23F] text-[#1C1C1C] hover:bg-opacity-90"
             >
               Review Core Offer Canvas
             </Button>
@@ -120,38 +120,38 @@ export function DefineCoreOffer({ readOnly = false }: DefineCoreOfferProps) {
       </Card>
 
       {(showCanvas || coreOfferConfirmed) && (
-        <Card className={`border-2 ${coreOfferConfirmed ? 'border-green-500' : 'border-yellow-500'}`}>
+        <Card className={`border-2 ${coreOfferConfirmed ? 'border-green-500' : 'border-yellow-500'} bg-[#2A2A2A] text-white`}>
           <CardHeader>
             <CardTitle className="flex items-center">
               {coreOfferConfirmed && <CheckCircle className="w-5 h-5 mr-2 text-green-500" />}
               Core Offer Canvas Review
             </CardTitle>
-            <CardDescription>Confirm these foundational components are aligned and compelling.</CardDescription>
+            <CardDescription className="text-gray-400">Confirm these foundational components are aligned and compelling.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
               <p className="font-semibold text-gray-400">Target Audience:</p>
-              <p>{coreOfferNucleus.targetAudience || '-'}</p>
+              <p className="text-gray-100">{coreOfferNucleus.targetAudience || '-'}</p>
             </div>
             <div>
               <p className="font-semibold text-gray-400">Core Result:</p>
-              <p>{coreOfferNucleus.desiredResult || '-'}</p>
+              <p className="text-gray-100">{coreOfferNucleus.desiredResult || '-'}</p>
             </div>
             <div>
               <p className="font-semibold text-gray-400">Key Advantage:</p>
-              <p>{coreOfferNucleus.keyAdvantage || '-'}</p>
+              <p className="text-gray-100">{coreOfferNucleus.keyAdvantage || '-'}</p>
             </div>
             <div>
               <p className="font-semibold text-gray-400">Top Risk & Assurance:</p>
-              <p><strong>Risk:</strong> {coreOfferNucleus.biggestBarrier || '-'}</p>
-              <p><strong>Assurance:</strong> {coreOfferNucleus.assurance || '-'}</p>
+              <p className="text-gray-100"><strong>Risk:</strong> {coreOfferNucleus.biggestBarrier || '-'}</p>
+              <p className="text-gray-100"><strong>Assurance:</strong> {coreOfferNucleus.assurance || '-'}</p>
             </div>
 
             {!coreOfferConfirmed && (
               <Button 
                 onClick={handleConfirm} 
                 disabled={!allFieldsFilled || readOnly}
-                className="mt-4"
+                className="mt-4 bg-[#FFD23F] text-[#1C1C1C] hover:bg-opacity-90"
               >
                 Confirm Core Offer & Add Enhancers
               </Button>
