@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { useOfferStore } from '../store/offerStore';
-import { Input } from '../../../components/shared/Input';
-import { Label } from '../../../components/shared/Label';
-import { Textarea } from '../../../components/shared/Textarea';
-import { Button } from '../../../components/shared/Button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../../components/shared/Card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { CheckCircle } from 'lucide-react';
 
 interface DefineCoreOfferProps {
