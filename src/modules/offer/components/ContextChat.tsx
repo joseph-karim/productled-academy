@@ -1,162 +1,99 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useOfferStore } from '../store/offerStore';
 import { MessageSquare, Send, Loader2 } from 'lucide-react';
 import { generateClarifyingQuestions, generateChatResponse, WebsiteFindings } from '../services/ai/contextChat';
+import { InitialContext } from '../services/ai/types';
 
 interface ContextChatProps {
   onComplete: () => void;
+  websiteUrl: string;
+  initialContext: InitialContext;
+  websiteScrapingStatus: string;
+  websiteFindings: WebsiteFindings | null;
 }
 
-export function ContextChat({ onComplete }: ContextChatProps) {
+export function ContextChat({ 
+  onComplete, 
+  websiteUrl, 
+  initialContext, 
+  websiteScrapingStatus,
+  websiteFindings
+}: ContextChatProps) {
   const { 
-    websiteUrl, 
-    initialContext, 
-    websiteScraping,
     contextChat,
     addChatMessage,
     clearChatMessages
-  } = useOfferStore();
+  } = useOfferStore(
+     (state) => ({ 
+       contextChat: state.contextChat,
+       addChatMessage: state.addChatMessage,
+       clearChatMessages: state.clearChatMessages
+     }),
+     (oldState, newState) => oldState.contextChat === newState.contextChat
+  );
   
   const [currentInput, setCurrentInput] = useState('');
-  const [isProcessing, setIsProcessing] = useState(false); // For AI response generation
-  const [isInitializing, setIsInitializing] = useState(true); // For initial loading/question generation
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [questions, setQuestions] = useState<string[]>([]);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [hasNewMessages, setHasNewMessages] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
-  // This useEffect handles the initialization logic based on scraping status
   useEffect(() => {
-    // Show loading message if scraping is in progress
-    if (websiteScraping.status === 'processing') {
-      clearChatMessages(); 
-      addChatMessage({ sender: 'system', content: 'Reviewing website content...' });
-      setIsInitializing(true); // Keep initializing flag true while scraping
-      return; // Exit effect if still processing
-    }
-
-    // --- Initialize chat only when scraping is NOT processing ---
-    
-    // Clear previous messages and state only once after scraping is resolved
     clearChatMessages();
-    setCurrentQuestionIndex(0); 
-    setQuestions([]); 
-    setIsInitializing(true); // Set initializing flag
-
-    const initializeChat = async () => {
+    setIsProcessing(true);
+    
+    const getInitialQuestion = async () => {
       let summaryLines: string[] = [];
-      let currentWebsiteFindings: WebsiteFindings | null = null;
       let analysisPerformed = false;
 
-      // Prepare website findings if completed
-      if (websiteScraping.status === 'completed' && websiteScraping.coreOffer) {
+      if (websiteScrapingStatus === 'completed' && websiteFindings?.coreOffer) {
         analysisPerformed = true;
-        currentWebsiteFindings = {
-          coreOffer: websiteScraping.coreOffer,
-          targetAudience: websiteScraping.targetAudience,
-          problemSolved: websiteScraping.keyProblem,
-          keyBenefits: Array.isArray(websiteScraping.keyFeatures)
-            ? websiteScraping.keyFeatures.map(feature =>
-                typeof feature === 'string' ? feature : feature.benefit
-              )
-            : [],
-          valueProposition: websiteScraping.valueProposition,
-          cta: null, tone: null, missingInfo: null
-        };
-      }
-
-      // Construct the opening line
-      if (analysisPerformed) {
         summaryLines.push(`Hello! I've reviewed your website (${websiteUrl}) and the initial context. Let's refine your offer based on this:`);
-      } else {
-        summaryLines.push("Okay, let's refine your offer based on the initial context you provided:");
-      }
-      summaryLines.push(""); // Add a blank line
-
-      // Add manual inputs only if they have content AND analysis didn't provide it
-      let manualInputAdded = false;
-      if (initialContext.currentOffer?.trim() && !currentWebsiteFindings?.coreOffer) {
-        summaryLines.push(`Current Offer: ${initialContext.currentOffer}`);
-        manualInputAdded = true;
-      }
-      if (initialContext.targetAudience?.trim() && !currentWebsiteFindings?.targetAudience) {
-        summaryLines.push(`Target Audience: ${initialContext.targetAudience}`);
-        manualInputAdded = true;
-      }
-      if (initialContext.problemSolved?.trim() && !currentWebsiteFindings?.problemSolved) {
-        summaryLines.push(`Problem Solved: ${initialContext.problemSolved}`);
-        manualInputAdded = true;
-      }
-      if (manualInputAdded) {
-         summaryLines.push(""); // Add blank line after manual inputs if any were added
-      }
-
-      // Add website analysis section if successful
-      if (analysisPerformed && currentWebsiteFindings) {
+        summaryLines.push("");
         summaryLines.push("Website Analysis Findings:");
-        summaryLines.push(`  Core Offer: ${currentWebsiteFindings.coreOffer || 'Not clearly identified'}`);
-        summaryLines.push(`  Target Audience: ${currentWebsiteFindings.targetAudience || 'Not clearly identified'}`);
-        summaryLines.push(`  Problem Solved: ${currentWebsiteFindings.problemSolved || 'Not clearly identified'}`);
-        summaryLines.push(`  Value Proposition: ${currentWebsiteFindings.valueProposition || 'Not clearly identified'}`);
-        if (currentWebsiteFindings.keyBenefits && currentWebsiteFindings.keyBenefits.length > 0) {
-           summaryLines.push(`  Key Benefits: ${currentWebsiteFindings.keyBenefits.slice(0, 3).join(', ')}...`);
+        summaryLines.push(`  Core Offer: ${websiteFindings.coreOffer || 'Not clearly identified'}`);
+        summaryLines.push(`  Target Audience: ${websiteFindings.targetAudience || 'Not clearly identified'}`);
+        summaryLines.push(`  Problem Solved: ${websiteFindings.problemSolved || 'Not clearly identified'}`);
+        summaryLines.push(`  Value Proposition: ${websiteFindings.valueProposition || 'Not clearly identified'}`);
+        if (websiteFindings.keyBenefits && websiteFindings.keyBenefits.length > 0) {
+           summaryLines.push(`  Key Benefits: ${websiteFindings.keyBenefits.slice(0, 3).join(', ')}...`);
         }
-         summaryLines.push(""); // Add blank line after analysis
-      } else if (websiteUrl && websiteScraping.status !== 'idle') { // Only mention if URL provided AND scraping was attempted
-         summaryLines.push(`Website URL Provided: ${websiteUrl} (Analysis was skipped, failed, or is pending)`);
-         summaryLines.push(""); 
+        summaryLines.push("");
+      } else {
+        summaryLines.push("Okay, let's start refining your offer based on the initial context you provided.");
+        summaryLines.push(""); 
       }
       
-      const summaryContent = summaryLines.join('\n').trim(); // Trim potential trailing newline
+      const summaryContent = summaryLines.join('\n').trim();
+      addChatMessage({ sender: 'ai', content: summaryContent });
 
-      // Only add summary if it has meaningful content beyond the opening line
-      if (summaryContent.length > summaryLines[0].length + 1) { 
-          addChatMessage({ sender: 'ai', content: summaryContent });
-      } else {
-          // If no real context, just use a simple opening line
-          addChatMessage({ sender: 'ai', content: "Okay, let's refine your offer. Please tell me about it." });
-      }
-
-      // Generate and ask questions
       try {
-        const questionsText = await generateClarifyingQuestions(initialContext, currentWebsiteFindings);
+        console.log('[ContextChat] Generating initial question...');
+        const questionsText = await generateClarifyingQuestions(initialContext, websiteFindings);
         const parsedQuestions = parseQuestionsFromText(questionsText);
-        setQuestions(parsedQuestions);
-
+        console.log(`[ContextChat] Generated ${parsedQuestions.length} questions.`);
+        
         if (parsedQuestions.length > 0) {
-          // Add a slight delay before asking the first question
           setTimeout(() => {
             addChatMessage({ sender: 'ai', content: parsedQuestions[0] });
-            setCurrentQuestionIndex(1);
           }, 500); 
         } else {
-          // If no questions generated, provide a concluding message
           setTimeout(() => {
-            addChatMessage({ sender: 'ai', content: "I think I have enough context for now. Feel free to add more details or ask questions, otherwise you can proceed to the next step." });
+            addChatMessage({ sender: 'ai', content: "Where would you like to start refining your offer?" });
           }, 500);
         }
       } catch (error) {
-        console.error('Error generating clarifying questions:', error);
-        const fallbackQuestions = [
-          "What specific results do your customers achieve with your offer?",
-          "What makes your solution unique compared to alternatives?",
-          "What objections do potential customers typically have?"
-        ];
-        setQuestions(fallbackQuestions);
+        console.error('[ContextChat] Error generating initial question:', error); 
         setTimeout(() => {
-          addChatMessage({ sender: 'ai', content: fallbackQuestions[0] });
-          setCurrentQuestionIndex(1);
+          addChatMessage({ sender: 'ai', content: "What's the main goal of your offer?" });
         }, 500);
       } finally {
-        setIsInitializing(false); // Mark initialization complete
+        setIsProcessing(false);
       }
     };
 
-    initializeChat(); // Call the initialization function
+    getInitialQuestion();
 
-  // Rerun initialization logic only when scraping status changes from processing to something else,
-  // or if relevant initial context changes (though re-init on context change might need refinement later)
-  }, [websiteScraping.status, initialContext, websiteUrl, addChatMessage, clearChatMessages]); 
+  }, []);
   
   const parseQuestionsFromText = (text: string): string[] => {
     const numberedQuestionsRegex = /\d+\.\s+([^\d]+?)(?=\d+\.|$)/g;
@@ -171,56 +108,35 @@ export function ContextChat({ onComplete }: ContextChatProps) {
       .filter(line => line.length > 0 && line.endsWith('?'));
   };
 
-  // Effect for scrolling
   useEffect(() => {
-    if (!isInitializing && messagesEndRef.current) {
+    if (messagesEndRef.current) {
         messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-    // Update hasNewMessages flag
-    if (contextChat.messages.length > 3) { 
+    if (contextChat.messages.length > 3) {
       setHasNewMessages(true);
     }
-  }, [contextChat.messages, isInitializing]);
+  }, [contextChat.messages]);
   
 
   const handleSendMessage = async () => {
-    if (!currentInput.trim() || isInitializing || isProcessing) return; // Prevent sending during init or processing
+    if (!currentInput.trim() || isProcessing) return;
 
-    const userInput = currentInput; // Capture input before clearing
+    const userInput = currentInput;
     setCurrentInput('');
-    setHasNewMessages(false); // Reset notification when user sends a message
+    setHasNewMessages(false);
 
-    // Add user message immediately
     addChatMessage({
       sender: 'user',
       content: userInput
     });
     
-    setIsProcessing(true); // Start processing indicator for AI response
-
-    // Recalculate websiteFindings based on current store state before sending message
-    let currentWebsiteFindings: WebsiteFindings | null = null;
-    if (websiteScraping.status === 'completed' && websiteScraping.coreOffer) {
-      currentWebsiteFindings = {
-        coreOffer: websiteScraping.coreOffer,
-        targetAudience: websiteScraping.targetAudience,
-        problemSolved: websiteScraping.keyProblem,
-        keyBenefits: Array.isArray(websiteScraping.keyFeatures)
-          ? websiteScraping.keyFeatures.map(feature =>
-              typeof feature === 'string' ? feature : feature.benefit
-            )
-          : [],
-        valueProposition: websiteScraping.valueProposition,
-        cta: null, tone: null, missingInfo: null
-      };
-    }
+    setIsProcessing(true); 
 
     try {
       const response = await generateChatResponse(
-        // Pass the updated messages array from the store
         useOfferStore.getState().contextChat.messages, 
         initialContext, 
-        currentWebsiteFindings // Use the locally calculated findings
+        websiteFindings
       );
       
       addChatMessage({
@@ -228,48 +144,15 @@ export function ContextChat({ onComplete }: ContextChatProps) {
         content: response
       });
       
-      if (currentQuestionIndex < questions.length) {
-        setTimeout(() => {
-          addChatMessage({
-            sender: 'ai',
-            content: questions[currentQuestionIndex]
-          });
-          setCurrentQuestionIndex(currentQuestionIndex + 1);
-        }, 1500);
-      } else {
-        setTimeout(() => {
-          addChatMessage({
-            sender: 'ai',
-            content: `Thank you for sharing all this information! I now have a much better understanding of your offer.
-            
-Based on our conversation, I recommend focusing on:
-1. Making your value proposition crystal clear
-2. Addressing specific pain points with concrete solutions
-3. Including specific results or outcomes customers can expect
-
-Are you ready to continue building your offer?`
-          });
-        }, 1500);
-      }
     } catch (error) {
       console.error('Error generating chat response:', error);
-      
       addChatMessage({
         sender: 'ai',
-        content: `Thank you for sharing that information. This helps me understand your offer better.`
+        content: `Sorry, I encountered an error. Could you rephrase that?`
       });
       
-      if (currentQuestionIndex < questions.length) {
-        setTimeout(() => {
-          addChatMessage({
-            sender: 'ai',
-            content: questions[currentQuestionIndex]
-          });
-          setCurrentQuestionIndex(currentQuestionIndex + 1);
-        }, 1000);
-      }
     } finally {
-      setIsProcessing(false); // Stop processing indicator
+      setIsProcessing(false);
     }
   };
 
@@ -282,18 +165,7 @@ Are you ready to continue building your offer?`
 
 
   return (
-    <div className="bg-[#2A2A2A] rounded-lg shadow-xl overflow-hidden flex flex-col h-[70vh] w-full relative"> {/* Added relative positioning */}
-      {/* Loader Overlay */}
-      {isInitializing && (
-        <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-10">
-          <div className="flex flex-col items-center text-white">
-            <Loader2 className="w-8 h-8 animate-spin mb-2" />
-            <span>{websiteScraping.status === 'processing' ? 'Reviewing website...' : 'Initializing chat...'}</span>
-          </div>
-        </div>
-      )}
-
-      {/* Chat Header */}
+    <div className="bg-[#2A2A2A] rounded-lg shadow-xl overflow-hidden flex flex-col h-[70vh] w-full relative">
       <div className="bg-[#1C1C1C] border-b border-[#333333] px-6 py-4 flex justify-between items-center">
         <div className="flex items-center space-x-2">
           <MessageSquare className="w-5 h-5 text-[#FFD23F]" />
@@ -301,7 +173,6 @@ Are you ready to continue building your offer?`
         </div>
       </div>
       
-      {/* Message List */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#1C1C1C]">
         {contextChat.messages.map((message) => (
           <div 
@@ -314,11 +185,10 @@ Are you ready to continue building your offer?`
                   ? 'bg-[#FFD23F] text-[#1C1C1C]' 
                   : message.sender === 'ai'
                     ? 'bg-[#3A3A3A] text-white'
-                    : 'bg-[#2A2A2A] text-white' // System messages
+                    : 'bg-[#2A2A2A] text-white'
               }`}
             >
               <div className="whitespace-pre-line">{message.content}</div>
-              {/* Only show timestamp for non-system messages */}
               {message.sender !== 'system' && (
                  <div className="text-xs opacity-50 mt-1 text-right">
                    {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -327,8 +197,7 @@ Are you ready to continue building your offer?`
             </div>
           </div>
         ))}
-        {/* Show thinking indicator ONLY for AI response generation, not init */}
-        {isProcessing && !isInitializing && ( 
+        {isProcessing && (
           <div className="flex justify-start">
             <div className="bg-[#3A3A3A] text-white rounded-lg p-3">
               <div className="flex items-center">
@@ -340,8 +209,7 @@ Are you ready to continue building your offer?`
         )}
         <div ref={messagesEndRef} />
         
-        {/* Scroll to bottom button */}
-        {contextChat.messages.length > 3 && !isInitializing && ( // Hide during init
+        {contextChat.messages.length > 3 && (
           <div className="flex justify-center mt-4">
             <button
               onClick={() => {
@@ -359,7 +227,6 @@ Are you ready to continue building your offer?`
         )}
       </div>
       
-      {/* Input Area */}
       <div className="border-t border-[#333333] p-4 bg-[#2A2A2A]">
         <div className="flex space-x-2">
           <textarea
@@ -369,13 +236,13 @@ Are you ready to continue building your offer?`
             placeholder="Type your message here..."
             className="flex-1 p-3 bg-[#1C1C1C] border border-[#333333] rounded-lg text-white placeholder-gray-500 focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent resize-none"
             rows={2}
-            disabled={isInitializing || isProcessing} // Disable input during init and processing
+            disabled={isProcessing}
           />
           <button
             onClick={handleSendMessage}
-            disabled={!currentInput.trim() || isInitializing || isProcessing} // Disable send during init and processing
+            disabled={!currentInput.trim() || isProcessing}
             className={`p-3 rounded-lg ${
-              !currentInput.trim() || isInitializing || isProcessing
+              !currentInput.trim() || isProcessing
                 ? 'bg-[#333333] text-gray-500 cursor-not-allowed'
                 : 'bg-[#FFD23F] text-[#1C1C1C] hover:bg-[#FFD23F]/90'
             }`}
@@ -388,7 +255,7 @@ Are you ready to continue building your offer?`
           <button
             onClick={onComplete}
             className="px-4 py-2 bg-[#FFD23F] text-[#1C1C1C] rounded-lg hover:bg-opacity-90"
-            disabled={isInitializing} // Disable continue button during initialization
+            disabled={isProcessing}
           >
             Continue to Next Step
           </button>

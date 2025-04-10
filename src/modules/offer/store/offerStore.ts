@@ -110,6 +110,42 @@ interface RefinedBodyCopy {
   solution: string;
 }
 
+// --- New Interfaces for Added Steps ---
+
+export interface Exclusivity {
+  isLimited: boolean | null;
+  limitReason: string;
+  limitNumber: number | null;
+  urgencySignal: string;
+}
+
+export interface Bonus {
+  id: string;
+  name: string;
+  description: string;
+  value?: number; // Optional perceived value
+}
+
+export interface ProofItem {
+  id: string;
+  type: 'testimonial' | 'caseStudy' | 'dataPoint' | 'logo';
+  content: string; // Could be text, URL for logo/case study link
+  source?: string; // e.g., Customer name, publication
+}
+
+export interface LandingPageSummary {
+  headline: string;
+  subheadline: string;
+  keyPoints: string[];
+  callToAction: string;
+  analysis: string; // AI-generated analysis
+  messagingDetails: string; // Key messaging points
+  nextSteps: string[]; // Suggested next actions
+}
+
+// --- End New Interfaces ---
+
+
 // Scorecard item for the Analysis component
 interface ScorecardItem {
   item: string;
@@ -132,6 +168,7 @@ interface ProcessingState {
   headlinesSection: boolean;
   bodyCopySection: boolean;
   socialProof: boolean;
+  valueProposition: boolean; // Added
 }
 
 interface OfferStateData {
@@ -140,7 +177,7 @@ interface OfferStateData {
   initialContext: InitialContext;
   websiteScraping: WebsiteScrapingData;
   contextChat: ContextChat;
-  offerRating: number | null;
+  // offerRating: number | null; // Removed
   userSuccess: UserSuccess;
   topResults: TopResults;
   advantages: Advantage[];
@@ -157,6 +194,13 @@ interface OfferStateData {
   refinedBodyCopy: RefinedBodyCopy;
   aestheticsChecklistCompleted: boolean;
   processingState: ProcessingState;
+  underlyingResult: string; // Added
+  underlyingReasonBetter: string; // Added
+  offerCanvasConfirmed: boolean; // Added
+  valueProposition: { // Added
+    suggestions: string[];
+    selected: string[]; 
+  };
   
   aiSuggestions: AISuggestion[];
   conversationalCheckpoints: ConversationalCheckpoint[];
@@ -168,6 +212,19 @@ interface OfferStateData {
   suggestedNextSteps: string[] | null;
   isAnalyzingOffer: boolean;
   analysisError: string | null;
+
+  // Added State Properties
+  exclusivity: Exclusivity;
+  bonuses: Bonus[];
+  topProof: ProofItem[];
+  landingPageSummary: LandingPageSummary | null;
+
+  // --- NEW/MODIFIED FOR BLENDED FLOW ---
+  landingPageCopy: Record<string, Record<string, string>>;
+  coreResult: string;
+  keyAdvantage: string;
+  topRisk: string;
+  primaryAssurance: string;
 }
 
 interface OfferState extends OfferStateData {
@@ -181,7 +238,7 @@ interface OfferState extends OfferStateData {
   addChatMessage: (message: Omit<ChatMessage, 'id' | 'timestamp'>) => void;
   clearChatMessages: () => void;
   
-  setOfferRating: (rating: number) => void;
+  // setOfferRating: (rating: number) => void; // Removed
   setUserSuccess: (statement: string) => void;
   setTopResults: (results: TopResults) => void;
   
@@ -251,13 +308,40 @@ interface OfferState extends OfferStateData {
   removeAISuggestion: (id: string) => void;
   addConversationalCheckpoint: (checkpoint: Omit<ConversationalCheckpoint, 'id' | 'createdAt'>) => void;
   setActiveCheckpoint: (id: string | null) => void;
-  
+  setUnderlyingResult: (text: string) => void; // Added
+  setUnderlyingReasonBetter: (text: string) => void; // Added
+  setValueProposition: (valuePropState: { suggestions: string[]; selected: string[] }) => void; // Added
+  setOfferCanvasConfirmed: (confirmed: boolean) => void; // Added
+
+  // Exclusivity Actions
+  setExclusivity: (exclusivity: Partial<Exclusivity>) => void; // Added
+
+  // Bonus Actions
+  addBonus: (bonus: Omit<Bonus, 'id'>) => void; // Added
+  updateBonus: (id: string, bonus: Partial<Bonus>) => void; // Added
+  removeBonus: (id: string) => void; // Added
+
+  // Top Proof Actions
+  addTopProof: (proof: Omit<ProofItem, 'id'>) => void; // Added
+  updateTopProof: (id: string, proof: Partial<ProofItem>) => void; // Added
+  removeTopProof: (id: string) => void; // Added
+
+  // Landing Page Summary Action
+  setLandingPageSummary: (summary: LandingPageSummary | null) => void; // Added
+
   // Reset
   resetState: () => void;
+
+  // --- NEW/MODIFIED FOR BLENDED FLOW ---
+  updateLandingPageCopySection: (sectionKey: string, copyData: Record<string, string>) => void;
+  setCoreResult: (result: string) => void;
+  setKeyAdvantage: (advantage: string) => void;
+  setTopRisk: (risk: string) => void;
+  setPrimaryAssurance: (assurance: string) => void;
 }
 
 // Initial state
-const initialState: OfferStateData = {
+export const initialState: OfferStateData = { // Export initialState
   title: 'Untitled Offer',
   websiteUrl: '',
   initialContext: {
@@ -281,7 +365,7 @@ const initialState: OfferStateData = {
     messages: [],
     lastUpdated: null
   },
-  offerRating: null,
+  // offerRating: null, // Removed
   userSuccess: { statement: '' },
   topResults: { 
     tangible: '', 
@@ -352,11 +436,34 @@ const initialState: OfferStateData = {
     headlinesSection: false,
     bodyCopySection: false,
     socialProof: false,
+    valueProposition: false, // Added
   },
   
   aiSuggestions: [],
   conversationalCheckpoints: [],
-  activeCheckpoint: null
+  activeCheckpoint: null,
+  underlyingResult: '', // Added
+  underlyingReasonBetter: '', // Added
+  offerCanvasConfirmed: false, // Added
+  valueProposition: { suggestions: [], selected: [] }, // Added
+
+  // Added Initial State Values
+  exclusivity: {
+    isLimited: null,
+    limitReason: '',
+    limitNumber: null,
+    urgencySignal: '',
+  },
+  bonuses: [],
+  topProof: [],
+  landingPageSummary: null,
+
+  // --- NEW/MODIFIED FOR BLENDED FLOW ---
+  landingPageCopy: {},
+  coreResult: '',
+  keyAdvantage: '',
+  topRisk: '',
+  primaryAssurance: '',
 };
 
 export const useOfferStore = create<OfferState>()(
@@ -455,13 +562,24 @@ export const useOfferStore = create<OfferState>()(
               }));
             } else if (result.status === 'processing') {
               setTimeout(() => {
-                import('../services/webscraping').then(({ getScrapingResult }) => {
-                  getScrapingResult(scrapingId).then(updatedResult => {
-                    if (updatedResult) {
-                      const get = useOfferStore.getState;
-                      get().checkScrapingStatus(scrapingId);
-                    }
-                  });
+                import('../services/webscraping').then(async ({ getScrapingResult }) => {
+                  try {
+                      const updatedResult = await getScrapingResult(scrapingId);
+                      // Only schedule the next poll if the status is explicitly 'processing'
+                      if (updatedResult?.status === 'processing') {
+                          console.log(`Scraping ID ${scrapingId} still processing, scheduling next poll.`);
+                          const get = useOfferStore.getState;
+                          // Use setTimeout again to ensure delay before next check
+                          setTimeout(() => get().checkScrapingStatus(scrapingId), 5000);
+                      } else {
+                          console.log(`Scraping ID ${scrapingId} status is now ${updatedResult?.status || 'unknown'}, stopping poll from timeout.`);
+                          // Do not schedule another poll if status is completed, failed, or result is null/unexpected.
+                          // The main checkScrapingStatus function will handle the final state if needed on its next trigger.
+                      }
+                  } catch (pollError) {
+                      console.error(`Error during polling check for ${scrapingId}:`, pollError);
+                      // Stop polling on error within the timeout
+                  }
                 });
               }, 5000); // Poll every 5 seconds
             }
@@ -471,18 +589,33 @@ export const useOfferStore = create<OfferState>()(
         }
       },
       
-      // Offer Rating
-      setOfferRating: (offerRating) => set({ offerRating }),
+      addChatMessage: (message) => set((state) => ({
+        contextChat: {
+          ...state.contextChat,
+          messages: [
+            ...state.contextChat.messages,
+            {
+              id: generateUUID(),
+              timestamp: new Date(),
+              ...message
+            }
+          ],
+          lastUpdated: new Date()
+        }
+      })),
+
+      clearChatMessages: () => set({
+        contextChat: { messages: [], lastUpdated: null }
+      }),
       
-      // User Success
+      // setOfferRating: (rating) => set({ offerRating: rating }), // Removed
+      
       setUserSuccess: (statement) => set({ 
         userSuccess: { statement } 
       }),
       
-      // Top Results
       setTopResults: (topResults) => set({ topResults }),
       
-      // Advantages
       addAdvantage: (text, description) => set((state) => ({
         advantages: [...state.advantages, { id: generateUUID(), text, description }]
       })),
@@ -497,7 +630,6 @@ export const useOfferStore = create<OfferState>()(
         advantages: state.advantages.filter(adv => adv.id !== id)
       })),
       
-      // Risks
       addRisk: (text) => set((state) => ({
         risks: [...state.risks, { id: generateUUID(), text }]
       })),
@@ -510,50 +642,46 @@ export const useOfferStore = create<OfferState>()(
       
       removeRisk: (id) => set((state) => ({
         risks: state.risks.filter(risk => risk.id !== id),
-        // Also remove associated assurances and risk reversals
-        assurances: state.assurances.filter(assurance => assurance.riskId !== id),
-        riskReversals: state.riskReversals.filter(reversal => reversal.riskId !== id)
+        assurances: state.assurances.filter(a => a.riskId !== id),
+        riskReversals: state.riskReversals.filter(rr => rr.riskId !== id),
       })),
       
-      // Assurances
       addAssurance: (riskId, text) => set((state) => ({
         assurances: [...state.assurances, { id: generateUUID(), riskId, text }]
       })),
       
       updateAssurance: (id, assurance) => set((state) => ({
-        assurances: state.assurances.map(ass => 
-          ass.id === id ? { ...ass, ...assurance } : ass
+        assurances: state.assurances.map(a => 
+          a.id === id ? { ...a, ...assurance } : a
         )
       })),
       
       removeAssurance: (id) => set((state) => ({
-        assurances: state.assurances.filter(ass => ass.id !== id)
+        assurances: state.assurances.filter(a => a.id !== id)
       })),
       
-      // Hero Section
       setHeroSection: (heroSection) => set((state) => ({
         heroSection: { ...state.heroSection, ...heroSection }
       })),
       
-      // Features Section
       setFeaturesSection: (featuresSection) => set((state) => ({
         featuresSection: { ...state.featuresSection, ...featuresSection }
       })),
       
-      // Problem Section
       setProblemSection: (problemSection) => set((state) => ({
         problemSection: { ...state.problemSection, ...problemSection }
       })),
       
-      // Solution Section
       addSolutionStep: (title, description) => set((state) => ({
         solutionSection: {
+          ...state.solutionSection,
           steps: [...state.solutionSection.steps, { id: generateUUID(), title, description }]
         }
       })),
       
       updateSolutionStep: (id, step) => set((state) => ({
         solutionSection: {
+          ...state.solutionSection,
           steps: state.solutionSection.steps.map(s => 
             s.id === id ? { ...s, ...step } : s
           )
@@ -562,26 +690,25 @@ export const useOfferStore = create<OfferState>()(
       
       removeSolutionStep: (id) => set((state) => ({
         solutionSection: {
+          ...state.solutionSection,
           steps: state.solutionSection.steps.filter(s => s.id !== id)
         }
       })),
       
-      // Risk Reversals
       addRiskReversal: (riskId, text) => set((state) => ({
         riskReversals: [...state.riskReversals, { id: generateUUID(), riskId, text }]
       })),
       
       updateRiskReversal: (id, reversal) => set((state) => ({
-        riskReversals: state.riskReversals.map(rev => 
-          rev.id === id ? { ...rev, ...reversal } : rev
+        riskReversals: state.riskReversals.map(rr => 
+          rr.id === id ? { ...rr, ...reversal } : rr
         )
       })),
       
       removeRiskReversal: (id) => set((state) => ({
-        riskReversals: state.riskReversals.filter(rev => rev.id !== id)
+        riskReversals: state.riskReversals.filter(rr => rr.id !== id)
       })),
       
-      // Social Proof
       addSocialProof: (type, text) => set((state) => ({
         socialProof: {
           ...state.socialProof,
@@ -596,12 +723,10 @@ export const useOfferStore = create<OfferState>()(
         }
       })),
       
-      // CTA Section
       setCtaSection: (ctaSection) => set((state) => ({
         ctaSection: { ...state.ctaSection, ...ctaSection }
       })),
       
-      // Headlines
       addHeadline: (type, headline) => set((state) => ({
         refinedHeadlines: {
           ...state.refinedHeadlines,
@@ -616,7 +741,6 @@ export const useOfferStore = create<OfferState>()(
         }
       })),
       
-      // Body Copy
       setBodyCopy: (type, text) => set((state) => ({
         refinedBodyCopy: {
           ...state.refinedBodyCopy,
@@ -624,174 +748,52 @@ export const useOfferStore = create<OfferState>()(
         }
       })),
       
-      // Aesthetics
-      setAestheticsChecklistCompleted: (completed) => set({
-        aestheticsChecklistCompleted: completed
-      }),
+      setAestheticsChecklistCompleted: (completed) => set({ aestheticsChecklistCompleted: completed }),
       
-      addChatMessage: (message) => set((state) => ({
-        contextChat: {
-          messages: [
-            ...state.contextChat.messages,
-            {
-              id: crypto.randomUUID(),
-              ...message,
-              timestamp: new Date()
-            }
-          ],
-          lastUpdated: new Date()
-        }
-      })),
-      
-      clearChatMessages: () => set({
-        contextChat: {
-          messages: [],
-          lastUpdated: null
-        }
-      }),
-      
-      // Processing State
       setProcessing: (key, isProcessing) => set((state) => ({
-        processingState: {
-          ...state.processingState,
-          [key]: isProcessing
-        }
+        processingState: { ...state.processingState, [key]: isProcessing }
       })),
       
-      // Analysis actions
       runFinalAnalysis: () => set((state) => {
-        // Set analyzing state to true
+        console.log("Simulating final offer analysis...");
         set({ isAnalyzingOffer: true, analysisError: null });
         
-        // In production, this would call the AI service:
-        /*
-        import { analyzeOffer } from '../services/ai';
+        const scorecard: ScorecardItem[] = [
+          { item: 'Clarity of Value Proposition', rating: state.valueProposition.selected.length > 0 ? 'Good' : 'Fair', justification: 'Based on selected value prop.' },
+          { item: 'Strength of Top Results', rating: state.topResults.tangible ? 'Good' : 'Poor', justification: 'Tangible results provided.' },
+          { item: 'Uniqueness of Advantages', rating: state.advantages.length >= 2 ? 'Good' : 'Fair', justification: 'Multiple advantages listed.' },
+          { item: 'Risk Mitigation (Assurances)', rating: state.assurances.length >= state.risks.length ? 'Excellent' : 'Good', justification: 'Assurances address risks.' },
+          { item: 'Risk Reversal Strength', rating: state.riskReversals.length > 0 ? 'Good' : 'Fair', justification: 'Risk reversals included.' },
+          { item: 'Social Proof Presence', rating: state.socialProof.testimonials.length > 0 || state.socialProof.caseStudies.length > 0 ? 'Excellent' : 'Fair', justification: 'Testimonials or case studies present.' },
+          { item: 'Call to Action Clarity', rating: state.ctaSection.mainCtaText ? 'Good' : 'Poor', justification: 'Main CTA defined.' },
+        ];
         
-        // Get current state data
-        const analysisData = {
-          title: state.title,
-          userSuccess: state.userSuccess,
-          topResults: state.topResults,
-          advantages: state.advantages,
-          risks: state.risks,
-          assurances: state.assurances,
-          heroSection: state.heroSection,
-          featuresSection: state.featuresSection,
-          problemSection: state.problemSection, 
-          solutionSection: state.solutionSection,
-          socialProof: state.socialProof,
-          ctaSection: state.ctaSection
-        };
-        
-        // Call API
-        analyzeOffer(analysisData)
-          .then(response => {
-            set({ 
-              offerScorecard: response.scorecard,
-              offerAnalysisFeedback: response.feedback,
-              suggestedNextSteps: response.nextSteps,
-              isAnalyzingOffer: false
-            });
-          })
-          .catch(error => {
-            set({ 
-              isAnalyzingOffer: false, 
-              analysisError: error instanceof Error ? error.message : 'An error occurred during analysis' 
-            });
-          });
-        */
-        
-        // For demo: Simulate API call with setTimeout
-        setTimeout(() => {
-          try {
-            // Mock scorecard data (in production, this would come from API)
-            const scorecard: ScorecardItem[] = [
-              {
-                item: 'Result Clarity',
-                rating: 'Good',
-                justification: 'Main result is clearly articulated but could be more specific with metrics.'
-              },
-              {
-                item: 'Advantage Clarity',
-                rating: 'Fair',
-                justification: 'Advantages are listed but unique differentiation could be stronger.'
-              },
-              {
-                item: 'Risk Reduction',
-                rating: 'Excellent',
-                justification: 'All major objections addressed with compelling assurances.'
-              },
-              {
-                item: 'Hero Communication',
-                rating: 'Good',
-                justification: 'Tagline communicates value but could be more attention-grabbing.'
-              },
-              {
-                item: 'Problem Resonance',
-                rating: 'Good',
-                justification: 'Underlying problem will resonate with target audience.'
-              },
-              {
-                item: 'Solution Completeness',
-                rating: 'Fair',
-                justification: 'Solution steps need more detail on implementation specifics.'
-              },
-              {
-                item: 'Trust Elements',
-                rating: 'Poor',
-                justification: 'More specific social proof needed with quantifiable results.'
-              },
-              {
-                item: 'Call to Action',
-                rating: 'Good',
-                justification: 'CTA is clear but could create more urgency.'
-              },
-              {
-                item: 'Visual Design',
-                rating: 'Excellent',
-                justification: 'Aesthetics checklist completed with attention to all key design principles.'
-              }
-            ];
-            
-            // Mock feedback
-            const feedback = `
-### Key Strengths:
-1. **Strong Risk Mitigation** - Your offer addresses potential objections thoroughly with well-crafted assurances.
-2. **Clear Visual Design** - The attention to aesthetics principles will help the offer appear professional and trustworthy.
-3. **Good Problem Framing** - Your problem statement effectively frames the pain points that will resonate with your audience.
+        let feedback = "Overall, the offer structure is taking shape.\n";
+        if (scorecard.some(item => item.rating === 'Poor' || item.rating === 'Fair')) {
+          feedback += "Areas for improvement include: ";
+          feedback += scorecard.filter(item => item.rating === 'Poor' || item.rating === 'Fair').map(item => item.item.toLowerCase()).join(', ') + ".\n";
+        } else {
+          feedback += "All core components seem well-defined.\n";
+        }
+        feedback += "Consider refining the headlines and body copy for maximum impact.";
 
-### Areas for Improvement:
-1. **Social Proof Enhancement** - Adding more specific, results-oriented testimonials would significantly strengthen credibility.
-2. **Solution Specificity** - Your solution steps would benefit from more concrete implementation details.
-3. **Advantage Differentiation** - Make your unique advantages more distinct from competitors' offerings.
-            `;
-            
-            // Mock next steps
-            const nextSteps = [
-              "Test your headline with 5-10 target customers to gauge initial reaction and comprehension",
-              "Create two versions of your solution section (one feature-focused, one outcome-focused) to A/B test",
-              "Gather 3-5 specific customer testimonials that include quantifiable results",
-              "Refine your CTA with urgency elements and test response rates",
-              "Conduct a competitive analysis to better articulate your unique advantages"
-            ];
-            
-            // Update state with analysis results
-            set({ 
-              offerScorecard: scorecard,
-              offerAnalysisFeedback: feedback,
-              suggestedNextSteps: nextSteps,
-              isAnalyzingOffer: false
-            });
-          } catch (error) {
-            // Handle errors
-            set({ 
-              isAnalyzingOffer: false, 
-              analysisError: error instanceof Error ? error.message : 'An error occurred during analysis' 
-            });
-          }
-        }, 3000); // 3 second simulated API delay
+        const nextSteps = [
+          "Refine headlines for Hero, Problem, and Solution sections.",
+          "Write compelling body copy for each landing page section.",
+          "Review the aesthetics checklist for visual appeal.",
+          "Share the generated offer canvas for feedback."
+        ];
+
+        setTimeout(() => {
+          set({ 
+            offerScorecard: scorecard, 
+            offerAnalysisFeedback: feedback, 
+            suggestedNextSteps: nextSteps,
+            isAnalyzingOffer: false 
+          });
+        }, 3000); 
         
-        return { processingState: state.processingState };
+        return { processingState: state.processingState }; 
       }),
       
       setOfferScorecard: (scorecard) => set({ offerScorecard: scorecard }),
@@ -833,10 +835,65 @@ export const useOfferStore = create<OfferState>()(
       setActiveCheckpoint: (id) => set({
         activeCheckpoint: id
       }),
+
+      // Added Setters
+      setUnderlyingResult: (text) => set({ underlyingResult: text }),
+      setUnderlyingReasonBetter: (text) => set({ underlyingReasonBetter: text }),
+      setValueProposition: (valuePropState) => set({ valueProposition: valuePropState }),
+      setOfferCanvasConfirmed: (confirmed) => set({ offerCanvasConfirmed: confirmed }),
+      // --- Added Actions ---
+
+      setExclusivity: (exclusivity) => set((state) => ({
+        exclusivity: { ...state.exclusivity, ...exclusivity }
+      })),
+
+      addBonus: (bonus) => set((state) => ({
+        bonuses: [...state.bonuses, { ...bonus, id: generateUUID() }]
+      })),
+
+      updateBonus: (id, bonusUpdate) => set((state) => ({
+        bonuses: state.bonuses.map(b => b.id === id ? { ...b, ...bonusUpdate } : b)
+      })),
+
+      removeBonus: (id) => set((state) => ({
+        bonuses: state.bonuses.filter(b => b.id !== id)
+      })),
+
+      addTopProof: (proof) => set((state) => ({
+        topProof: [...state.topProof, { ...proof, id: generateUUID() }]
+      })),
+
+      updateTopProof: (id, proofUpdate) => set((state) => ({
+        topProof: state.topProof.map(p => p.id === id ? { ...p, ...proofUpdate } : p)
+      })),
+
+      removeTopProof: (id) => set((state) => ({
+        topProof: state.topProof.filter(p => p.id !== id)
+      })),
+
+      setLandingPageSummary: (summary) => set({ landingPageSummary: summary }),
+
+      // --- NEW/MODIFIED FOR BLENDED FLOW ---
+      updateLandingPageCopySection: (sectionKey, copyData) => set((state) => ({
+        landingPageCopy: {
+          ...state.landingPageCopy,
+          [sectionKey]: {
+            ...(state.landingPageCopy[sectionKey] || {}), // Preserve existing fields in section
+            ...copyData // Overwrite with new data
+          }
+        }
+      })),
+      setCoreResult: (result) => set({ coreResult: result }),
+      setKeyAdvantage: (advantage) => set({ keyAdvantage: advantage }),
+      setTopRisk: (risk) => set({ topRisk: risk }),
+      setPrimaryAssurance: (assurance) => set({ primaryAssurance: assurance }),
+
+      // --- End Added Actions ---
+
       
       // Reset
       resetState: () => set(initialState)
     }),
     { name: 'offer-store' }
   )
-);                                            
+);
