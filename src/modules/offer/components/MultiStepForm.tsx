@@ -12,6 +12,7 @@ import { DefineCoreOffer } from './DefineCoreOffer';
 import { AddEnhancers } from './AddEnhancers';
 import { GenerateRefineContent } from './GenerateRefineContent';
 import { FinalReview } from './FinalReview';
+import { WebsiteContextInput } from './WebsiteContextInput';
 
 // Remove imports from HEAD branch
 // import { DefineCoreOfferNucleusStep } from './steps/DefineCoreOfferNucleusStep'; 
@@ -108,40 +109,18 @@ export function MultiStepForm({ readOnly = false, analysisId: propAnalysisId }: 
   const [offerNotFound, setOfferNotFound] = useState(false);
   
   const store = useOfferStore();
-  const {
-    websiteUrl,
-    setWebsiteUrl,
-    websiteScraping,
-    startWebsiteScraping,
-    resetState
-  } = store;
+  const { resetState } = store;
   const { user } = useAuth();
   const { id: routeId } = useParams();
   const navigate = useNavigate();
   
-  const [isValidUrl, setIsValidUrl] = useState(false);
+  // Mount effect
+  useEffect(() => {
+    if (!routeId && !propAnalysisId) {
+      resetState();
+    }
+  }, []);
   
-  const handleUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const url = e.target.value;
-    setWebsiteUrl(url);
-    let normalizedUrl = url;
-    if (url.length > 0 && !url.match(/^(http|https):\/\//i)) {
-      normalizedUrl = `https://${url}`;
-    }
-    const isValid = normalizedUrl.match(/^(http|https):\/\/[a-zA-Z0-9-_.]+\.[a-zA-Z]{2,}(\/.*)?$/) !== null;
-    setIsValidUrl(isValid);
-  };
-
-  const handleStartScraping = async () => {
-    let urlToScrape = websiteUrl;
-    if (websiteUrl.length > 0 && !websiteUrl.match(/^(http|https):\/\//i)) {
-      urlToScrape = `https://${websiteUrl}`;
-    }
-    if (isValidUrl && urlToScrape) {
-      await startWebsiteScraping(urlToScrape);
-    }
-  };
-
   useEffect(() => {
     if (currentStep >= steps.length) {
       setCurrentStep(steps.length - 1);
@@ -152,15 +131,13 @@ export function MultiStepForm({ readOnly = false, analysisId: propAnalysisId }: 
   const CurrentStepComponent = steps[safeCurrentStep]?.component;
   
   if (!CurrentStepComponent) {
-    return <div>Loading step...</div>; 
+     return <div>Loading step...</div>; 
   }
 
+  // Load data effect 
   useEffect(() => {
     const idToLoad = routeId || propAnalysisId;
-    if (!idToLoad) {
-      resetState();
-      return;
-    }
+    if (!idToLoad) return;
     if (!readOnly) {
       loadOfferData(idToLoad);
     }
@@ -295,173 +272,125 @@ export function MultiStepForm({ readOnly = false, analysisId: propAnalysisId }: 
   }
 
   return (
-    <div className="flex h-[calc(100vh-var(--header-height))] bg-[#1C1C1C]">
-      <div className="w-1/3 h-full overflow-y-auto p-6 bg-[#2A2A2A] border-r border-[#333333] flex flex-col space-y-6">
-        <div className="bg-[#1C1C1C] p-4 rounded-lg border border-[#333333]">
-          <h3 className="text-lg font-semibold text-white mb-3">Website Context</h3>
-          <div className="space-y-2">
-            <Label htmlFor="websiteUrlSidebar" className="text-gray-300 text-sm">Analyze Website (Optional)</Label>
-            <div className="flex space-x-2">
-              <Input
-                id="websiteUrlSidebar"
-                type="url"
-                value={websiteUrl}
-                onChange={handleUrlChange}
-                placeholder="https://example.com"
-                className="flex-1 p-2 bg-[#2A2A2A] text-white border border-[#444444] rounded-lg placeholder-gray-500 text-sm focus:border-[#FFD23F] focus:outline-none"
-                disabled={readOnly}
-              />
-              <Button
-                onClick={handleStartScraping}
-                disabled={!isValidUrl || websiteScraping.status === 'processing' || readOnly}
-                className="px-3 py-1 text-sm bg-[#333333] text-white rounded-lg hover:bg-[#444444] disabled:opacity-50"
-                size="sm"
-              >
-                {websiteScraping.status === 'processing' ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : ( 'Analyze' )}
-              </Button>
-            </div>
-            {websiteScraping.status === 'processing' && (
-              <p className="text-xs text-[#FFD23F]">Analyzing...</p>
-            )}
-            {websiteScraping.status === 'completed' && (
-              <p className="text-xs text-green-500">Analysis complete.</p>
-            )}
-            {websiteScraping.status === 'failed' && (
-              <p className="text-xs text-red-500">Analysis failed: {websiteScraping.error}</p>
-            )}
+    <div className="min-h-[80vh] flex flex-col max-w-4xl mx-auto">
+      <div className="mb-8 space-y-3">
+        <div className="flex justify-between items-center">
+          <h2 className="text-xl font-bold text-white">
+            {steps[safeCurrentStep]?.title || 'Loading...'}
+          </h2>
+          <div className="text-sm text-gray-400">
+            Step {safeCurrentStep + 1} of {steps.length}
           </div>
         </div>
-
-        <div className="flex-1 min-h-0 text-center text-gray-500 italic pt-10">
-          (Offer context chat available via floating button)
+        <div className="w-full bg-[#333333] rounded-full h-2">
+          <div 
+            className="bg-[#FFD23F] h-2 rounded-full" 
+            style={{ width: `${((safeCurrentStep + 1) / steps.length) * 100}%` }}
+          />
         </div>
       </div>
 
-      <div className="w-2/3 h-full overflow-y-auto p-8 flex flex-col">
-        <div className="mb-8 space-y-3">
-          <div className="flex justify-between items-center">
-            <h2 className="text-xl font-bold text-white">
-              {steps[safeCurrentStep]?.title || 'Loading...'}
-            </h2>
-            <div className="text-sm text-gray-400">
-              Step {safeCurrentStep + 1} of {steps.length}
-            </div>
-          </div>
-          
-          <div className="w-full bg-[#333333] rounded-full h-2">
-            <div 
-              className="bg-[#FFD23F] h-2 rounded-full" 
-              style={{ width: `${((safeCurrentStep + 1) / steps.length) * 100}%` }}
+      {showTitlePrompt && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex items-center justify-center p-4">
+          <div className="bg-[#222222] rounded-lg p-6 max-w-md w-full">
+            <h3 className="text-xl font-semibold text-white mb-4">Name Your Offer</h3>
+            <p className="text-gray-300 mb-4">
+              Give your offer a name to help you identify it later.
+            </p>
+            <input
+              type="text"
+              value={store.title}
+              onChange={(e) => store.setTitle(e.target.value)}
+              placeholder="e.g., SaaS Onboarding Offer"
+              className="w-full p-2 bg-[#1A1A1A] text-white border border-[#333333] rounded-lg mb-4"
             />
-          </div>
-        </div>
-
-        {showTitlePrompt && (
-          <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex items-center justify-center p-4">
-            <div className="bg-[#222222] rounded-lg p-6 max-w-md w-full">
-              <h3 className="text-xl font-semibold text-white mb-4">Name Your Offer</h3>
-              <p className="text-gray-300 mb-4">
-                Give your offer a name to help you identify it later.
-              </p>
-              <input
-                type="text"
-                value={store.title}
-                onChange={(e) => store.setTitle(e.target.value)}
-                placeholder="e.g., SaaS Onboarding Offer"
-                className="w-full p-2 bg-[#1A1A1A] text-white border border-[#333333] rounded-lg mb-4"
-              />
-              <div className="flex justify-end space-x-2">
-                <button
-                  onClick={() => setShowTitlePrompt(false)}
-                  className="px-4 py-2 text-gray-300 hover:text-white"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => {
-                    if (store.title.trim()) {
-                      setShowTitlePrompt(false);
-                      handleSave();
-                    }
-                  }}
-                  className="px-4 py-2 bg-[#FFD23F] text-[#1C1C1C] rounded-lg hover:bg-opacity-90"
-                >
-                  Save
-                </button>
-              </div>
+            <div className="flex justify-end space-x-2">
+              <button
+                onClick={() => setShowTitlePrompt(false)}
+                className="px-4 py-2 text-gray-300 hover:text-white"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  if (store.title.trim()) {
+                    setShowTitlePrompt(false);
+                    handleSave();
+                  }
+                }}
+                className="px-4 py-2 bg-[#FFD23F] text-[#1C1C1C] rounded-lg hover:bg-opacity-90"
+              >
+                Save
+              </button>
             </div>
           </div>
-        )}
-
-        {showAuthModal && (
-          <AuthModal
-            onClose={() => {
-              setShowAuthModal(false);
-              setPendingAction(null);
-            }}
-            onSuccess={() => {
-              setShowAuthModal(false);
-              if (pendingAction === 'save') {
-                handleSave();
-              }
-              setPendingAction(null);
-            }}
-          />
-        )}
-
-        <div className="flex-grow mb-8">
-          <ErrorBoundary
-            FallbackComponent={ErrorFallback}
-            onReset={() => setError(null)}
-          >
-            <CurrentStepComponent readOnly={readOnly} />
-          </ErrorBoundary>
         </div>
+      )}
 
-        {error && (
-          <div className="mt-4 p-3 bg-red-500 bg-opacity-20 border border-red-500 rounded-md text-red-300">
-            {error}
-          </div>
-        )}
+      {showAuthModal && (
+        <AuthModal
+          onClose={() => {
+            setShowAuthModal(false);
+            setPendingAction(null);
+          }}
+          onSuccess={() => {
+            setShowAuthModal(false);
+            if (pendingAction === 'save') {
+              handleSave();
+            }
+            setPendingAction(null);
+          }}
+        />
+      )}
 
-        <div className="mt-auto flex justify-between sticky bottom-0 py-4 bg-[#1C1C1C]">
-          <Button
-            variant="outline"
-            onClick={goPrevious}
-            disabled={safeCurrentStep === 0}
-            className="border-[#444444] text-gray-300 hover:bg-[#333333]"
-          >
-            <ChevronLeft className="w-5 h-5 mr-1" />
-            Previous Step
-          </Button>
-          
-          <div className="flex space-x-2">
-            {!readOnly && (
-              <Button
-                variant="outline"
-                onClick={handleSave}
-                disabled={isSaving}
-                className="border-[#444444] text-gray-300 hover:bg-[#333333]"
-              >
-                {isSaving ? <Loader2 className="w-5 h-5 mr-1 animate-spin" /> : <Save className="w-5 h-5 mr-1" />}
-                {isSaving ? 'Saving...' : 'Save Progress'}
-              </Button>
-            )}
-            
-            <Button
-              onClick={goNext}
-              disabled={
-                safeCurrentStep === steps.length - 1 ||
-                !steps[safeCurrentStep]?.isComplete(store)
-              }
-              className="bg-[#FFD23F] text-[#1C1C1C] hover:bg-opacity-90 disabled:opacity-50"
+      {error && (
+        <div className="mt-4 p-3 bg-red-500 bg-opacity-20 border border-red-500 rounded-md text-red-300">
+          {error}
+        </div>
+      )}
+
+      <WebsiteContextInput readOnly={readOnly} />
+
+      <div className="flex-grow mb-8">
+        <ErrorBoundary
+          FallbackComponent={ErrorFallback}
+          onReset={() => setError(null)}
+        >
+          <CurrentStepComponent readOnly={readOnly} />
+        </ErrorBoundary>
+      </div>
+
+      <div className="mt-auto flex justify-between sticky bottom-0 py-4 bg-opacity-90 backdrop-blur-sm">
+        <button
+          onClick={goPrevious}
+          disabled={safeCurrentStep === 0}
+          className="flex items-center px-4 py-2 bg-[#333333] text-white rounded-lg hover:bg-[#444444] disabled:opacity-50"
+        >
+          <ChevronLeft className="w-5 h-5 mr-1" />
+          Previous Step
+        </button>
+        <div className="flex space-x-2">
+          {!readOnly && (
+            <button
+              onClick={handleSave}
+              disabled={isSaving}
+              className="flex items-center px-4 py-2 bg-[#333333] text-white rounded-lg hover:bg-[#444444] disabled:opacity-50"
             >
-              {safeCurrentStep === steps.length - 1 ? 'Finish' : 'Next Step'}
-              <ChevronRight className="w-5 h-5 ml-1" />
-            </Button>
-          </div>
+              {isSaving ? <Loader2 className="w-5 h-5 mr-1 animate-spin" /> : <Save className="w-5 h-5 mr-1" />}
+              {isSaving ? 'Saving...' : 'Save Progress'}
+            </button>
+          )}
+          <button
+            onClick={goNext}
+            disabled={
+              safeCurrentStep === steps.length - 1 ||
+              !steps[safeCurrentStep]?.isComplete(store)
+            }
+            className="flex items-center px-4 py-2 bg-[#FFD23F] text-[#1C1C1C] rounded-lg hover:bg-opacity-90 disabled:opacity-50"
+          >
+            {safeCurrentStep === steps.length - 1 ? 'Finish' : 'Next Step'}
+            <ChevronRight className="w-5 h-5 ml-1" />
+          </button>
         </div>
       </div>
     </div>

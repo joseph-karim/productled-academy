@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useOfferStore } from '../store/offerStore';
-import { MessageSquare, Send, Loader2, X } from 'lucide-react';
+import { Bot, Send, Loader2, X } from 'lucide-react';
 import { generateClarifyingQuestions, generateChatResponse, WebsiteFindings } from '../services/ai/contextChat';
 import { InitialContext } from '../services/ai/types';
 
@@ -220,7 +220,7 @@ export function ContextChat() {
         {isOpen ? (
           <X className="w-8 h-8" />
         ) : (
-          <MessageSquare className="w-8 h-8" />
+          <Bot className="w-8 h-8" />
         )}
         {hasNewMessages && !isOpen && (
            <span className="absolute top-0 right-0 block h-3 w-3 rounded-full bg-red-500 ring-2 ring-white" />
