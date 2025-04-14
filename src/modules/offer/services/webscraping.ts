@@ -49,9 +49,9 @@ export async function scrapeWebsite(url: string, offerId?: string): Promise<{ sc
   if (!url) {
     throw new Error('URL is required');
   }
-  
+
   const { data: { user } } = await supabase.auth.getUser();
-  
+
   try {
     const response = await fetch(
       `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/scrape-offer-context`,
@@ -68,12 +68,12 @@ export async function scrapeWebsite(url: string, offerId?: string): Promise<{ sc
         })
       }
     );
-    
+
     if (!response.ok) {
       const errorData = await response.json();
       throw new Error(errorData.error || 'Failed to start website scraping');
     }
-    
+
     return await response.json();
   } catch (error) {
     console.error('Error starting website scraping:', error);
@@ -84,64 +84,186 @@ export async function scrapeWebsite(url: string, offerId?: string): Promise<{ sc
 export async function getScrapingResult(scrapingId: string): Promise<WebsiteScrapingResult | null> {
   try {
     console.log(`Fetching scraping result for ID: ${scrapingId}`);
-    
+
     // Get current auth state for debugging
     const { data: { user } } = await supabase.auth.getUser();
     console.log(`Current user state:`, user ? `Authenticated as ${user.id}` : 'Not authenticated');
-    
+
+    // Log the Supabase URL and anon key (without showing the full key)
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    console.log(`Supabase URL: ${supabaseUrl}`);
+    console.log(`Supabase Anon Key available: ${!!supabaseAnonKey}`);
+    if (supabaseAnonKey) {
+      console.log(`Anon Key starts with: ${supabaseAnonKey.substring(0, 10)}...`);
+    }
+
     // Try direct fetch approach for anonymous users
     if (!user) {
       console.log('Using direct fetch for anonymous user');
-      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/website_scraping?id=eq.${scrapingId}&select=*`;
-      const response = await fetch(apiUrl, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+      try {
+        console.log('Starting fetch attempt for scraping result');
+        // First, check if the environment variables are available
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+        if (!supabaseUrl || !supabaseAnonKey) {
+          console.error('Missing Supabase environment variables:', {
+            url: !!supabaseUrl,
+            key: !!supabaseAnonKey
+          });
+
+          // Fall back to using the Supabase client for anonymous users
+          console.log('Falling back to Supabase client for anonymous user');
+          const { data, error } = await supabase
+            .from('website_scraping')
+            .select('*')
+            .eq('id', scrapingId)
+            .single();
+
+          if (error) {
+            console.error('Error fetching scraping result with fallback:', error);
+            return null;
+          }
+
+          console.log('Successfully retrieved scraping result with fallback:', data);
+
+          return {
+            id: data.id,
+            status: data.status,
+            url: data.url,
+            title: data.title,
+            metaDescription: data.meta_description,
+            analysisResult: data.analysis_result,
+            error: data.error,
+            createdAt: data.created_at,
+            completedAt: data.completed_at
+          };
         }
-      });
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`Direct fetch failed: ${response.status} ${response.statusText}`, errorText);
-        return null;
-      }
-      
-      const data = await response.json();
-      if (data && data.length > 0) {
-        console.log('Successfully retrieved scraping result via direct fetch:', data[0]);
-        const result = data[0];
+
+        const apiUrl = `${supabaseUrl}/rest/v1/website_scraping?id=eq.${scrapingId}&select=*`;
+        console.log(`Fetching from: ${apiUrl}`);
+        console.log('Using headers:', {
+          'Content-Type': 'application/json',
+          'apikey': 'Bearer token available: ' + !!supabaseAnonKey,
+          'Authorization': 'Bearer token available: ' + !!supabaseAnonKey
+        });
+
+        const response = await fetch(apiUrl, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': supabaseAnonKey,
+            'Authorization': `Bearer ${supabaseAnonKey}`
+          }
+        });
+
+        console.log('Fetch response status:', response.status);
+
+        if (response.ok) {
+          // If we get here, the response was successful
+          const responseData = await response.json();
+          console.log('Response data:', responseData);
+
+          if (responseData && Array.isArray(responseData) && responseData.length > 0) {
+            console.log('Successfully retrieved scraping result via direct fetch:', responseData[0]);
+            const result = responseData[0];
+            return {
+              id: result.id,
+              status: result.status,
+              url: result.url,
+              title: result.title,
+              metaDescription: result.meta_description,
+              analysisResult: result.analysis_result,
+              error: result.error,
+              createdAt: result.created_at,
+              completedAt: result.completed_at
+            };
+          } else {
+            console.log('Response data is empty or not an array, falling back to Supabase client');
+          }
+        } else {
+          const errorText = await response.text();
+          console.error(`Direct fetch failed: ${response.status} ${response.statusText}`, errorText);
+        }
+
+        // Fall back to using the Supabase client
+        console.log('Falling back to Supabase client after fetch');
+        const { data, error } = await supabase
+          .from('website_scraping')
+          .select('*')
+          .eq('id', scrapingId)
+          .single();
+
+        if (error) {
+          console.error('Error fetching scraping result with fallback:', error);
+          return null;
+        }
+
+        console.log('Successfully retrieved scraping result with fallback:', data);
+
         return {
-          id: result.id,
-          status: result.status,
-          url: result.url,
-          title: result.title,
-          metaDescription: result.meta_description,
-          analysisResult: result.analysis_result,
-          error: result.error,
-          createdAt: result.created_at,
-          completedAt: result.completed_at
+          id: data.id,
+          status: data.status,
+          url: data.url,
+          title: data.title,
+          metaDescription: data.meta_description,
+          analysisResult: data.analysis_result,
+          error: data.error,
+          createdAt: data.created_at,
+          completedAt: data.completed_at
+        };
+      } catch (error) {
+        console.error('Error in direct fetch:', error);
+
+        // Fall back to using the Supabase client for anonymous users
+        console.log('Falling back to Supabase client after error');
+        const { data, error: supabaseError } = await supabase
+          .from('website_scraping')
+          .select('*')
+          .eq('id', scrapingId)
+          .single();
+
+        if (supabaseError) {
+          console.error('Error fetching scraping result with fallback:', supabaseError);
+          return null;
+        }
+
+        console.log('Successfully retrieved scraping result with fallback:', data);
+
+        return {
+          id: data.id,
+          status: data.status,
+          url: data.url,
+          title: data.title,
+          metaDescription: data.meta_description,
+          analysisResult: data.analysis_result,
+          error: data.error,
+          createdAt: data.created_at,
+          completedAt: data.completed_at
         };
       }
+
+      // If we get here, all attempts failed
+      console.log('All fetch attempts failed, returning null');
       return null;
     }
-    
+
     // Continue with Supabase client for authenticated users
     const { data, error } = await supabase
       .from('website_scraping')
       .select('*')
       .eq('id', scrapingId)
       .single();
-      
+
     if (error) {
       console.error('Error fetching scraping result:', error);
       console.error(`Error code: ${error.code}, Message: ${error.message}`);
       return null;
     }
-    
+
     console.log('Successfully retrieved scraping result:', data);
-    
+
     return {
       id: data.id,
       status: data.status,

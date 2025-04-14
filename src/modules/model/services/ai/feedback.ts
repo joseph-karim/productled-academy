@@ -132,9 +132,6 @@ Also provide a suggested revision that:
 };
 
 export async function analyzeText(text: string, context: keyof typeof prompts): Promise<AnalysisResult> {
-  if (!import.meta.env.VITE_OPENAI_API_KEY) {
-    throw new Error('OpenAI API key is missing. Please add VITE_OPENAI_API_KEY to your environment variables.');
-  }
 
   const contextPrompt = prompts[context];
   if (!contextPrompt) {
@@ -146,8 +143,8 @@ export async function analyzeText(text: string, context: keyof typeof prompts): 
       model: "gpt-4o",
       messages: [
         contextPrompt,
-        { 
-          role: "user", 
+        {
+          role: "user",
           content: `Analyze this ${context}:\n\n${text}\n\nProvide detailed, specific feedback with concrete examples and improvements.`
         }
       ],
@@ -165,7 +162,7 @@ export async function analyzeText(text: string, context: keyof typeof prompts): 
                   properties: {
                     text: { type: "string" },
                     suggestion: { type: "string" },
-                    type: { 
+                    type: {
                       type: "string",
                       enum: ["improvement", "warning", "positive"]
                     },

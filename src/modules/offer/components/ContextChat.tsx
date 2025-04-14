@@ -5,7 +5,7 @@ import { generateClarifyingQuestions, generateChatResponse, WebsiteFindings } fr
 import { InitialContext } from '../services/ai/types';
 
 export function ContextChat() {
-  const { 
+  const {
     contextChat,
     addChatMessage,
     clearChatMessages,
@@ -13,40 +13,47 @@ export function ContextChat() {
     initialContext,
     websiteScraping,
   } = useOfferStore();
-  
-  const websiteFindings: WebsiteFindings | null = 
-    websiteScraping.status === 'completed' && websiteScraping.coreOffer
+
+  // Create website findings object with better null/undefined handling
+  const websiteFindings: WebsiteFindings | null =
+    websiteScraping.status === 'completed'
     ? {
-        coreOffer: websiteScraping.coreOffer,
-        targetAudience: websiteScraping.targetAudience,
-        problemSolved: websiteScraping.keyProblem,
+        coreOffer: websiteScraping.coreOffer || '',
+        targetAudience: websiteScraping.targetAudience || '',
+        problemSolved: websiteScraping.keyProblem || '',
         keyBenefits: Array.isArray(websiteScraping.keyFeatures)
           ? websiteScraping.keyFeatures.map(feature =>
-              typeof feature === 'string' ? feature : feature.benefit || ''
+              typeof feature === 'string' ? feature : (feature?.benefit || '')
             ).filter(Boolean)
           : [],
-        valueProposition: websiteScraping.valueProposition,
+        valueProposition: websiteScraping.valueProposition || '',
         cta: null,
         tone: null,
-        missingInfo: null 
+        missingInfo: null
       }
     : null;
+
+  // Log website findings for debugging
+  useEffect(() => {
+    console.log('ContextChat - websiteScraping status:', websiteScraping.status);
+    console.log('ContextChat - websiteFindings:', websiteFindings);
+  }, [websiteScraping.status]);
 
   const [currentInput, setCurrentInput] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [hasNewMessages, setHasNewMessages] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  
+
   const [isOpen, setIsOpen] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   useEffect(() => {
     if (!isInitialLoad) return;
-    
+
     clearChatMessages();
     setIsProcessing(true);
     setIsInitialLoad(false);
-    
+
     const getInitialQuestion = async () => {
       let summaryLines: string[] = [];
       let analysisPerformed = false;
@@ -66,9 +73,9 @@ export function ContextChat() {
         summaryLines.push("");
       } else {
         summaryLines.push("Okay, let's start refining your offer based on the initial context you provided.");
-        summaryLines.push(""); 
+        summaryLines.push("");
       }
-      
+
       let manualInputAdded = false;
       if (initialContext.currentOffer?.trim()) {
         summaryLines.push(`Current Offer: ${initialContext.currentOffer}`);
@@ -94,18 +101,18 @@ export function ContextChat() {
         const questionsText = await generateClarifyingQuestions(initialContext, websiteFindings);
         const parsedQuestions = parseQuestionsFromText(questionsText);
         console.log(`[ContextChat] Generated ${parsedQuestions.length} questions.`);
-        
+
         if (parsedQuestions.length > 0) {
           setTimeout(() => {
             addChatMessage({ sender: 'ai', content: parsedQuestions[0] });
-          }, 500); 
+          }, 500);
         } else {
           setTimeout(() => {
             addChatMessage({ sender: 'ai', content: "Where would you like to start refining your offer?" });
           }, 500);
         }
       } catch (error) {
-        console.error('[ContextChat] Error generating initial question:', error); 
+        console.error('[ContextChat] Error generating initial question:', error);
         setTimeout(() => {
           addChatMessage({ sender: 'ai', content: "What's the main goal of your offer?" });
         }, 500);
@@ -117,15 +124,15 @@ export function ContextChat() {
     getInitialQuestion();
 
   }, [isInitialLoad, websiteScraping.status, websiteUrl, initialContext]);
-  
+
   const parseQuestionsFromText = (text: string): string[] => {
     const numberedQuestionsRegex = /\d+\.\s+([^\d]+?)(?=\d+\.|$)/g;
     const matches = [...text.matchAll(numberedQuestionsRegex)];
-    
+
     if (matches.length > 0) {
       return matches.map(match => match[1].trim());
     }
-    
+
     return text.split('\n')
       .map(line => line.trim())
       .filter(line => line.length > 0 && line.endsWith('?'));
@@ -141,7 +148,7 @@ export function ContextChat() {
       }
     }
   }, [contextChat.messages, isOpen, isInitialLoad]);
-  
+
 
   const handleSendMessage = async () => {
     if (!currentInput.trim() || isProcessing) return;
@@ -154,44 +161,51 @@ export function ContextChat() {
       sender: 'user',
       content: userInput
     });
-    
-    setIsProcessing(true); 
+
+    setIsProcessing(true);
 
     try {
-      const currentFindings = 
-         useOfferStore.getState().websiteScraping.status === 'completed' && useOfferStore.getState().websiteScraping.coreOffer
+      // Get current store state
+      const store = useOfferStore.getState();
+
+      // Create website findings with better null/undefined handling
+      const currentFindings =
+         store.websiteScraping.status === 'completed'
          ? {
-             coreOffer: useOfferStore.getState().websiteScraping.coreOffer,
-             targetAudience: useOfferStore.getState().websiteScraping.targetAudience,
-             problemSolved: useOfferStore.getState().websiteScraping.keyProblem,
-             keyBenefits: Array.isArray(useOfferStore.getState().websiteScraping.keyFeatures)
-               ? useOfferStore.getState().websiteScraping.keyFeatures.map(feature =>
-                   typeof feature === 'string' ? feature : feature.benefit || ''
+             coreOffer: store.websiteScraping.coreOffer || '',
+             targetAudience: store.websiteScraping.targetAudience || '',
+             problemSolved: store.websiteScraping.keyProblem || '',
+             keyBenefits: Array.isArray(store.websiteScraping.keyFeatures)
+               ? store.websiteScraping.keyFeatures.map(feature =>
+                   typeof feature === 'string' ? feature : (feature?.benefit || '')
                  ).filter(Boolean)
                : [],
-             valueProposition: useOfferStore.getState().websiteScraping.valueProposition,
-             cta: null, tone: null, missingInfo: null 
+             valueProposition: store.websiteScraping.valueProposition || '',
+             cta: null, tone: null, missingInfo: null
            }
          : null;
 
+      // Log for debugging
+      console.log('handleSendMessage - currentFindings:', currentFindings);
+
       const response = await generateChatResponse(
-        useOfferStore.getState().contextChat.messages, 
-        useOfferStore.getState().initialContext, 
+        useOfferStore.getState().contextChat.messages,
+        useOfferStore.getState().initialContext,
         currentFindings
       );
-      
+
       addChatMessage({
         sender: 'ai',
         content: response
       });
-      
+
     } catch (error) {
       console.error('Error generating chat response:', error);
       addChatMessage({
         sender: 'ai',
         content: `Sorry, I encountered an error. Could you rephrase that?`
       });
-      
+
     } finally {
       setIsProcessing(false);
     }
@@ -236,19 +250,19 @@ export function ContextChat() {
             </button>
           </div>
 
-          <div 
+          <div
             ref={messagesEndRef}
             className="h-96 overflow-y-auto p-4 space-y-4 bg-[#1C1C1C]"
           >
             {contextChat.messages.map((message) => (
-              <div 
+              <div
                 key={message.id}
                 className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
               >
-                <div 
+                <div
                   className={`max-w-[85%] rounded-lg p-3 text-sm ${
-                    message.sender === 'user' 
-                      ? 'bg-[#FFD23F] text-[#1C1C1C]' 
+                    message.sender === 'user'
+                      ? 'bg-[#FFD23F] text-[#1C1C1C]'
                       : message.sender === 'ai'
                         ? 'bg-[#3A3A3A] text-white'
                         : 'bg-transparent text-gray-400 italic'

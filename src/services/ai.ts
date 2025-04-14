@@ -1,17 +1,18 @@
-import OpenAI from 'openai';
 import type { Feedback } from '../components/shared/FloatingFeedback';
 import type { Solution, Challenge, ModelType, Feature, UserLevel, SolutionType, IdealUser } from '../types';
+import { callOpenAI, handleOpenAIProxyRequest } from './openai-proxy';
 
-// Initialize OpenAI with the API key from environment variables
-const openai = new OpenAI({
-  apiKey: import.meta.env.VITE_OPENAI_API_KEY || 'default_key',
-  dangerouslyAllowBrowser: true
-});
-
-// Check if API key is available
-if (!import.meta.env.VITE_OPENAI_API_KEY) {
-  console.error('OpenAI API key is missing. Please add VITE_OPENAI_API_KEY to your environment variables.');
-}
+// Mock OpenAI client for compatibility with existing code
+const openai = {
+  chat: {
+    completions: {
+      create: async (params: any) => {
+        const response = await callOpenAI(params);
+        return response;
+      }
+    }
+  }
+};
 
 interface AnalysisResult {
   feedbacks: Array<{
@@ -157,9 +158,6 @@ export async function identifyIdealUser(
   traits: string[];
   impact: string;
 }> {
-  if (!import.meta.env.VITE_OPENAI_API_KEY) {
-    throw new Error('OpenAI API key is missing. Please add VITE_OPENAI_API_KEY to your environment variables.');
-  }
 
   return handleOpenAIRequest(
     openai.chat.completions.create({
@@ -199,11 +197,11 @@ Please provide the ideal user profile, key traits, and business impact.`
                 properties: {
                   title: { type: "string" },
                   description: { type: "string" },
-                  motivation: { 
+                  motivation: {
                     type: "string",
                     enum: ["Low", "Medium", "High"]
                   },
-                  ability: { 
+                  ability: {
                     type: "string",
                     enum: ["Low", "Medium", "High"]
                   }
@@ -242,9 +240,6 @@ export async function generateFromChat(
   intermediateOutcome?: string;
   advancedOutcome?: string;
 }> {
-  if (!import.meta.env.VITE_OPENAI_API_KEY) {
-    throw new Error('OpenAI API key is missing. Please add VITE_OPENAI_API_KEY to your environment variables.');
-  }
 
   return handleOpenAIRequest(
     openai.chat.completions.create({
@@ -319,9 +314,6 @@ Please generate the appropriate content based on these responses.`
 }
 
 export async function analyzeText(text: string, context: keyof typeof prompts): Promise<AnalysisResult> {
-  if (!import.meta.env.VITE_OPENAI_API_KEY) {
-    throw new Error('OpenAI API key is missing. Please add VITE_OPENAI_API_KEY to your environment variables.');
-  }
 
   const contextPrompt = prompts[context];
   if (!contextPrompt) {
@@ -333,8 +325,8 @@ export async function analyzeText(text: string, context: keyof typeof prompts): 
       model: "gpt-4o",
       messages: [
         contextPrompt,
-        { 
-          role: "user", 
+        {
+          role: "user",
           content: `Analyze this ${context}:\n\n${text}\n\nProvide detailed, specific feedback with concrete examples and improvements.`
         }
       ],
@@ -352,7 +344,7 @@ export async function analyzeText(text: string, context: keyof typeof prompts): 
                   properties: {
                     text: { type: "string" },
                     suggestion: { type: "string" },
-                    type: { 
+                    type: {
                       type: "string",
                       enum: ["improvement", "warning", "positive"]
                     },
@@ -443,9 +435,6 @@ export async function suggestChallenges(
   description: string;
   magnitude: number;
 }>> {
-  if (!import.meta.env.VITE_OPENAI_API_KEY) {
-    throw new Error('OpenAI API key is missing. Please add VITE_OPENAI_API_KEY to your environment variables.');
-  }
 
   return handleOpenAIRequest(
     openai.chat.completions.create({
@@ -490,7 +479,7 @@ Generate 3-5 specific challenges that ${level} users might face when trying to a
                   properties: {
                     title: { type: "string" },
                     description: { type: "string" },
-                    magnitude: { 
+                    magnitude: {
                       type: "number",
                       minimum: 1,
                       maximum: 5
@@ -527,9 +516,6 @@ export async function suggestSolutions(
     cost: 'low' | 'medium' | 'high';
   }>;
 }> {
-  if (!import.meta.env.VITE_OPENAI_API_KEY) {
-    throw new Error('OpenAI API key is missing. Please add VITE_OPENAI_API_KEY to your environment variables.');
-  }
 
   return handleOpenAIRequest(
     openai.chat.completions.create({
@@ -589,7 +575,7 @@ Generate 3-5 concise solutions across product features, resources/tools, and con
                   type: "object",
                   properties: {
                     text: { type: "string" },
-                    type: { 
+                    type: {
                       type: "string",
                       enum: ["product", "resource", "content"]
                     },
@@ -627,9 +613,6 @@ export async function suggestModel(
   reasoning: string;
   considerations: string[];
 }> {
-  if (!import.meta.env.VITE_OPENAI_API_KEY) {
-    throw new Error('OpenAI API key is missing. Please add VITE_OPENAI_API_KEY to your environment variables.');
-  }
 
   return handleOpenAIRequest(
     openai.chat.completions.create({
@@ -760,13 +743,10 @@ export async function suggestFeatures(
     polish: number;
   };
 }>> {
-  if (!import.meta.env.VITE_OPENAI_API_KEY) {
-    throw new Error('OpenAI API key is missing. Please add VITE_OPENAI_API_KEY to your environment variables.');
-  }
 
   // Get beginner-level challenges and their solutions
   const beginnerChallenges = challenges.filter(c => c.level === 'beginner');
-  const beginnerSolutions = solutions.filter(s => 
+  const beginnerSolutions = solutions.filter(s =>
     beginnerChallenges.some(c => c.id === s.challengeId)
   );
 
@@ -777,7 +757,7 @@ export async function suggestFeatures(
         {
           role: "system",
           content: `You are an expert product strategist. Based on the beginner user journey (outcome > challenges > solutions), suggest free features that will help users achieve their initial success. Keep all responses concise (2-3 sentences max).
-          
+
 Consider:
 - Features that directly address beginner challenges
 - Quick wins that deliver value in under 7 minutes
@@ -873,9 +853,6 @@ export async function suggestUserEndgame(
     director?: string;
   };
 }> {
-  if (!import.meta.env.VITE_OPENAI_API_KEY) {
-    throw new Error('OpenAI API key is missing. Please add VITE_OPENAI_API_KEY to your environment variables.');
-  }
 
   return handleOpenAIRequest(
     openai.chat.completions.create({
@@ -970,9 +947,6 @@ export async function getAnalysisResponse(
     };
   }
 ): Promise<string> {
-  if (!import.meta.env.VITE_OPENAI_API_KEY) {
-    throw new Error('OpenAI API key is missing. Please add VITE_OPENAI_API_KEY to your environment variables.');
-  }
 
   return handleOpenAIRequest(
     openai.chat.completions.create({
@@ -981,7 +955,7 @@ export async function getAnalysisResponse(
         {
           role: "system",
           content: `You are an expert product strategist assistant. Use the provided context to answer questions about the product's free model strategy. Keep responses concise and focused (2-3 sentences per point).
-          
+
 Your responses should:
 - Be specific and actionable
 - Reference relevant parts of the analysis
@@ -1105,15 +1079,12 @@ export async function analyzeFormData(
   };
   summary: string;
 }> {
-  if (!import.meta.env.VITE_OPENAI_API_KEY) {
-    throw new Error('OpenAI API key is missing. Please add VITE_OPENAI_API_KEY to your environment variables.');
-  }
 
   // Format the ideal user traits for the prompt
-  const idealUserTraits = Array.isArray(idealUser?.traits) 
-    ? idealUser.traits.join(', ') 
-    : typeof idealUser?.traits === 'string' 
-      ? idealUser.traits 
+  const idealUserTraits = Array.isArray(idealUser?.traits)
+    ? idealUser.traits.join(', ')
+    : typeof idealUser?.traits === 'string'
+      ? idealUser.traits
       : '';
 
   // Format challenges with levels
@@ -1347,7 +1318,7 @@ async function handleOpenAIRequest<T>(request: Promise<T>, errorContext: string)
     return await request;
   } catch (error) {
     console.error(`Error ${errorContext}:`, error);
-    
+
     if (error instanceof OpenAI.APIError) {
       switch (error.status) {
         case 401:
@@ -1360,7 +1331,7 @@ async function handleOpenAIRequest<T>(request: Promise<T>, errorContext: string)
           throw new Error(`OpenAI API error: ${error.message}`);
       }
     }
-    
+
     throw new Error(`Failed to ${errorContext}. Please try again.`);
   }
 }
