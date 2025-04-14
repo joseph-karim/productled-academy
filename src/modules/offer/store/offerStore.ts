@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import { generateUUID } from '../utils/uuid';
 import { WebsiteScrapingData, InitialContext, AISuggestion, ConversationalCheckpoint } from '../services/ai/types';
+import { InsightState, InsightCategory, InsightResult } from '../components/insights/types';
 import { scrapeWebsite, getScrapingResult } from '../services/webscraping';
 
 export interface ChatMessage {
@@ -41,28 +42,31 @@ export interface SectionCopy {
   body: string;
 }
 
-interface OfferStateData {
+export interface OfferStateData {
   title: string;
   websiteUrl: string;
   initialContext: InitialContext;
   websiteScraping: WebsiteScrapingData;
   contextChat: ContextChat;
-  
+
   coreOfferNucleus: CoreOfferNucleus;
   exclusivity: Exclusivity;
   bonuses: Bonus[];
-  
+
   coreOfferConfirmed: boolean;
   enhancersConfirmed: boolean;
   landingPageContentRefined: boolean;
   finalReviewCompleted: boolean;
-  
+
   refinedHeroCopy: SectionCopy;
   refinedProblemCopy: SectionCopy;
   refinedSolutionCopy: SectionCopy;
   refinedRiskReversalCopy: SectionCopy;
   refinedSocialProofNotes: string;
   refinedCtaCopy: SectionCopy;
+
+  // Insight panel state
+  insightState: InsightState;
 }
 
 export interface OfferState extends OfferStateData {
@@ -74,27 +78,44 @@ export interface OfferState extends OfferStateData {
   addChatMessage: (message: Omit<ChatMessage, 'id' | 'timestamp'>) => void;
   clearChatMessages: () => void;
   resetState: () => void;
-  
+
   setCoreOfferNucleus: (nucleus: CoreOfferNucleus) => void;
   setExclusivity: (exclusivity: Exclusivity) => void;
   addBonus: (bonus: Bonus) => void;
   removeBonus: (index: number) => void;
   setBonuses: (bonuses: Bonus[]) => void;
-  
+
   setCoreOfferConfirmed: (confirmed: boolean) => void;
   setEnhancersConfirmed: (confirmed: boolean) => void;
   setLandingPageContentRefined: (refined: boolean) => void;
   setFinalReviewCompleted: (completed: boolean) => void;
-  
+
   setRefinedHeroCopy: (copy: SectionCopy) => void;
   setRefinedProblemCopy: (copy: SectionCopy) => void;
   setRefinedSolutionCopy: (copy: SectionCopy) => void;
   setRefinedRiskReversalCopy: (copy: SectionCopy) => void;
   setRefinedSocialProofNotes: (notes: string) => void;
   setRefinedCtaCopy: (copy: SectionCopy) => void;
+
+  // Insight panel actions
+  setInsightCategory: (category: InsightCategory) => void;
+  setInsightResult: (result: InsightResult) => void;
+  completeInsights: () => void;
+  resetInsights: () => void;
 }
 
 const initialSectionCopy: SectionCopy = { headline: '', body: '' };
+const initialInsightState: InsightState = {
+  results: {
+    customer: null,
+    result: null,
+    better: null,
+    risk: null
+  },
+  currentCategory: 'customer',
+  isComplete: false
+};
+
 const initialState: OfferStateData = {
   title: 'Untitled Offer',
   websiteUrl: '',
@@ -142,13 +163,16 @@ const initialState: OfferStateData = {
   refinedRiskReversalCopy: { ...initialSectionCopy },
   refinedSocialProofNotes: '' as string,
   refinedCtaCopy: { ...initialSectionCopy },
+
+  // Insight panel state
+  insightState: initialInsightState
 };
 
 export const useOfferStore = create<OfferState>()(
   devtools(
     (set): OfferState => ({
       ...initialState,
-      
+
       setTitle: (title) => set({ title }),
       setWebsiteUrl: (url) => set({ websiteUrl: url }),
       setInitialContext: (field, value) => set((state) => ({ initialContext: { ...state.initialContext, [field]: value }})),
@@ -189,7 +213,7 @@ export const useOfferStore = create<OfferState>()(
       addChatMessage: (message) => set((state) => ({ contextChat: { ...state.contextChat, messages: [ ...state.contextChat.messages, { id: generateUUID(), timestamp: new Date(), ...message }], lastUpdated: new Date() }})),
       clearChatMessages: () => set({ contextChat: { messages: [], lastUpdated: null } }),
       resetState: () => set(initialState),
-      
+
       setCoreOfferNucleus: (nucleus) => set({ coreOfferNucleus: nucleus }),
       setExclusivity: (exclusivity) => set({ exclusivity: exclusivity }),
       addBonus: (bonus) => set((state) => ({ bonuses: [...state.bonuses, bonus] })),
@@ -205,6 +229,35 @@ export const useOfferStore = create<OfferState>()(
       setRefinedRiskReversalCopy: (copy) => set({ refinedRiskReversalCopy: copy }),
       setRefinedSocialProofNotes: (notes) => set({ refinedSocialProofNotes: notes }),
       setRefinedCtaCopy: (copy) => set({ refinedCtaCopy: copy }),
+
+      // Insight panel actions
+      setInsightCategory: (category) => set((state) => ({
+        insightState: {
+          ...state.insightState,
+          currentCategory: category
+        }
+      })),
+
+      setInsightResult: (result) => set((state) => ({
+        insightState: {
+          ...state.insightState,
+          results: {
+            ...state.insightState.results,
+            [result.category]: result
+          }
+        }
+      })),
+
+      completeInsights: () => set((state) => ({
+        insightState: {
+          ...state.insightState,
+          isComplete: true
+        }
+      })),
+
+      resetInsights: () => set((state) => ({
+        insightState: initialInsightState
+      })),
     }),
     { name: 'offer-store' }
   )
