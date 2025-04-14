@@ -5,7 +5,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { CheckCircle } from 'lucide-react';
+import { CheckCircle, Sparkles } from 'lucide-react';
+import { InsightButton } from './insights';
 
 interface DefineCoreOfferProps {
   modelData?: any;
@@ -13,11 +14,11 @@ interface DefineCoreOfferProps {
 }
 
 export function DefineCoreOffer({ readOnly = false }: DefineCoreOfferProps) {
-  const { 
-    coreOfferNucleus, 
-    setCoreOfferNucleus, 
-    coreOfferConfirmed, 
-    setCoreOfferConfirmed 
+  const {
+    coreOfferNucleus,
+    setCoreOfferNucleus,
+    coreOfferConfirmed,
+    setCoreOfferConfirmed
   } = useOfferStore();
 
   const [showCanvas, setShowCanvas] = useState(false);
@@ -27,7 +28,7 @@ export function DefineCoreOffer({ readOnly = false }: DefineCoreOfferProps) {
     setCoreOfferNucleus({ ...coreOfferNucleus, [field]: value });
   };
 
-  const allFieldsFilled = 
+  const allFieldsFilled =
     coreOfferNucleus.targetAudience.trim() !== '' &&
     coreOfferNucleus.desiredResult.trim() !== '' &&
     coreOfferNucleus.keyAdvantage.trim() !== '' &&
@@ -45,8 +46,15 @@ export function DefineCoreOffer({ readOnly = false }: DefineCoreOfferProps) {
     <div className="space-y-8">
       <Card className="bg-[#2A2A2A] border-[#333333] text-white">
         <CardHeader>
-          <CardTitle>Step 1: Define Your Core Offer Nucleus (R-A-R-A)</CardTitle>
-          <CardDescription className="text-gray-400">Capture the essential components of your offer.</CardDescription>
+          <div className="flex justify-between items-center">
+            <div>
+              <CardTitle>Step 1: Define Your Core Offer Nucleus (R-A-R-A)</CardTitle>
+              <CardDescription className="text-gray-400">Capture the essential components of your offer.</CardDescription>
+            </div>
+            {!readOnly && !coreOfferConfirmed && (
+              <InsightButton label="Get AI Insights" />
+            )}
+          </div>
         </CardHeader>
         <CardContent className="space-y-6">
           <div>
@@ -108,8 +116,8 @@ export function DefineCoreOffer({ readOnly = false }: DefineCoreOfferProps) {
           </div>
 
           {!coreOfferConfirmed && (
-            <Button 
-              onClick={() => setShowCanvas(true)} 
+            <Button
+              onClick={() => setShowCanvas(true)}
               disabled={!allFieldsFilled || readOnly}
               className="mt-4 bg-[#FFD23F] text-[#1C1C1C] hover:bg-opacity-90"
             >
@@ -148,8 +156,8 @@ export function DefineCoreOffer({ readOnly = false }: DefineCoreOfferProps) {
             </div>
 
             {!coreOfferConfirmed && (
-              <Button 
-                onClick={handleConfirm} 
+              <Button
+                onClick={handleConfirm}
                 disabled={!allFieldsFilled || readOnly}
                 className="mt-4 bg-[#FFD23F] text-[#1C1C1C] hover:bg-opacity-90"
               >
@@ -166,4 +174,4 @@ export function DefineCoreOffer({ readOnly = false }: DefineCoreOfferProps) {
       )}
     </div>
   );
-} 
+}

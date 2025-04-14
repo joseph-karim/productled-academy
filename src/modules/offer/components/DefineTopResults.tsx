@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useOfferStore } from '../store/offerStore';
-import { Loader2, Lightbulb } from 'lucide-react';
+import { Loader2, Lightbulb, Sparkles } from 'lucide-react';
+import { InsightButton } from './insights';
 
 export function DefineTopResults({ modelData, readOnly = false }: { modelData?: any; readOnly?: boolean }) {
   const { topResults, setTopResults, userSuccess, setProcessing } = useOfferStore();
@@ -63,15 +64,20 @@ export function DefineTopResults({ modelData, readOnly = false }: { modelData?: 
 
   return (
     <div className="space-y-8">
-      <div>
-        <h2 className="text-2xl font-bold text-white mb-4">Define Top Results</h2>
-        <p className="text-gray-300 mb-2">
-          Now that you've defined what success looks like for your users, let's break down the specific 
-          results they'll achieve with your product.
-        </p>
-        <p className="text-gray-300">
-          Compelling offers highlight three types of results: tangible, intangible, and improvement results.
-        </p>
+      <div className="flex justify-between items-start">
+        <div>
+          <h2 className="text-2xl font-bold text-white mb-4">Define Top Results</h2>
+          <p className="text-gray-300 mb-2">
+            Now that you've defined what success looks like for your users, let's break down the specific
+            results they'll achieve with your product.
+          </p>
+          <p className="text-gray-300">
+            Compelling offers highlight three types of results: tangible, intangible, and improvement results.
+          </p>
+        </div>
+        {!readOnly && (
+          <InsightButton label="Get Result Insights" />
+        )}
       </div>
 
       <div className="bg-[#222222] p-6 rounded-lg">
@@ -229,4 +235,4 @@ export function DefineTopResults({ modelData, readOnly = false }: { modelData?: 
       </div>
     </div>
   );
-} 
+}
