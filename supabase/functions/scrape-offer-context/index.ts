@@ -196,6 +196,7 @@ Extract and return a JSON object with these keys:
 - "problemSolved": The main pain points or challenges the offer claims to address.
 - "valueProposition": The core value proposition.
 - "keyBenefits": A list of benefits or features highlighted in the text (array).
+- "keyPhrases": Extract 3-5 exact phrases or sentences that best capture the core messaging of the offer.
 - "missingInfo": Crucial offer components that seem absent or unclear (array).
 
 If any information is not available, indicate this with "Not found" or similar phrasing.`

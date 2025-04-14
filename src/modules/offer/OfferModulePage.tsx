@@ -2,7 +2,6 @@ import React from 'react';
 import { useParams, useLocation, Link } from 'react-router-dom';
 import { MultiStepForm } from './components/MultiStepForm';
 import { AuthProvider } from '@/core/auth/AuthProvider';
-import { ContextChat } from './components/ContextChat';
 
 export function OfferModulePage() {
   const { id } = useParams();
@@ -51,13 +50,11 @@ function OfferModuleContent({ id }: { id?: string }) {
           </div>
         </div>
       )}
-      
-      <MultiStepForm 
-        analysisId={id} 
-        readOnly={Boolean(id && !isAppRoute)} 
-      />
 
-      <ContextChat />
+      <MultiStepForm
+        analysisId={id}
+        readOnly={Boolean(id && !isAppRoute)}
+      />
     </div>
   );
-} 
+}
