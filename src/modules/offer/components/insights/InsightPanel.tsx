@@ -10,13 +10,32 @@ interface InsightPanelProps {
 }
 
 export function InsightPanel({ onClose }: InsightPanelProps) {
-  const {
-    userSuccess,
-    topResults,
-    advantages,
-    risks,
-    coreOfferNucleus
-  } = useOfferStore();
+  // Initialize with empty state first to avoid undefined errors
+  const store = useOfferStore();
+
+  // Safely access store properties with fallbacks
+  const userSuccess = store?.userSuccess || { statement: '' };
+  const topResults = store?.topResults || { tangible: '', intangible: '', improvement: '' };
+  const advantages = store?.advantages || [];
+  const risks = store?.risks || [];
+  const coreOfferNucleus = store?.coreOfferNucleus || {
+    targetAudience: '',
+    desiredResult: '',
+    keyAdvantage: '',
+    biggestBarrier: '',
+    assurance: ''
+  };
+
+  // Log store state for debugging
+  useEffect(() => {
+    console.log('InsightPanel - Store state:', {
+      userSuccess: !!store?.userSuccess,
+      topResults: !!store?.topResults,
+      advantages: !!store?.advantages,
+      risks: !!store?.risks,
+      coreOfferNucleus: !!store?.coreOfferNucleus
+    });
+  }, [store]);
 
   const [activeCategory, setActiveCategory] = useState<InsightCategory>('customer');
   const [showFollowUp, setShowFollowUp] = useState(false);
@@ -26,22 +45,22 @@ export function InsightPanel({ onClose }: InsightPanelProps) {
   const [isLoadingOptions, setIsLoadingOptions] = useState(false);
   const [generatedOptions, setGeneratedOptions] = useState<Record<InsightCategory, string[]>>({} as Record<InsightCategory, string[]>);
 
-  // Generate default options for each category
+  // Generate default options for each category with null/undefined checks
   const defaultOptions = {
     customer: [
-      { id: 'a', text: userSuccess.statement || coreOfferNucleus.targetAudience },
+      { id: 'a', text: (userSuccess?.statement || coreOfferNucleus?.targetAudience || 'Define your ideal customer') },
       { id: 'b', text: 'Loading alternative...' }
     ],
     result: [
-      { id: 'a', text: topResults.tangible || coreOfferNucleus.desiredResult },
+      { id: 'a', text: (topResults?.tangible || coreOfferNucleus?.desiredResult || 'Define your top result') },
       { id: 'b', text: 'Loading alternative...' }
     ],
     better: [
-      { id: 'a', text: advantages[0]?.text || coreOfferNucleus.keyAdvantage },
+      { id: 'a', text: (advantages?.[0]?.text || coreOfferNucleus?.keyAdvantage || 'Define your key advantage') },
       { id: 'b', text: 'Loading alternative...' }
     ],
     risk: [
-      { id: 'a', text: risks[0]?.text || coreOfferNucleus.biggestBarrier },
+      { id: 'a', text: (risks?.[0]?.text || coreOfferNucleus?.biggestBarrier || 'Define your biggest barrier') },
       { id: 'b', text: 'Loading alternative...' }
     ]
   };
@@ -54,10 +73,10 @@ export function InsightPanel({ onClose }: InsightPanelProps) {
       setIsLoadingOptions(true);
       try {
         const currentValue =
-          activeCategory === 'customer' ? (userSuccess.statement || coreOfferNucleus.targetAudience) :
-          activeCategory === 'result' ? (topResults.tangible || coreOfferNucleus.desiredResult) :
-          activeCategory === 'better' ? (advantages[0]?.text || coreOfferNucleus.keyAdvantage) :
-          (risks[0]?.text || coreOfferNucleus.biggestBarrier);
+          activeCategory === 'customer' ? (userSuccess?.statement || coreOfferNucleus?.targetAudience || 'Define your ideal customer') :
+          activeCategory === 'result' ? (topResults?.tangible || coreOfferNucleus?.desiredResult || 'Define your top result') :
+          activeCategory === 'better' ? (advantages?.[0]?.text || coreOfferNucleus?.keyAdvantage || 'Define your key advantage') :
+          (risks?.[0]?.text || coreOfferNucleus?.biggestBarrier || 'Define your biggest barrier');
 
         const options = await generateInsightOptions(
           activeCategory,
