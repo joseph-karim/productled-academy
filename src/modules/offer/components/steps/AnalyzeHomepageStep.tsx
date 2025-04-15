@@ -34,8 +34,17 @@ export function AnalyzeHomepageStep({ readOnly = false }: { readOnly?: boolean }
               missingInfo: []
           };
       }
-      return null;
-  }) as WebsiteFindings | null;
+      // Return empty findings instead of null so chat can work without scraping
+      return {
+          coreOffer: '',
+          targetAudience: '',
+          problemSolved: '',
+          valueProposition: '',
+          keyBenefits: [],
+          keyPhrases: [],
+          missingInfo: ['No website analysis available']
+      };
+  }) as WebsiteFindings;
 
   // Local state for this step
   const [isValidUrl, setIsValidUrl] = useState(false);
@@ -177,17 +186,49 @@ export function AnalyzeHomepageStep({ readOnly = false }: { readOnly?: boolean }
 
         {/* Status Display */}
         {isProcessing && <p className="text-sm text-[#FFD23F] mt-2">Analyzing your website. This may take a minute...</p>}
-        {isCompleted && !showChat && (
-             <div className="text-green-500 text-sm mt-2">
-                <span>Website analysis complete.</span>
-                {!readOnly && <button onClick={() => setShowChat(true)} className="text-blue-500 hover:underline">Start AI Chat</button>}
+        {isCompleted && (
+             <div className="mt-2">
+                <div className="text-green-500 text-sm mb-2">Website analysis complete!</div>
+                {!readOnly && (
+                  <button
+                    onClick={() => setShowChat(true)}
+                    className="w-full py-3 bg-[#FFD23F] text-black font-medium rounded-lg hover:bg-[#FFE066] flex items-center justify-center">
+                    <MessageSquare className="w-5 h-5 mr-2" />
+                    <span className="text-lg">Launch AI Assistant</span>
+                  </button>
+                )}
              </div>
          )}
-        {isFailed && <div className="mt-2 p-3 bg-red-900 border border-red-700 rounded-md text-red-200 text-sm">Failed to analyze website: {scrapingError || 'Unknown error'}</div>}
+        {isFailed && (
+          <div className="mt-2">
+            <div className="p-3 bg-red-900 border border-red-700 rounded-md text-red-200 text-sm mb-3">Failed to analyze website: {scrapingError || 'Unknown error'}</div>
+            {!readOnly && (
+              <button
+                onClick={() => setShowChat(true)}
+                className="w-full py-3 bg-[#FFD23F] text-black font-medium rounded-lg hover:bg-[#FFE066] flex items-center justify-center">
+                <MessageSquare className="w-5 h-5 mr-2" />
+                <span className="text-lg">Continue with AI Assistant</span>
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Always available AI Assistant button */}
+        {!isProcessing && !isCompleted && !isFailed && !readOnly && (
+          <div className="mt-4">
+            <button
+              onClick={() => setShowChat(true)}
+              className="w-full py-3 bg-[#FFD23F] text-black font-medium rounded-lg hover:bg-[#FFE066] flex items-center justify-center">
+              <MessageSquare className="w-5 h-5 mr-2" />
+              <span className="text-lg">Get AI Assistance</span>
+            </button>
+            <p className="text-xs text-gray-400 mt-1 text-center">You can get AI help even without analyzing a website</p>
+          </div>
+        )}
       </div>
 
       {/* DIRECT FIX: Simplified conditional rendering of ContextChat */}
-      {(showChat || isCompleted) && !readOnly && (
+      {showChat && !readOnly && (
         <div className="mt-6 bg-[#222222] p-6 rounded-lg space-y-4">
            <h3 className="text-xl font-semibold text-white mb-3">Refine Your Offer with AI</h3>
            {!coreOffer && <p className="text-yellow-500 mb-3">Note: Some offer details may be missing from the analysis.</p>}

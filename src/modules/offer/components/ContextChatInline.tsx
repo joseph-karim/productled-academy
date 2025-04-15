@@ -97,17 +97,35 @@ export function ContextChatInline({
     setShowSuggestions(false);
 
     try {
-      // Generate suggestions based on the field and website findings
-      const fieldSuggestions = await generateSuggestions(field, initialContext, websiteFindings);
+      // Check if we have website findings to use
+      if (websiteFindings && websiteScrapingStatus === 'completed' && websiteFindings.coreOffer) {
+        // Generate suggestions based on the field and website findings
+        const fieldSuggestions = await generateSuggestions(field, initialContext, websiteFindings);
 
-      // Format suggestions
-      const formattedSuggestions = fieldSuggestions.map(text => ({
-        text,
-        field
-      }));
+        // Format suggestions
+        const formattedSuggestions = fieldSuggestions.map(text => ({
+          text,
+          field
+        }));
 
-      setSuggestions(formattedSuggestions);
-      setShowSuggestions(true);
+        setSuggestions(formattedSuggestions);
+        setShowSuggestions(true);
+      } else {
+        // If no website findings, use initial context and fallback suggestions
+        console.log('No website findings available, using fallback suggestions');
+
+        // Try to generate suggestions with just initial context
+        const fieldSuggestions = await generateSuggestions(field, initialContext, null);
+
+        // Format suggestions
+        const formattedSuggestions = fieldSuggestions.map(text => ({
+          text,
+          field
+        }));
+
+        setSuggestions(formattedSuggestions);
+        setShowSuggestions(true);
+      }
     } catch (error) {
       console.error(`Error generating suggestions for ${field}:`, error);
       addChatMessage({
@@ -196,7 +214,7 @@ export function ContextChatInline({
           // Create a welcome message that includes website findings
           let welcomeMessage = '';
 
-          if (websiteFindings) {
+          if (websiteFindings && websiteFindings.coreOffer && websiteScrapingStatus === 'completed') {
             welcomeMessage = `I've analyzed ${websiteUrl || 'your website'} and found some insights to help build your offer. Let's work on refining your core offer step by step.\n\nHere's what I found:\n`;
 
             // Safely extract string values from findings
@@ -211,8 +229,10 @@ export function ContextChatInline({
             welcomeMessage += `• Value Proposition: ${valueProposition}\n`;
 
             welcomeMessage += `\nNow, let's define your ${fieldDisplayNames[firstField]}. Based on the analysis, here are some suggestions:`;
+          } else if (websiteScrapingStatus === 'failed') {
+            welcomeMessage = `I notice there was an issue analyzing your website, but we can still create a great offer together. Let's start with your ${fieldDisplayNames[firstField]}. Who is your offer specifically designed for?`;
           } else {
-            welcomeMessage = `Let me help you define your core offer elements. Let's start with your ${fieldDisplayNames[firstField]}. Who is your offer specifically designed for?`;
+            welcomeMessage = `I'm here to help you create a compelling offer. Let's work through each element step by step, starting with your ${fieldDisplayNames[firstField]}. Who is your offer specifically designed for?`;
           }
 
           // Add the welcome message
