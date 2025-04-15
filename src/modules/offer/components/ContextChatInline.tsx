@@ -97,6 +97,28 @@ export function ContextChatInline({
     setShowSuggestions(false);
 
     try {
+      // Always use fallback suggestions due to OpenAI proxy issues
+      console.log('Using fallback suggestions for', field);
+
+      // Add some default suggestions as fallback
+      const fallbackSuggestions = getFallbackSuggestions(field);
+      const formattedSuggestions = fallbackSuggestions.map(text => ({
+        text,
+        field
+      }));
+
+      setSuggestions(formattedSuggestions);
+      setShowSuggestions(true);
+
+      // Add a message to the chat
+      if (contextChat.messages.length <= 2) {
+        addChatMessage({
+          sender: 'ai',
+          content: `Here are some suggestions for ${fieldDisplayNames[field]}. You can select one or type your own.`
+        });
+      }
+
+      /* Temporarily disabled due to OpenAI proxy issues
       // Check if we have website findings to use
       if (websiteFindings && websiteScrapingStatus === 'completed' && websiteFindings.coreOffer) {
         // Generate suggestions based on the field and website findings
@@ -126,11 +148,12 @@ export function ContextChatInline({
         setSuggestions(formattedSuggestions);
         setShowSuggestions(true);
       }
+      */
     } catch (error) {
       console.error(`Error generating suggestions for ${field}:`, error);
       addChatMessage({
         sender: 'ai',
-        content: `I'm having trouble generating suggestions for ${fieldDisplayNames[field]}. Could you provide your own?`
+        content: `I'm having trouble connecting to the AI service. Here are some standard suggestions for ${fieldDisplayNames[field]}.`
       });
 
       // Add some default suggestions as fallback
@@ -195,10 +218,13 @@ export function ContextChatInline({
     });
 
     // Force initialization when website findings are available
-    if (websiteScrapingStatus === 'completed' && websiteFindings) {
+    if (websiteScrapingStatus === 'completed' && websiteFindings && !isInitialLoad) {
       console.log('Forcing chat initialization due to completed scraping');
-      clearChatMessages();
-      setIsInitialLoad(true);
+      // Use setTimeout to avoid state updates during rendering
+      setTimeout(() => {
+        clearChatMessages();
+        setIsInitialLoad(true);
+      }, 0);
     }
 
     if (isInitialLoad && contextChat.messages.length === 0) {
@@ -206,7 +232,7 @@ export function ContextChatInline({
       const firstField: Suggestion['field'] = 'targetAudience';
       setCurrentField(firstField);
 
-      // Generate initial message and suggestions
+      // Generate initial message and suggestions without API calls
       const startConversation = async () => {
         setIsProcessing(true);
 
@@ -228,7 +254,7 @@ export function ContextChatInline({
             welcomeMessage += `• Problem Solved: ${problemSolved}\n`;
             welcomeMessage += `• Value Proposition: ${valueProposition}\n`;
 
-            welcomeMessage += `\nNow, let's define your ${fieldDisplayNames[firstField]}. Based on the analysis, here are some suggestions:`;
+            welcomeMessage += `\nNow, let's define your ${fieldDisplayNames[firstField]}. I'll provide some suggestions to help you get started.`;
           } else if (websiteScrapingStatus === 'failed') {
             welcomeMessage = `I notice there was an issue analyzing your website, but we can still create a great offer together. Let's start with your ${fieldDisplayNames[firstField]}. Who is your offer specifically designed for?`;
           } else {
@@ -241,15 +267,26 @@ export function ContextChatInline({
             content: welcomeMessage
           });
 
-          // Generate suggestions for the first field
-          await generateFieldSuggestions(firstField);
+          // Generate suggestions for the first field using fallbacks
+          // This avoids making API calls that might fail
+          setTimeout(() => {
+            const fallbackSuggestions = getFallbackSuggestions(firstField);
+            const formattedSuggestions = fallbackSuggestions.map(text => ({
+              text,
+              field: firstField
+            }));
+
+            setSuggestions(formattedSuggestions);
+            setShowSuggestions(true);
+            setIsProcessing(false);
+            setIsInitialLoad(false);
+          }, 500);
         } catch (error) {
           console.error('[ContextChatInline] Error starting conversation:', error);
           addChatMessage({
             sender: 'ai',
             content: `Let's start by defining your Target Audience. Who is your offer specifically designed for?`
           });
-        } finally {
           setIsProcessing(false);
           setIsInitialLoad(false);
         }
