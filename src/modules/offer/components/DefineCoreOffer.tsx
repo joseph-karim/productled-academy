@@ -6,7 +6,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { CheckCircle, Sparkles } from 'lucide-react';
-import { InsightButton } from './insights';
 
 interface DefineCoreOfferProps {
   modelData?: any;
@@ -51,9 +50,7 @@ export function DefineCoreOffer({ readOnly = false }: DefineCoreOfferProps) {
               <CardTitle>Step 1: Define Your Core Offer Nucleus (R-A-R-A)</CardTitle>
               <CardDescription className="text-gray-400">Capture the essential components of your offer.</CardDescription>
             </div>
-            {!readOnly && !coreOfferConfirmed && (
-              <InsightButton label="Get AI Insights" />
-            )}
+
           </div>
         </CardHeader>
         <CardContent className="space-y-6">

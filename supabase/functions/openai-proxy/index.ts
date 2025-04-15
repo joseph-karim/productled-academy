@@ -4,72 +4,57 @@ import { OpenAI } from 'https://esm.sh/openai@4.28.0';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
   'Access-Control-Max-Age': '86400',
 };
 
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { 
+    return new Response('ok', {
       headers: corsHeaders,
       status: 200
     });
   }
 
   try {
-    const { model, messages, function_call, response_format } = await req.json();
-    
-    if (!model || !messages || !Array.isArray(messages)) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid request parameters. Required: model, messages (array)' }),
-        { headers: { 'Content-Type': 'application/json', ...corsHeaders }, status: 400 }
-      );
-    }
-    
+    // Get the OpenAI API key from environment variables
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
-    
+
     if (!openaiApiKey) {
       return new Response(
         JSON.stringify({ error: 'OpenAI API key not configured on the server' }),
         { headers: { 'Content-Type': 'application/json', ...corsHeaders }, status: 500 }
       );
     }
-    
+
+    // Initialize OpenAI client
     const openai = new OpenAI({ apiKey: openaiApiKey });
-    
-    // Prepare the request parameters
-    const requestParams: any = {
-      model,
-      messages
-    };
-    
-    // Add optional parameters if provided
-    if (function_call) {
-      requestParams.function_call = function_call;
-    }
-    
-    if (response_format) {
-      requestParams.response_format = response_format;
-    }
-    
-    // Make the OpenAI API call
-    const completion = await openai.chat.completions.create(requestParams);
-    
+
+    // Parse the request body
+    const requestData = await req.json();
+
+    // Call OpenAI API
+    const completion = await openai.chat.completions.create({
+      model: requestData.model || 'gpt-4o',
+      messages: requestData.messages,
+      temperature: requestData.temperature,
+      max_tokens: requestData.max_tokens,
+      function_call: requestData.function_call,
+      response_format: requestData.response_format
+    });
+
     // Return the response
     return new Response(
       JSON.stringify(completion),
-      { headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      { headers: { 'Content-Type': 'application/json', ...corsHeaders }, status: 200 }
     );
-    
+
   } catch (error) {
-    console.error('Error processing OpenAI request:', error);
-    
+    console.error('Error:', error);
+
     return new Response(
-      JSON.stringify({ 
-        error: 'Error processing OpenAI request',
-        message: error.message || 'Unknown error'
-      }),
+      JSON.stringify({ error: error.message }),
       { headers: { 'Content-Type': 'application/json', ...corsHeaders }, status: 500 }
     );
   }

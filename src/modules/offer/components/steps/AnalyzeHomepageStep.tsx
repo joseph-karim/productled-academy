@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Loader2, RefreshCw } from 'lucide-react';
 import { useOfferStore } from '../../store/offerStore';
-import { ContextChat } from '../ContextChat';
+import { ContextChatInline } from '../ContextChatInline';
 import { InitialContext } from '../../services/ai/types';
 import { WebsiteFindings } from '../../services/ai/contextChat';
 // Re-implementing based on the working logic from the old ContextGatheringForm (commit 3a7ca06)
@@ -18,7 +18,7 @@ export function AnalyzeHomepageStep({ readOnly = false }: { readOnly?: boolean }
   const coreOffer = useOfferStore((state) => state.websiteScraping.coreOffer);
   const scrapingError = useOfferStore((state) => state.websiteScraping.error);
   const initialContext = useOfferStore((state) => state.initialContext);
-  
+
   // Prepare websiteFindings prop for ContextChat
   const websiteFindings = useOfferStore((state) => {
       if (state.websiteScraping.status === 'completed') {
@@ -29,8 +29,8 @@ export function AnalyzeHomepageStep({ readOnly = false }: { readOnly?: boolean }
 
   // Local state for this step
   const [isValidUrl, setIsValidUrl] = useState(false);
-  const [showChat, setShowChat] = useState(false); 
-  const [isRefreshing, setIsRefreshing] = useState(false); 
+  const [showChat, setShowChat] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // URL Validation Effect
   useEffect(() => {
@@ -48,7 +48,7 @@ export function AnalyzeHomepageStep({ readOnly = false }: { readOnly?: boolean }
 
   // Start/Re-Analyze Handler
   const handleStartScraping = async () => {
-    setShowChat(false); 
+    setShowChat(false);
     setIsRefreshing(false);
     let urlToScrape = websiteUrl;
     if (websiteUrl && websiteUrl.length > 0 && !websiteUrl.match(/^https?:\/\//i)) {
@@ -60,13 +60,13 @@ export function AnalyzeHomepageStep({ readOnly = false }: { readOnly?: boolean }
       console.warn("Attempted to scrape invalid URL:", urlToScrape);
     }
   };
-  
+
   // Manual Status Refresh Handler
   const handleRefreshStatus = async () => {
     if (!scrapingId || isRefreshing) return;
     setIsRefreshing(true);
     try {
-        await checkScrapingStatus(scrapingId); 
+        await checkScrapingStatus(scrapingId);
     } catch (err) {
         console.error("Error refreshing status:", err);
     } finally {
@@ -91,19 +91,19 @@ export function AnalyzeHomepageStep({ readOnly = false }: { readOnly?: boolean }
       {/* URL Input & Actions Section */}
       <div className="bg-[#222222] p-6 rounded-lg space-y-4">
         <label htmlFor="websiteUrlInput" className="block text-sm font-medium text-gray-300">Website URL</label>
-        <div className="flex space-x-2 items-start"> 
+        <div className="flex space-x-2 items-start">
           <input
             id="websiteUrlInput" type="url" value={websiteUrl || ''}
             onChange={handleUrlChange} placeholder="https://yourwebsite.com"
             disabled={isProcessing || readOnly}
-            className="flex-1 p-3 bg-[#1A1A1A] text-white border border-[#333333] rounded-lg placeholder-gray-500 focus:border-[#FFD23F] focus:outline-none disabled:opacity-70" 
+            className="flex-1 p-3 bg-[#1A1A1A] text-white border border-[#333333] rounded-lg placeholder-gray-500 focus:border-[#FFD23F] focus:outline-none disabled:opacity-70"
           />
-          <div className="flex flex-col space-y-2"> 
+          <div className="flex flex-col space-y-2">
             {/* Analyze / Re-Analyze Button */}
             <button onClick={handleStartScraping} disabled={!isValidUrl || isProcessing || readOnly} className="flex items-center justify-center px-4 py-2 bg-[#333333] text-white rounded-lg hover:bg-[#444444] disabled:opacity-50">
               {isProcessing ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Analyzing...</> : isCompleted ? 'Re-Analyze' : 'Analyze'}
             </button>
-            {/* Manual Refresh Button */} 
+            {/* Manual Refresh Button */}
             {isProcessing && !readOnly && (
                  <button onClick={handleRefreshStatus} disabled={isRefreshing} className="px-4 py-2 bg-[#333333] text-white rounded-lg hover:bg-[#444444] disabled:opacity-50">
                    <RefreshCw className={`w-3 h-3 mr-1 ${isRefreshing ? 'animate-spin' : ''}`} /> Refresh Status
@@ -111,7 +111,7 @@ export function AnalyzeHomepageStep({ readOnly = false }: { readOnly?: boolean }
             )}
           </div>
         </div>
-        
+
         {/* Status Display */}
         {isProcessing && <p className="text-sm text-[#FFD23F] mt-2">Analyzing your website. This may take a minute...</p>}
         {isCompleted && !showChat && (
@@ -123,17 +123,16 @@ export function AnalyzeHomepageStep({ readOnly = false }: { readOnly?: boolean }
         {isFailed && <div className="mt-2 p-3 bg-red-900 border border-red-700 rounded-md text-red-200 text-sm">Failed to analyze website: {scrapingError || 'Unknown error'}</div>}
       </div>
 
-      {/* Conditionally render ContextChat */} 
+      {/* Conditionally render ContextChat */}
       {showChat && isCompleted && !readOnly && (
         <div className="mt-6 bg-[#222222] p-6 rounded-lg space-y-4">
            <h3 className="text-xl font-semibold text-white mb-3">Refine Your Offer with AI</h3>
            {!coreOffer && <p className="text-yellow-500 mb-3">Note: Some offer details may be missing from the analysis.</p>}
-           <ContextChat
+           <ContextChatInline
              websiteUrl={websiteUrl}
              initialContext={initialContext}
-             websiteScrapingStatus={scrapingStatus} 
-             websiteFindings={websiteFindings} 
-             onComplete={() => { setShowChat(false); }}
+             websiteScrapingStatus={scrapingStatus}
+             websiteFindings={websiteFindings}
            />
         </div>
       )}

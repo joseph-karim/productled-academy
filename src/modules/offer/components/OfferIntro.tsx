@@ -2,32 +2,32 @@ import { useState, useEffect } from 'react';
 import { useOfferStore } from '../store/offerStore';
 import { MessageSquare } from 'lucide-react';
 import { ContextGatheringForm } from './ContextGatheringForm';
-import { ContextChat } from './ContextChat';
+import { ContextChatInline } from './ContextChatInline';
 import { MultiStepForm } from './MultiStepForm';
 
 export function OfferIntro() {
-  const { 
+  const {
     websiteScraping,
     websiteUrl,
     resetState
   } = useOfferStore();
   const [currentView, setCurrentView] = useState<'contextGathering' | 'contextChat' | 'offerBuilder'>('contextGathering');
-  
+
   useEffect(() => {
     // Decide if a reset is needed, e.g., reset only if starting fresh
-    // resetState(); 
+    // resetState();
   }, []);
-  
+
   useEffect(() => {
     if (websiteScraping.status === 'completed' && currentView === 'contextGathering') {
       setCurrentView('contextChat');
     }
   }, [websiteScraping.status, currentView]);
-  
+
   const handleChatComplete = () => {
     setCurrentView('offerBuilder');
   };
-  
+
   return (
     <div className="space-y-8">
       {currentView === 'contextGathering' && (
@@ -49,11 +49,27 @@ export function OfferIntro() {
           <ContextGatheringForm onNext={() => setCurrentView('contextChat')} />
         </>
       )}
-      
+
       {currentView === 'contextChat' && (
-        <ContextChat onComplete={handleChatComplete} />
+        <div className="bg-[#222222] p-6 rounded-lg space-y-4">
+          <h3 className="text-xl font-semibold text-white mb-3">Refine Your Offer with AI</h3>
+          <ContextChatInline
+            websiteUrl={websiteUrl}
+            initialContext={useOfferStore.getState().initialContext}
+            websiteScrapingStatus={websiteScraping.status}
+            websiteFindings={null}
+          />
+          <div className="mt-4">
+            <button
+              onClick={handleChatComplete}
+              className="px-4 py-2 bg-[#FFD23F] text-[#1C1C1C] rounded-lg hover:bg-[#FFD23F]/90 transition-colors"
+            >
+              Continue to Offer Builder
+            </button>
+          </div>
+        </div>
       )}
-      
+
       {currentView === 'offerBuilder' && (
         <MultiStepForm />
       )}

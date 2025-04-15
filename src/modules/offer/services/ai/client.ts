@@ -5,8 +5,12 @@ export const openai = {
   chat: {
     completions: {
       create: async (params: any) => {
-        const response = await callOpenAI(params);
-        return response;
+        try {
+          return await callOpenAI(params);
+        } catch (error) {
+          console.error('Error calling OpenAI proxy:', error);
+          throw error;
+        }
       }
     }
   }
