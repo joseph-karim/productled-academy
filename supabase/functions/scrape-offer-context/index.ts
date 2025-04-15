@@ -297,6 +297,8 @@ Return a JSON object with these keys:
 - "valueProposition": Core value proposition
 - "keyBenefits": List of 3 main benefits (array)
 - "keyPhrases": 2-3 key phrases from the content (array)
+- "onboardingSteps": List of 3-5 steps users need to take to get value from the product (array of objects with "description" and "timeEstimate" fields)
+- "competitiveAdvantages": List of 2-3 competitive advantages (array)
 
 Keep it concise. Use "Not found" if information is missing.`
                   }

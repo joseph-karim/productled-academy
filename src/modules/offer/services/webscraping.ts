@@ -37,6 +37,10 @@ export interface WebsiteScrapingResult {
       missingInfo: string[];
       keyPhrases?: string[];
       competitiveAdvantages?: string[];
+      onboardingSteps?: Array<{
+        description: string;
+        timeEstimate: string;
+      }>;
     } | null;
     scraped_at: string;
   };

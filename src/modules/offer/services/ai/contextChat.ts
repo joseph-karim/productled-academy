@@ -11,6 +11,11 @@ export interface WebsiteFindings {
   problemSolved: string | null;
   keyBenefits: string[] | null;
   valueProposition: string | null;
+  keyPhrases?: string[] | null;
+  onboardingSteps?: Array<{
+    description: string;
+    timeEstimate: string;
+  }> | null;
   cta: string | null;
   tone: string | null;
   missingInfo: string[] | null;
@@ -50,6 +55,9 @@ ${websiteFindings ? `
 - Problem Solved: ${websiteFindings.problemSolved || 'Not found'}
 - Value Proposition: ${websiteFindings.valueProposition || 'Not found'}
 - Key Benefits: ${websiteFindings.keyBenefits?.join(', ') || 'None found'}
+${websiteFindings.onboardingSteps && websiteFindings.onboardingSteps.length > 0 ? `
+- Onboarding Steps:
+${websiteFindings.onboardingSteps.map((step, index) => `  ${index + 1}. ${step.description} (${step.timeEstimate})`).join('\n')}` : ''}
 - Missing Information: ${websiteFindings.missingInfo?.join(', ') || 'None identified'}
 ` : 'No website analysis available.'}
 
@@ -104,6 +112,9 @@ ${websiteFindings ? `Website Analysis Findings:
 - Problem Solved: ${websiteFindings.problemSolved || 'Not found'}
 - Value Proposition: ${websiteFindings.valueProposition || 'Not found'}
 - Key Benefits: ${websiteFindings.keyBenefits?.join(', ') || 'None found'}
+${websiteFindings.onboardingSteps && websiteFindings.onboardingSteps.length > 0 ? `
+- Onboarding Steps:
+${websiteFindings.onboardingSteps.map((step, index) => `  ${index + 1}. ${step.description} (${step.timeEstimate})`).join('\n')}` : ''}
 - Missing Information: ${websiteFindings.missingInfo?.join(', ') || 'None identified'}
 ` : 'No website analysis available.'}
 
@@ -111,7 +122,8 @@ Your goal is to help the user refine their offer by:
 1. Identifying strengths and weaknesses in their current offer
 2. Suggesting specific improvements to make the offer more compelling
 3. Helping them clarify their value proposition and target audience
-4. Providing actionable advice they can implement immediately
+4. Providing guidance on effective onboarding steps to help users get value quickly
+5. Providing actionable advice they can implement immediately
 
 Be conversational, supportive, and specific in your advice. Focus on helping them create an irresistible offer that converts.`
   };

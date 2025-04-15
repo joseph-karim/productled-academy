@@ -216,7 +216,19 @@ export const useOfferStore = create<OfferState>()(
 
               // DIRECT FIX: Create a custom event when scraping completes
               console.log('DIRECT FIX: Scraping completed, dispatching custom event');
-              set({ websiteScraping: { scrapingId, status: 'completed', coreOffer: findings.coreOffer || '', targetAudience: findings.targetAudience || '', keyProblem: findings.problemSolved || '', valueProposition: findings.valueProposition || '', keyFeatures: processedKeyFeatures, keyPhrases: findings.keyPhrases || [], competitiveAdvantages: findings.competitiveAdvantages || [], error: null }});
+              set({ websiteScraping: {
+                scrapingId,
+                status: 'completed',
+                coreOffer: findings.coreOffer || '',
+                targetAudience: findings.targetAudience || '',
+                keyProblem: findings.problemSolved || '',
+                valueProposition: findings.valueProposition || '',
+                keyFeatures: processedKeyFeatures,
+                keyPhrases: findings.keyPhrases || [],
+                competitiveAdvantages: findings.competitiveAdvantages || [],
+                onboardingSteps: findings.onboardingSteps || [],
+                error: null
+              }});
 
               // Dispatch a custom event that can be listened for in components
               if (typeof window !== 'undefined') {

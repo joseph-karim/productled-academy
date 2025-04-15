@@ -115,6 +115,10 @@ export interface WebsiteScrapingData {
   }>;
   keyPhrases?: string[];
   competitiveAdvantages?: string[];
+  onboardingSteps?: Array<{
+    description: string;
+    timeEstimate: string;
+  }>;
   error: string | null;
 }
 

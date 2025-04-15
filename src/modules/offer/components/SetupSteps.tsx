@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useOfferStore } from '../store/offerStore';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -20,10 +20,10 @@ interface OnboardingStep {
 }
 
 export function SetupSteps({ readOnly = false }: SetupStepsProps) {
-  const { 
-    onboardingSteps = [], 
-    addOnboardingStep, 
-    removeOnboardingStep, 
+  const {
+    onboardingSteps = [],
+    addOnboardingStep,
+    removeOnboardingStep,
     updateOnboardingStep,
     setOnboardingStepsConfirmed,
     onboardingStepsConfirmed,
@@ -37,17 +37,17 @@ export function SetupSteps({ readOnly = false }: SetupStepsProps) {
 
   const handleAddStep = () => {
     if (readOnly || !currentStepDescription.trim()) return;
-    
-    addOnboardingStep({ 
-      id: crypto.randomUUID(), 
-      description: currentStepDescription.trim(), 
+
+    addOnboardingStep({
+      id: crypto.randomUUID(),
+      description: currentStepDescription.trim(),
       timeEstimate: currentStepTimeEstimate.trim() || 'N/A'
     });
-    
+
     setCurrentStepDescription('');
     setCurrentStepTimeEstimate('');
   };
-  
+
   const handleUpdateStep = (index: number, field: 'description' | 'timeEstimate', value: string) => {
     if (readOnly) return;
     const updatedSteps = [...onboardingSteps];
@@ -78,6 +78,7 @@ export function SetupSteps({ readOnly = false }: SetupStepsProps) {
         valueProposition: state.websiteScraping.valueProposition || '',
         keyBenefits: Array.isArray(state.websiteScraping.keyFeatures) ? state.websiteScraping.keyFeatures : [],
         keyPhrases: Array.isArray(state.websiteScraping.keyPhrases) ? state.websiteScraping.keyPhrases : [],
+        onboardingSteps: Array.isArray(state.websiteScraping.onboardingSteps) ? state.websiteScraping.onboardingSteps : [],
         missingInfo: []
       };
     }
@@ -88,9 +89,35 @@ export function SetupSteps({ readOnly = false }: SetupStepsProps) {
       valueProposition: '',
       keyBenefits: [],
       keyPhrases: [],
+      onboardingSteps: [],
       missingInfo: ['No website analysis available']
     };
   });
+
+  // Use onboarding steps from website scraping if available and no steps have been added yet
+  useEffect(() => {
+    if (
+      websiteFindings &&
+      websiteFindings.onboardingSteps &&
+      websiteFindings.onboardingSteps.length > 0 &&
+      onboardingSteps.length === 0 &&
+      !onboardingStepsConfirmed &&
+      !readOnly
+    ) {
+      // Convert the scraped onboarding steps to the format expected by the store
+      const formattedSteps = websiteFindings.onboardingSteps.map(step => ({
+        id: crypto.randomUUID(),
+        description: step.description,
+        timeEstimate: step.timeEstimate || 'N/A'
+      }));
+
+      // Update the store with the scraped onboarding steps
+      updateOnboardingStep(formattedSteps);
+
+      // Show a notification or message that steps were imported from the website
+      console.log('Imported onboarding steps from website analysis');
+    }
+  }, [websiteFindings, onboardingSteps.length, onboardingStepsConfirmed, readOnly, updateOnboardingStep]);
 
   return (
     <div className="space-y-8">
@@ -106,13 +133,13 @@ export function SetupSteps({ readOnly = false }: SetupStepsProps) {
           </Button>
         </div>
       )}
-      
+
       {/* AI Chat Assistant */}
       {showChat && !readOnly && (
         <div className="mb-6 bg-[#222222] p-6 rounded-lg space-y-4">
           <div className="flex justify-between items-center mb-3">
             <h3 className="text-xl font-semibold text-white">AI Setup Assistant</h3>
-            <Button 
+            <Button
               onClick={() => setShowChat(false)}
               variant="ghost"
               size="sm"
@@ -140,7 +167,7 @@ export function SetupSteps({ readOnly = false }: SetupStepsProps) {
           <div className="space-y-4 p-4 border border-[#444444] rounded-md bg-[#1C1C1C]">
             <h3 className="font-semibold text-gray-200">Value Path</h3>
             <p className="text-gray-400 text-sm">What are the key steps your users need to take to get value from your offer? These will become your onboarding process.</p>
-            
+
             {onboardingSteps.map((step, index) => (
               <div key={step.id || index} className="flex items-start space-x-2 p-3 bg-[#2A2A2A] rounded border border-[#444444]">
                 <div className="flex-1 space-y-2">
@@ -167,10 +194,10 @@ export function SetupSteps({ readOnly = false }: SetupStepsProps) {
                     />
                   </div>
                 </div>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  onClick={() => handleRemoveStep(index)} 
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => handleRemoveStep(index)}
                   disabled={readOnly || onboardingStepsConfirmed}
                   className="text-red-500 hover:text-red-400 mt-1"
                 >
@@ -205,10 +232,10 @@ export function SetupSteps({ readOnly = false }: SetupStepsProps) {
                     />
                   </div>
                 </div>
-                <Button 
-                  variant="outline" 
-                  size="icon" 
-                  onClick={handleAddStep} 
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={handleAddStep}
                   disabled={readOnly || !currentStepDescription.trim()}
                   className="mt-1 text-gray-300 border-[#444444] hover:bg-[#333333]"
                 >
@@ -219,8 +246,8 @@ export function SetupSteps({ readOnly = false }: SetupStepsProps) {
           </div>
 
           {!onboardingStepsConfirmed && (
-            <Button 
-              onClick={handleConfirm} 
+            <Button
+              onClick={handleConfirm}
               disabled={readOnly || onboardingSteps.length === 0}
               className="bg-[#FFD23F] text-[#1C1C1C] hover:bg-opacity-90"
             >

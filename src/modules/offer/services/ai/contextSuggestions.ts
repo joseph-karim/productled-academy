@@ -7,6 +7,11 @@ export interface WebsiteAnalysisContext {
   problemSolved: string;
   keyBenefits: string[];
   valueProposition: string;
+  keyPhrases?: string[] | null;
+  onboardingSteps?: Array<{
+    description: string;
+    timeEstimate: string;
+  }> | null;
   cta?: string | null;
   tone?: string | null;
   missingInfo?: string[] | null;
@@ -171,7 +176,7 @@ export async function generateTopResultsSuggestions(
 }
 
 export async function generateSuggestions(
-  field: 'targetAudience' | 'desiredResult' | 'keyAdvantage' | 'biggestBarrier' | 'assurance',
+  field: 'targetAudience' | 'desiredResult' | 'keyAdvantage' | 'biggestBarrier' | 'assurance' | 'onboardingStep',
   initialContext: InitialContext,
   websiteFindings: WebsiteAnalysisContext | null
 ): Promise<string[]> {
@@ -198,6 +203,9 @@ export async function generateSuggestions(
             Target Audience: ${websiteFindings.targetAudience || 'Not found'}
             Problem Solved: ${websiteFindings.problemSolved || 'Not found'}
             Value Proposition: ${websiteFindings.valueProposition || 'Not found'}
+            ${websiteFindings.onboardingSteps && websiteFindings.onboardingSteps.length > 0 ? `
+            Onboarding Steps:
+            ${websiteFindings.onboardingSteps.map((step, index) => `${index + 1}. ${step.description} (${step.timeEstimate})`).join('\n')}` : ''}
             ` : ''}
 
             Generate 3-5 specific, compelling suggestions for the "${field}" field of my offer.
@@ -206,6 +214,7 @@ export async function generateSuggestions(
             For keyAdvantage: Focus on unique selling points or competitive advantages.
             For biggestBarrier: Focus on common objections or hesitations.
             For assurance: Focus on guarantees, social proof, or risk reversals.
+            For onboardingStep: Focus on clear, actionable steps users need to take to get value from the product, with time estimates.
 
             Format as a JSON array of strings.`
           }
