@@ -21,16 +21,17 @@ export function AnalyzeHomepageStep({ readOnly = false }: { readOnly?: boolean }
 
   // Prepare websiteFindings prop for ContextChat
   const websiteFindings = useOfferStore((state) => {
-      if (state.websiteScraping.status === 'completed' && state.websiteScraping.analysisResult?.findings) {
-          const findings = state.websiteScraping.analysisResult.findings;
+      console.log('Preparing websiteFindings:', state.websiteScraping);
+      if (state.websiteScraping.status === 'completed') {
+          // Direct mapping from store values
           return {
-              coreOffer: findings.coreOffer || '',
-              targetAudience: findings.targetAudience || '',
-              problemSolved: findings.problemSolved || '',
-              valueProposition: findings.valueProposition || '',
-              keyBenefits: Array.isArray(findings.keyBenefits) ? findings.keyBenefits : [],
-              keyPhrases: Array.isArray(findings.keyPhrases) ? findings.keyPhrases : [],
-              missingInfo: Array.isArray(findings.missingInfo) ? findings.missingInfo : []
+              coreOffer: state.websiteScraping.coreOffer || '',
+              targetAudience: state.websiteScraping.targetAudience || '',
+              problemSolved: state.websiteScraping.keyProblem || '',
+              valueProposition: state.websiteScraping.valueProposition || '',
+              keyBenefits: Array.isArray(state.websiteScraping.keyFeatures) ? state.websiteScraping.keyFeatures : [],
+              keyPhrases: Array.isArray(state.websiteScraping.keyPhrases) ? state.websiteScraping.keyPhrases : [],
+              missingInfo: []
           };
       }
       return null;
@@ -90,12 +91,12 @@ export function AnalyzeHomepageStep({ readOnly = false }: { readOnly?: boolean }
 
   // Auto-show chat when scraping completes
   useEffect(() => {
-    console.log('Scraping status changed:', { isCompleted, showChat, readOnly });
-    if (isCompleted && !showChat && !readOnly) {
+    console.log('Scraping status changed:', { scrapingStatus, showChat, readOnly });
+    if (scrapingStatus === 'completed' && !readOnly) {
       console.log('Auto-showing chat');
       setShowChat(true);
     }
-  }, [isCompleted, showChat, readOnly]);
+  }, [scrapingStatus, readOnly]);
 
   return (
     <div className="space-y-6">
