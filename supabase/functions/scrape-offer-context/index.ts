@@ -129,7 +129,7 @@ serve(async (req) => {
       );
     }
 
-    async function scrapeWebsiteWithCrawl4ai(url: string, maxRetries = 2) {
+    async function scrapeWebsiteWithCrawl4ai(url: string, maxRetries = 1) {
       let lastError;
       for (let attempt = 0; attempt <= maxRetries; attempt++) {
         try {
@@ -138,20 +138,36 @@ serve(async (req) => {
           const crawlServiceUrl = Deno.env.get('CRAWL4AI_SERVICE_URL') || 'http://localhost:8000';
           const authToken = Deno.env.get('CRAWL4AI_AUTH_TOKEN') || '2080526ca47212486f0f655572b6c6c2af4257af71a93c78dfe77258e07e287a';
 
+          // Use AbortController for timeout control
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+
           const response = await fetch(`${crawlServiceUrl}/api/v1/scrape`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${authToken}`
+              'Authorization': `Bearer ${authToken}`,
+              'Cache-Control': 'no-cache',
+              'Pragma': 'no-cache'
             },
             body: JSON.stringify({
               url: url,
               javascript_enabled: true,
               wait_for_selector: 'body',
-              timeout: 30000,
-              max_retries: 2
-            })
+              timeout: 15000, // Reduced timeout
+              max_retries: 1,  // Reduced retries
+              // Only get essential content
+              extract_rules: {
+                title: 'title',
+                headings: 'h1, h2',
+                meta: 'meta[name="description"], meta[name="keywords"]',
+                main_content: 'main, article, .content, #content, .main'
+              }
+            }),
+            signal: controller.signal
           });
+
+          clearTimeout(timeoutId);
 
           if (!response.ok) {
             const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
@@ -169,32 +185,40 @@ serve(async (req) => {
           console.error(`Attempt ${attempt + 1} failed:`, error);
           lastError = error;
           if (attempt < maxRetries) {
-            await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
+            await new Promise(resolve => setTimeout(resolve, 500)); // Reduced wait time
           }
         }
       }
       throw lastError;
     }
 
-    async function fetchWithRetry(url: string, maxRetries = 3) {
-      // Try to use crawl4ai first, then fall back to direct fetch if that fails
+    async function fetchWithRetry(url: string, maxRetries = 2) {
+      // Optimized fetch function with faster fallback strategy
       let lastError;
 
-      // First try direct fetch with multiple retries
-      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      // Use a more aggressive timeout to fail faster
+      const timeoutMs = 20000; // 20 seconds timeout
+
+      // Try direct fetch first with fewer retries
+      for (let attempt = 0; attempt <= 1; attempt++) {
         try {
           console.log(`Attempt ${attempt + 1} to fetch ${url} directly`);
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
           const response = await fetch(url, {
             headers: {
               'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
               'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
               'Accept-Language': 'en-US,en;q=0.5',
-              'Referer': 'https://www.google.com/'
+              'Cache-Control': 'no-cache',
+              'Pragma': 'no-cache'
             },
             redirect: 'follow',
-            // Increase timeout for slow sites
-            signal: AbortSignal.timeout(30000) // 30 second timeout
+            signal: controller.signal
           });
+
+          clearTimeout(timeoutId);
 
           if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -210,23 +234,20 @@ serve(async (req) => {
         } catch (error) {
           console.error(`Direct fetch attempt ${attempt + 1} failed:`, error);
           lastError = error;
-          if (attempt < maxRetries) {
-            // Exponential backoff
-            const delay = Math.pow(2, attempt) * 500;
-            console.log(`Waiting ${delay}ms before retry`);
-            await new Promise(resolve => setTimeout(resolve, delay));
+          if (attempt < 1) {
+            // Short delay before retry
+            await new Promise(resolve => setTimeout(resolve, 500));
           }
         }
       }
 
-      // If direct fetch failed, try using crawl4ai as a fallback
+      // If direct fetch failed, immediately try crawl4ai
       try {
         console.log('Direct fetch failed, trying crawl4ai as fallback');
-        return await fetchWithCrawl4ai(url);
+        return await scrapeWebsiteWithCrawl4ai(url, 1); // Only 1 retry for crawl4ai
       } catch (crawlError) {
         console.error('Both direct fetch and crawl4ai failed:', crawlError);
-        // Throw the original error from direct fetch
-        throw lastError;
+        throw lastError || crawlError;
       }
     }
 
@@ -249,17 +270,56 @@ serve(async (req) => {
         const mainText = document.querySelector('main')?.textContent || bodyText;
 
         // Extract only the most important content for faster processing
-        // First try to get the most relevant sections
-        const h1Text = Array.from(document.querySelectorAll('h1, h2, h3')).map(el => el.textContent).join(' ');
-        const metaTags = Array.from(document.querySelectorAll('meta[name="keywords"], meta[name="description"]'))
-          .map(el => el.getAttribute('content')).filter(Boolean).join(' ');
+        // Optimize text extraction by focusing on high-value elements
 
-        // Get first 1000 chars of main content + headings + meta tags for a focused analysis
-        const cleanedText = [h1Text, metaTags, mainText.substring(0, 3000)]
-          .join('\n')
-          .replace(/\s+/g, ' ')
-          .trim()
-          .substring(0, 4000);
+        // Function to clean text (remove extra whitespace, normalize)
+        const cleanText = (text) => {
+          if (!text) return '';
+          return text.replace(/\s+/g, ' ').trim();
+        };
+
+        // Parallel processing for faster extraction
+        const [
+          headings,
+          metaTagsContent,
+          heroSection,
+          featuresSection,
+          pricingSection,
+          aboutSection
+        ] = await Promise.all([
+          // Extract headings (most important content indicators)
+          Promise.resolve(Array.from(document.querySelectorAll('h1, h2')).map(el => cleanText(el.textContent)).join(' | ')),
+
+          // Extract meta tags (SEO-optimized content summary)
+          Promise.resolve(Array.from(document.querySelectorAll('meta[name="keywords"], meta[name="description"], meta[property="og:description"]'))
+            .map(el => cleanText(el.getAttribute('content'))).filter(Boolean).join(' | ')),
+
+          // Extract hero section (usually contains value proposition)
+          Promise.resolve(cleanText(document.querySelector('header, .hero, [class*="hero"], [id*="hero"]')?.textContent || '')),
+
+          // Extract features section (contains benefits)
+          Promise.resolve(cleanText(document.querySelector('.features, [class*="feature"], [id*="feature"]')?.textContent || '')),
+
+          // Extract pricing section (contains offer details)
+          Promise.resolve(cleanText(document.querySelector('.pricing, [class*="price"], [id*="price"]')?.textContent || '')),
+
+          // Extract about section (contains company info)
+          Promise.resolve(cleanText(document.querySelector('.about, [class*="about"], [id*="about"]')?.textContent || ''))
+        ]);
+
+        // Prioritize content by importance and limit size
+        const prioritizedContent = [
+          headings,                                // Highest priority - headings capture main points
+          metaTagsContent,                        // High priority - meta tags are concise summaries
+          heroSection.substring(0, 500),          // High priority - hero section has value proposition
+          featuresSection.substring(0, 500),      // Medium priority - features section has benefits
+          pricingSection.substring(0, 300),       // Medium priority - pricing has offer details
+          aboutSection.substring(0, 300),         // Lower priority - about section has company info
+          mainText.substring(0, 1000)             // Fallback - general content if specific sections not found
+        ].filter(Boolean);
+
+        // Combine and limit total size to 3000 chars for faster API processing
+        const cleanedText = prioritizedContent.join('\n').substring(0, 3000);
 
         console.log('Calling OpenAI proxy for analysis...');
         try {
@@ -273,34 +333,34 @@ serve(async (req) => {
                 'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}`
               },
               body: JSON.stringify({
-                model: 'gpt-4o', // Using the most capable model for best results
-                temperature: 0.2, // Lower temperature for more deterministic results
-                max_tokens: 300, // Limit response size for faster processing
+                model: 'gpt-4o', // Keep using gpt-4o as requested
+                temperature: 0.1, // Even lower temperature for faster, more deterministic results
+                max_tokens: 250, // Further limit response size for faster processing
+                top_p: 0.9, // Slightly reduce diversity for faster responses
                 messages: [
                   {
                     role: 'system',
-                    content: `Extract key marketing information from website content. Be concise and accurate.`
+                    content: `You are a precise marketing data extractor. Extract only the requested fields from website content. Be extremely concise. Use "Not found" for missing information. Format as valid JSON only.`
                   },
                   {
                     role: 'user',
-                    content: `
-Analyze this website content and extract key information:
+                    content: `Extract marketing data from this website:
 
-Website: ${title}
-Description: ${metaDescription}
+Title: ${title}
+Meta: ${metaDescription}
 Content: ${cleanedText}
 
-Return a JSON object with these keys:
-- "coreOffer": Main product/service offered
-- "targetAudience": Who it's for
-- "problemSolved": Main problem it solves
-- "valueProposition": Core value proposition
-- "keyBenefits": List of 3 main benefits (array)
-- "keyPhrases": 2-3 key phrases from the content (array)
-- "onboardingSteps": List of 3-5 steps users need to take to get value from the product (array of objects with "description" and "timeEstimate" fields)
-- "competitiveAdvantages": List of 2-3 competitive advantages (array)
+Return ONLY a JSON object with these exact keys:
+"coreOffer": (string) Main product/service
+"targetAudience": (string) Target users
+"problemSolved": (string) Main problem
+"valueProposition": (string) Core value
+"keyBenefits": (array) 3 benefits
+"keyPhrases": (array) 2-3 phrases
+"onboardingSteps": (array) 3-5 steps as {"description": string, "timeEstimate": string}
+"competitiveAdvantages": (array) 2-3 advantages
 
-Keep it concise. Use "Not found" if information is missing.`
+Be extremely concise. Use "Not found" for missing data.`
                   }
                 ],
                 response_format: { type: 'json_object' }
@@ -319,26 +379,32 @@ Keep it concise. Use "Not found" if information is missing.`
 
           let analysisResult;
           try {
-            // Check if the response is already a JSON object
+            // Faster response handling with less logging
             const content = completion.choices[0].message.content;
-            console.log('Raw OpenAI response:', content);
 
-            if (typeof content === 'string') {
-              analysisResult = JSON.parse(content);
-            } else {
-              // If it's already an object, use it directly
-              analysisResult = content;
-            }
+            // Parse the content if it's a string, otherwise use it directly
+            analysisResult = typeof content === 'string' ? JSON.parse(content) : content;
 
-            console.log('Successfully parsed OpenAI response:', analysisResult);
-
-            // Ensure the result has the expected structure
+            // Quick validation of the result
             if (!analysisResult || typeof analysisResult !== 'object') {
               throw new Error('Invalid response format');
             }
+
+            // Ensure all required fields exist (add defaults if missing)
+            const requiredFields = ['coreOffer', 'targetAudience', 'problemSolved', 'valueProposition', 'keyBenefits'];
+            for (const field of requiredFields) {
+              if (!analysisResult[field]) {
+                analysisResult[field] = 'Not found';
+              }
+            }
+
+            // Ensure arrays are arrays
+            if (!Array.isArray(analysisResult.keyBenefits)) analysisResult.keyBenefits = [];
+            if (!Array.isArray(analysisResult.keyPhrases)) analysisResult.keyPhrases = [];
+            if (!Array.isArray(analysisResult.onboardingSteps)) analysisResult.onboardingSteps = [];
+            if (!Array.isArray(analysisResult.competitiveAdvantages)) analysisResult.competitiveAdvantages = [];
           } catch (parseError) {
-            console.error('Error parsing OpenAI response:', parseError);
-            console.error('Raw response:', completion.choices[0].message.content);
+            console.error('Error parsing OpenAI response:', parseError.message);
             await updateScrapingStatus(supabase, scrapingRecord.id, 'failed', 'Failed to parse OpenAI response');
             return;
           }
@@ -413,35 +479,42 @@ Keep it concise. Use "Not found" if information is missing.`
 });
 
 async function updateScrapingStatus(supabase, id, status, errorMessage = null) {
+  // Optimized status update function
   const timestamp = new Date().toISOString();
 
-  console.log(`Updating scraping status for ID ${id} to ${status}${errorMessage ? ': ' + errorMessage : ''}`);
+  // Simplified logging
+  if (status === 'failed') {
+    console.log(`Updating scraping status for ID ${id} to failed: ${errorMessage || 'Unknown error'}`);
+  }
 
   try {
+    // Simplified update payload
+    const updatePayload = {
+      status: status,
+      error: errorMessage,
+      completed_at: timestamp
+    };
+
+    // Only add analysis_result for failed status
+    if (status === 'failed') {
+      updatePayload.analysis_result = {
+        status: 'failed',
+        error_message: errorMessage,
+        scraped_at: timestamp
+      };
+    }
+
+    // Execute the update
     const { error } = await supabase
       .from('website_scraping')
-      .update({
-        status: status,
-        error: errorMessage,
-        analysis_result: status === 'failed' ? {
-          status: 'failed',
-          error_message: errorMessage,
-          analyzed_url: null,
-          findings: null,
-          scraped_at: timestamp
-        } : null,
-        completed_at: timestamp
-      })
+      .update(updatePayload)
       .eq('id', id);
 
     if (error) {
-      console.error(`Error updating scraping status: ${error.message}`);
-      throw error;
+      console.error('Error updating status:', error.message);
     }
-
-    console.log(`Successfully updated scraping status for ID ${id}`);
   } catch (error) {
-    console.error(`Failed to update scraping status for ID ${id}:`, error);
-    throw error;
+    // Just log the error but don't throw to prevent cascading failures
+    console.error('Failed to update status:', error.message);
   }
 }
