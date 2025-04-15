@@ -1,8 +1,20 @@
 import { createClient } from '@supabase/supabase-js';
 
 // Initialize Supabase client
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+// For local development, use the local Supabase instance
+// For production, use the environment variables
+const isLocalDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+const supabaseUrl = isLocalDevelopment
+  ? 'http://127.0.0.1:54321'
+  : import.meta.env.VITE_SUPABASE_URL;
+
+const supabaseAnonKey = isLocalDevelopment
+  ? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0'
+  : import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+console.log(`OpenAI Proxy using Supabase URL: ${supabaseUrl}`);
+console.log(`OpenAI Proxy using ${isLocalDevelopment ? 'local development' : 'production'} environment`);
 
 if (!supabaseUrl || !supabaseAnonKey) {
   console.error('Supabase credentials are missing. Please check your environment variables.');
@@ -54,12 +66,17 @@ export interface ChatCompletionResponse {
  * Call OpenAI API through Supabase Edge Function
  * This prevents exposing the OpenAI API key in client-side code
  */
+// Fallback OpenAI API key - ONLY FOR DEVELOPMENT/DEMO
+// In production, this should be handled by the Edge Function
+const FALLBACK_OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY || '';
+
 export async function callOpenAI(params: ChatCompletionRequest): Promise<ChatCompletionResponse> {
+  // First try using the Supabase Edge Function
   try {
+    console.log('Attempting to call OpenAI via Supabase Edge Function');
     const { data, error } = await supabase.functions.invoke('openai-proxy', {
       body: params
     });
-
 
     if (error) {
       console.error('Error calling OpenAI proxy:', error);
@@ -67,9 +84,42 @@ export async function callOpenAI(params: ChatCompletionRequest): Promise<ChatCom
     }
 
     return data;
-  } catch (error) {
-    console.error('Error in callOpenAI:', error);
-    throw error;
+  } catch (edgeFunctionError) {
+    console.error('Edge Function error:', edgeFunctionError);
+
+    // If Edge Function fails and we have a fallback API key, try direct API call
+    if (FALLBACK_OPENAI_API_KEY) {
+      console.log('Attempting direct OpenAI API call as fallback');
+      try {
+        // Make direct API call to OpenAI
+        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${FALLBACK_OPENAI_API_KEY}`
+          },
+          body: JSON.stringify({
+            ...params,
+            // Ensure we're using a valid model
+            model: params.model === 'gpt-4.1-nano-2025-04-14' ? 'gpt-4o' : params.model
+          })
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(`OpenAI API error: ${response.status} ${response.statusText} - ${JSON.stringify(errorData)}`);
+        }
+
+        return await response.json();
+      } catch (directApiError) {
+        console.error('Direct OpenAI API call failed:', directApiError);
+        throw new Error(`Both Edge Function and direct API call failed: ${directApiError.message}`);
+      }
+    } else {
+      // No fallback available
+      console.error('No fallback API key available');
+      throw new Error(`OpenAI proxy error and no fallback available: ${edgeFunctionError.message}`);
+    }
   }
 }
 

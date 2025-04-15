@@ -27,12 +27,12 @@ export async function generateClarifyingQuestions(
   log('generateClarifyingQuestions - websiteFindings:', websiteFindings);
   return handleOpenAIRequest(
     openai.chat.completions.create({
-      model: "gpt-4o",
+      model: "gpt-3.5-turbo",
       messages: [
         {
           role: "system",
           content: `You are a ProductLed Offer Coach AI. The user has provided initial answers about their offer and we have also analyzed their current website.
-          
+
 Your goal is to help the user clarify their offer and bridge any gaps between their stated goals and their website's current presentation.`
         },
         {
@@ -92,7 +92,7 @@ export async function generateChatResponse(
   const systemMessage = {
     role: "system" as const,
     content: `You are a ProductLed Offer Coach AI. You are helping the user refine their offer based on their manual input and website analysis.
-          
+
 User's Initial Context:
 - Current Offer: ${userContext.currentOffer || 'Not provided'}
 - Target Audience: ${userContext.targetAudience || 'Not provided'}
@@ -115,17 +115,17 @@ Your goal is to help the user refine their offer by:
 
 Be conversational, supportive, and specific in your advice. Focus on helping them create an irresistible offer that converts.`
   };
-  
+
   const formattedMessages = messages.map(msg => ({
     role: msg.sender === 'user' ? 'user' as const : msg.sender === 'ai' ? 'assistant' as const : 'system' as const,
     content: msg.content
   }));
-  
+
   const apiMessages = [systemMessage, ...formattedMessages];
-  
+
   return handleOpenAIRequest(
     openai.chat.completions.create({
-      model: "gpt-4o",
+      model: "gpt-3.5-turbo",
       messages: apiMessages
     }).then(completion => {
       log('generateChatResponse - API response:', completion);
