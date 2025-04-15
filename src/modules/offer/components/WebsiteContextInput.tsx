@@ -51,7 +51,18 @@ export function WebsiteContextInput({ readOnly = false }: WebsiteContextInputPro
       </CardHeader>
       <CardContent>
         <div className="space-y-2">
-          <Label htmlFor="websiteUrlInput" className="text-gray-300 text-sm">Analyze Website (Optional)</Label>
+          <div className="flex justify-between items-center">
+            <Label htmlFor="websiteUrlInput" className="text-gray-300 text-sm">Analyze Website (Optional)</Label>
+            {!readOnly && websiteScraping.status !== 'processing' && websiteScraping.status !== 'completed' && (
+              <Button
+                onClick={() => window.dispatchEvent(new CustomEvent('launch-ai-chat'))}
+                className="px-4 py-2 text-sm bg-[#FFD23F] text-black font-medium rounded-lg hover:bg-opacity-90"
+                size="sm"
+              >
+                Skip & Use AI Chat
+              </Button>
+            )}
+          </div>
           <div className="flex space-x-2">
             <Input
               id="websiteUrlInput"
@@ -77,13 +88,35 @@ export function WebsiteContextInput({ readOnly = false }: WebsiteContextInputPro
             <p className="text-xs text-[#FFD23F]">Analyzing...</p>
           )}
           {websiteScraping.status === 'completed' && (
-            <p className="text-xs text-green-500">Analysis complete.</p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-green-500">Analysis complete.</p>
+              {!readOnly && (
+                <Button
+                  onClick={() => window.dispatchEvent(new CustomEvent('launch-ai-chat'))}
+                  className="px-4 py-2 text-sm bg-[#FFD23F] text-black font-medium rounded-lg hover:bg-opacity-90"
+                  size="sm"
+                >
+                  Launch AI Chat
+                </Button>
+              )}
+            </div>
           )}
           {websiteScraping.status === 'failed' && (
-            <p className="text-xs text-red-500">Analysis failed: {websiteScraping.error || 'Unknown error'}</p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-red-500">Analysis failed: {websiteScraping.error || 'Unknown error'}</p>
+              {!readOnly && (
+                <Button
+                  onClick={() => window.dispatchEvent(new CustomEvent('launch-ai-chat'))}
+                  className="px-4 py-2 text-sm bg-[#FFD23F] text-black font-medium rounded-lg hover:bg-opacity-90"
+                  size="sm"
+                >
+                  Continue with AI Chat
+                </Button>
+              )}
+            </div>
           )}
         </div>
       </CardContent>
     </Card>
   );
-} 
+}

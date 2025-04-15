@@ -5,7 +5,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { CheckCircle, Sparkles } from 'lucide-react';
+import { CheckCircle, Sparkles, MessageSquare } from 'lucide-react';
+import { ContextChatInline } from './ContextChatInline';
 
 interface DefineCoreOfferProps {
   modelData?: any;
@@ -21,6 +22,21 @@ export function DefineCoreOffer({ readOnly = false }: DefineCoreOfferProps) {
   } = useOfferStore();
 
   const [showCanvas, setShowCanvas] = useState(false);
+  const [showChat, setShowChat] = useState(false);
+
+  // Listen for the launch-ai-chat event
+  React.useEffect(() => {
+    const handleLaunchChat = () => {
+      console.log('Received launch-ai-chat event');
+      setShowChat(true);
+    };
+
+    window.addEventListener('launch-ai-chat', handleLaunchChat);
+
+    return () => {
+      window.removeEventListener('launch-ai-chat', handleLaunchChat);
+    };
+  }, []);
 
   const handleInputChange = (field: keyof typeof coreOfferNucleus, value: string) => {
     if (readOnly) return;
@@ -168,6 +184,50 @@ export function DefineCoreOffer({ readOnly = false }: DefineCoreOfferProps) {
             )}
           </CardContent>
         </Card>
+      )}
+
+      {/* AI Chat Assistant */}
+      {showChat && !readOnly && (
+        <div className="mt-6 bg-[#222222] p-6 rounded-lg space-y-4">
+          <div className="flex justify-between items-center mb-3">
+            <h3 className="text-xl font-semibold text-white">AI Offer Assistant</h3>
+            <Button
+              onClick={() => setShowChat(false)}
+              variant="ghost"
+              size="sm"
+              className="text-gray-400 hover:text-white"
+            >
+              Close
+            </Button>
+          </div>
+          <ContextChatInline
+            websiteUrl=""
+            initialContext={useOfferStore.getState().initialContext}
+            websiteScrapingStatus="idle"
+            websiteFindings={{
+              coreOffer: '',
+              targetAudience: '',
+              problemSolved: '',
+              valueProposition: '',
+              keyBenefits: [],
+              keyPhrases: [],
+              missingInfo: ['No website analysis available']
+            }}
+          />
+        </div>
+      )}
+
+      {/* Chat Button - Always visible */}
+      {!showChat && !readOnly && (
+        <div className="mt-6">
+          <Button
+            onClick={() => setShowChat(true)}
+            className="w-full py-3 bg-[#FFD23F] text-black font-medium rounded-lg hover:bg-opacity-90 flex items-center justify-center"
+          >
+            <MessageSquare className="w-5 h-5 mr-2" />
+            <span className="text-lg">Get AI Help with Your Offer</span>
+          </Button>
+        </div>
       )}
     </div>
   );

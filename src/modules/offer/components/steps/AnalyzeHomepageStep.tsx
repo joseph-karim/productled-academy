@@ -144,6 +144,19 @@ export function AnalyzeHomepageStep({ readOnly = false }: { readOnly?: boolean }
 
   return (
     <div className="space-y-6">
+      {/* SIMPLE BUTTON - ALWAYS VISIBLE */}
+      {!readOnly && (
+        <div className="bg-[#FFD23F] p-4 rounded-lg mb-4">
+          <button
+            onClick={() => setShowChat(true)}
+            className="w-full py-3 bg-[#333333] text-white font-medium rounded-lg hover:bg-[#444444] flex items-center justify-center">
+            <MessageSquare className="w-5 h-5 mr-2" />
+            <span className="text-lg">Open AI Chat Assistant</span>
+          </button>
+          <p className="text-xs text-center mt-2">Click to get AI help with your offer</p>
+        </div>
+      )}
+
       {/* Title Section */}
       <div>
         <h2 className="text-2xl font-bold text-white mb-2">Step 1: Analyze Homepage Context (Optional)</h2>
