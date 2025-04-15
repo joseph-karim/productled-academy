@@ -143,18 +143,15 @@ export async function getScrapingResult(scrapingId: string): Promise<WebsiteScra
 
         const apiUrl = `${supabaseUrl}/rest/v1/website_scraping?id=eq.${scrapingId}&select=*`;
         console.log(`Fetching from: ${apiUrl}`);
-        console.log('Using headers:', {
-          'Content-Type': 'application/json',
-          'apikey': 'Bearer token available: ' + !!supabaseAnonKey,
-          'Authorization': 'Bearer token available: ' + !!supabaseAnonKey
-        });
+
+        // Log the actual headers we're using (without showing the full key)
+        console.log('Using headers with apikey:', supabaseAnonKey.substring(0, 10) + '...');
 
         const response = await fetch(apiUrl, {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
-            'apikey': supabaseAnonKey,
-            'Authorization': `Bearer ${supabaseAnonKey}`
+            'apikey': supabaseAnonKey
           }
         });
 
