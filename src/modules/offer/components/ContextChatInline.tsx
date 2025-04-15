@@ -97,6 +97,33 @@ export function ContextChatInline({
     setShowSuggestions(false);
 
     try {
+      // Due to API issues, we're using fallback suggestions directly
+      console.log('Using fallback suggestions for', field);
+      const fallbackSuggestions = getFallbackSuggestions(field);
+      const formattedSuggestions = fallbackSuggestions.map(text => ({
+        text,
+        field
+      }));
+
+      setSuggestions(formattedSuggestions);
+      setShowSuggestions(true);
+
+      // Add a message to the chat about the suggestions
+      if (contextChat.messages.length <= 2) {
+        let message = `Here are some suggestions for ${fieldDisplayNames[field]}. You can select one or type your own.`;
+
+        // Add some context if we have website findings
+        if (websiteFindings && websiteScrapingStatus === 'completed' && websiteFindings.coreOffer) {
+          message = `Based on your website analysis, here are some suggestions for ${fieldDisplayNames[field]}. You can select one or type your own.`;
+        }
+
+        addChatMessage({
+          sender: 'ai',
+          content: message
+        });
+      }
+
+      /* Temporarily disabled due to API authentication issues
       // Check if we have website findings to use
       if (websiteFindings && websiteScrapingStatus === 'completed' && websiteFindings.coreOffer) {
         console.log('Using website findings for suggestions');
@@ -137,25 +164,7 @@ export function ContextChatInline({
         console.error('Error calling OpenAI API with initial context:', apiError);
         // Continue to fallback if API call fails
       }
-
-      // Fallback to predefined suggestions if all API calls fail
-      console.log('Using fallback suggestions for', field);
-      const fallbackSuggestions = getFallbackSuggestions(field);
-      const formattedSuggestions = fallbackSuggestions.map(text => ({
-        text,
-        field
-      }));
-
-      setSuggestions(formattedSuggestions);
-      setShowSuggestions(true);
-
-      // Add a message to the chat about using fallbacks
-      if (contextChat.messages.length <= 2) {
-        addChatMessage({
-          sender: 'ai',
-          content: `Here are some suggestions for ${fieldDisplayNames[field]}. You can select one or type your own.`
-        });
-      }
+      */
     } catch (error) {
       console.error(`Error generating suggestions for ${field}:`, error);
       addChatMessage({
@@ -178,39 +187,83 @@ export function ContextChatInline({
 
   // Fallback suggestions for each field in case the API call fails
   const getFallbackSuggestions = (field: Suggestion['field']): string[] => {
-    switch (field) {
-      case 'targetAudience':
-        return [
-          'Small business owners looking to increase online visibility',
-          'Marketing professionals seeking to improve campaign ROI',
-          'Entrepreneurs launching their first digital product'
-        ];
-      case 'desiredResult':
-        return [
-          'Generate 50% more qualified leads within 90 days',
-          'Save 10+ hours per week on repetitive marketing tasks',
-          'Increase conversion rates by at least 25%'
-        ];
-      case 'keyAdvantage':
-        return [
-          'AI-powered insights that competitors don\'t offer',
-          'Proven methodology with over 500 success stories',
-          'Personalized strategy tailored to your specific industry'
-        ];
-      case 'biggestBarrier':
-        return [
-          'Concern about implementation complexity and time investment',
-          'Uncertainty about ROI and measurable results',
-          'Worry about compatibility with existing systems'
-        ];
-      case 'assurance':
-        return [
-          '30-day money-back guarantee if you don\'t see measurable improvements',
-          'Free onboarding support to ensure smooth implementation',
-          'Monthly performance reviews with actionable optimization tips'
-        ];
-      default:
-        return ['Please provide your input'];
+    // If we have website findings, use them to customize suggestions
+    if (websiteFindings && websiteScrapingStatus === 'completed') {
+      const coreOffer = websiteFindings.coreOffer || '';
+      const targetAudience = websiteFindings.targetAudience || '';
+      const problemSolved = websiteFindings.problemSolved || '';
+      const valueProposition = websiteFindings.valueProposition || '';
+
+      switch (field) {
+        case 'targetAudience':
+          return [
+            targetAudience || 'Small business owners looking to increase online visibility',
+            'Decision-makers seeking to improve their business efficiency',
+            'Professionals who need specialized solutions for their industry'
+          ];
+        case 'desiredResult':
+          return [
+            `Achieve ${problemSolved ? 'a solution to ' + problemSolved : 'significant results'} within 90 days`,
+            `Experience ${valueProposition ? valueProposition : 'measurable improvements'} in your business`,
+            'See tangible ROI within the first month of implementation'
+          ];
+        case 'keyAdvantage':
+          return [
+            `Our unique approach to ${coreOffer || 'solving your problems'}`,
+            'Personalized solutions tailored to your specific needs',
+            'Proven track record of success with similar clients'
+          ];
+        case 'biggestBarrier':
+          return [
+            'Concern about implementation complexity and time investment',
+            'Uncertainty about whether this will work for your specific situation',
+            'Worry about the learning curve for your team'
+          ];
+        case 'assurance':
+          return [
+            '30-day money-back guarantee if you don\'t see measurable improvements',
+            'Free onboarding and implementation support',
+            'Regular check-ins to ensure you\'re getting the results you expect'
+          ];
+        default:
+          return ['Please provide your input'];
+      }
+    } else {
+      // Default suggestions if no website findings
+      switch (field) {
+        case 'targetAudience':
+          return [
+            'Small business owners looking to increase online visibility',
+            'Marketing professionals seeking to improve campaign ROI',
+            'Entrepreneurs launching their first digital product'
+          ];
+        case 'desiredResult':
+          return [
+            'Generate 50% more qualified leads within 90 days',
+            'Save 10+ hours per week on repetitive marketing tasks',
+            'Increase conversion rates by at least 25%'
+          ];
+        case 'keyAdvantage':
+          return [
+            'AI-powered insights that competitors don\'t offer',
+            'Proven methodology with over 500 success stories',
+            'Personalized strategy tailored to your specific industry'
+          ];
+        case 'biggestBarrier':
+          return [
+            'Concern about implementation complexity and time investment',
+            'Uncertainty about ROI and measurable results',
+            'Worry about compatibility with existing systems'
+          ];
+        case 'assurance':
+          return [
+            '30-day money-back guarantee if you don\'t see measurable improvements',
+            'Free onboarding support to ensure smooth implementation',
+            'Monthly performance reviews with actionable optimization tips'
+          ];
+        default:
+          return ['Please provide your input'];
+      }
     }
   };
 
@@ -224,15 +277,7 @@ export function ContextChatInline({
       hasWebsiteFindings: !!websiteFindings
     });
 
-    // Force initialization when website findings are available
-    if (websiteScrapingStatus === 'completed' && websiteFindings && !isInitialLoad) {
-      console.log('Forcing chat initialization due to completed scraping');
-      // Use setTimeout to avoid state updates during rendering
-      setTimeout(() => {
-        clearChatMessages();
-        setIsInitialLoad(true);
-      }, 0);
-    }
+    // Removed forced reinitialization to prevent multiple renders
 
     if (isInitialLoad && contextChat.messages.length === 0) {
       // Start with the first field
@@ -274,12 +319,9 @@ export function ContextChatInline({
             content: welcomeMessage
           });
 
-          // Generate suggestions for the first field
-          try {
-            await generateFieldSuggestions(firstField);
-          } catch (error) {
-            console.error('Error generating initial suggestions:', error);
-            // Fallback to predefined suggestions
+          // Generate suggestions for the first field without API calls
+          // to avoid authentication errors
+          setTimeout(() => {
             const fallbackSuggestions = getFallbackSuggestions(firstField);
             const formattedSuggestions = fallbackSuggestions.map(text => ({
               text,
@@ -288,10 +330,9 @@ export function ContextChatInline({
 
             setSuggestions(formattedSuggestions);
             setShowSuggestions(true);
-          }
-
-          setIsProcessing(false);
-          setIsInitialLoad(false);
+            setIsProcessing(false);
+            setIsInitialLoad(false);
+          }, 500);
         } catch (error) {
           console.error('[ContextChatInline] Error starting conversation:', error);
           addChatMessage({
