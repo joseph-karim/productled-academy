@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { CheckCircle, Sparkles, MessageSquare } from 'lucide-react';
 import { ContextChatInline } from './ContextChatInline';
+import { OfferInsights } from './OfferInsights';
 
 interface DefineCoreOfferProps {
   modelData?: any;
@@ -24,9 +25,10 @@ export function DefineCoreOffer({ readOnly = false }: DefineCoreOfferProps) {
   const [showCanvas, setShowCanvas] = useState(false);
   const [showChat, setShowChat] = useState(false);
 
-  // Get website findings from the store
+  // Get data from the store
   const websiteUrl = useOfferStore((state) => state.websiteUrl);
   const scrapingStatus = useOfferStore((state) => state.websiteScraping.status);
+  const initialContext = useOfferStore((state) => state.initialContext);
   const websiteFindings = useOfferStore((state) => {
     if (state.websiteScraping.status === 'completed') {
       return {
@@ -88,7 +90,7 @@ export function DefineCoreOffer({ readOnly = false }: DefineCoreOfferProps) {
   const handleConfirm = () => {
     if (!readOnly) {
       setCoreOfferConfirmed(true);
-      setShowCanvas(true); // Keep canvas visible after confirmation
+      // No need to force showing the canvas
     }
   };
 
@@ -123,7 +125,7 @@ export function DefineCoreOffer({ readOnly = false }: DefineCoreOfferProps) {
           </div>
           <ContextChatInline
             websiteUrl={websiteUrl}
-            initialContext={useOfferStore.getState().initialContext}
+            initialContext={initialContext}
             websiteScrapingStatus={scrapingStatus}
             websiteFindings={websiteFindings}
           />
@@ -200,13 +202,23 @@ export function DefineCoreOffer({ readOnly = false }: DefineCoreOfferProps) {
           </div>
 
           {!coreOfferConfirmed && (
-            <Button
-              onClick={() => setShowCanvas(true)}
-              disabled={!allFieldsFilled || readOnly}
-              className="mt-4 bg-[#FFD23F] text-[#1C1C1C] hover:bg-opacity-90"
-            >
-              Review Core Offer Canvas
-            </Button>
+            <div className="flex flex-col sm:flex-row gap-3 mt-4">
+              <Button
+                onClick={handleConfirm}
+                disabled={!allFieldsFilled || readOnly}
+                className="flex-1 bg-[#FFD23F] text-[#1C1C1C] hover:bg-opacity-90"
+              >
+                Confirm Core Offer & Continue
+              </Button>
+              <Button
+                onClick={() => setShowCanvas(true)}
+                disabled={!allFieldsFilled || readOnly}
+                variant="outline"
+                className="flex-1 border-[#444] text-gray-300 hover:bg-[#333]"
+              >
+                Review Canvas (Optional)
+              </Button>
+            </div>
           )}
         </CardContent>
       </Card>
@@ -218,38 +230,76 @@ export function DefineCoreOffer({ readOnly = false }: DefineCoreOfferProps) {
               {coreOfferConfirmed && <CheckCircle className="w-5 h-5 mr-2 text-green-500" />}
               Core Offer Canvas Review
             </CardTitle>
-            <CardDescription className="text-gray-400">Confirm these foundational components are aligned and compelling.</CardDescription>
+            <CardDescription className="text-gray-400">Review your offer components and see insights if website analysis was performed.</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <p className="font-semibold text-gray-400">Target Audience:</p>
-              <p className="text-gray-100">{coreOfferNucleus.targetAudience || '-'}</p>
-            </div>
-            <div>
-              <p className="font-semibold text-gray-400">Core Result:</p>
-              <p className="text-gray-100">{coreOfferNucleus.desiredResult || '-'}</p>
-            </div>
-            <div>
-              <p className="font-semibold text-gray-400">Key Advantage:</p>
-              <p className="text-gray-100">{coreOfferNucleus.keyAdvantage || '-'}</p>
-            </div>
-            <div>
-              <p className="font-semibold text-gray-400">Top Risk & Assurance:</p>
-              <p className="text-gray-100"><strong>Risk:</strong> {coreOfferNucleus.biggestBarrier || '-'}</p>
-              <p className="text-gray-100"><strong>Assurance:</strong> {coreOfferNucleus.assurance || '-'}</p>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Left column: Current offer */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-white">Your Current Offer</h3>
+                <div>
+                  <p className="font-semibold text-gray-400">Target Audience:</p>
+                  <p className="text-gray-100">{coreOfferNucleus.targetAudience || '-'}</p>
+                </div>
+                <div>
+                  <p className="font-semibold text-gray-400">Core Result:</p>
+                  <p className="text-gray-100">{coreOfferNucleus.desiredResult || '-'}</p>
+                </div>
+                <div>
+                  <p className="font-semibold text-gray-400">Key Advantage:</p>
+                  <p className="text-gray-100">{coreOfferNucleus.keyAdvantage || '-'}</p>
+                </div>
+                <div>
+                  <p className="font-semibold text-gray-400">Top Risk:</p>
+                  <p className="text-gray-100">{coreOfferNucleus.biggestBarrier || '-'}</p>
+                </div>
+                <div>
+                  <p className="font-semibold text-gray-400">Assurance:</p>
+                  <p className="text-gray-100">{coreOfferNucleus.assurance || '-'}</p>
+                </div>
+              </div>
+
+              {/* Right column: Insights from website analysis */}
+              <div className="space-y-4">
+                {websiteFindings && websiteFindings.coreOffer ? (
+                  <>
+                    <h3 className="text-lg font-semibold text-white">Offer Insights</h3>
+                    <OfferInsights
+                      currentOffer={coreOfferNucleus}
+                      websiteOffer={{
+                        targetAudience: websiteFindings.targetAudience || '',
+                        desiredResult: websiteFindings.valueProposition || '',
+                        keyAdvantage: websiteFindings.keyBenefits?.length > 0 ? websiteFindings.keyBenefits[0] : '',
+                        biggestBarrier: websiteFindings.problemSolved || '',
+                        assurance: ''
+                      }}
+                    />
+                  </>
+                ) : (
+                  <div className="bg-[#1C1C1C] p-4 rounded-lg border border-[#333] h-full flex items-center justify-center">
+                    <p className="text-gray-400 text-center">
+                      {scrapingStatus === 'processing' ? (
+                        <>Analyzing website... This will provide insights on your offer.</>
+                      ) : (
+                        <>No website analysis available. Add a website URL to get insights on your offer.</>
+                      )}
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
 
             {!coreOfferConfirmed && (
               <Button
                 onClick={handleConfirm}
                 disabled={!allFieldsFilled || readOnly}
-                className="mt-4 bg-[#FFD23F] text-[#1C1C1C] hover:bg-opacity-90"
+                className="mt-6 bg-[#FFD23F] text-[#1C1C1C] hover:bg-opacity-90 w-full"
               >
-                Confirm Core Offer & Add Enhancers
+                Confirm Core Offer & Continue
               </Button>
             )}
             {coreOfferConfirmed && (
-               <p className="text-green-400 text-sm font-medium flex items-center">
+               <p className="text-green-400 text-sm font-medium flex items-center mt-6">
                  <CheckCircle className="w-4 h-4 mr-1" /> Core Offer Confirmed. You can proceed to the next step.
                </p>
             )}
