@@ -166,14 +166,23 @@ export function ContextChatInline({
     }
   };
 
-  // Initial message on component mount
+  // Initial message on component mount or when website findings change
   useEffect(() => {
     console.log('ContextChatInline - initializing chat:', {
       isInitialLoad,
       messagesLength: contextChat.messages.length,
       websiteScrapingStatus,
-      websiteFindings
+      websiteFindings,
+      hasWebsiteFindings: !!websiteFindings
     });
+
+    // Force initialization when website findings are available
+    if (websiteScrapingStatus === 'completed' && websiteFindings) {
+      console.log('Forcing chat initialization due to completed scraping');
+      clearChatMessages();
+      setIsInitialLoad(true);
+    }
+
     if (isInitialLoad && contextChat.messages.length === 0) {
       // Start with the first field
       const firstField: Suggestion['field'] = 'targetAudience';
@@ -228,7 +237,7 @@ export function ContextChatInline({
 
       startConversation();
     }
-  }, [isInitialLoad, websiteScrapingStatus, websiteUrl, initialContext, websiteFindings]);
+  }, [isInitialLoad, websiteScrapingStatus, websiteUrl, initialContext, websiteFindings, contextChat.messages.length, clearChatMessages]);
 
   // Parse questions from AI response
   const parseQuestionsFromText = (text: string): string[] => {
