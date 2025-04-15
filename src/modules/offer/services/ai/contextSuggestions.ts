@@ -178,7 +178,7 @@ export async function generateSuggestions(
   try {
     return handleOpenAIRequest(
       openai.chat.completions.create({
-        model: "gpt-4.1-nano-2025-04-14",
+        model: "gpt-4o",
         messages: [
           {
             role: "system",

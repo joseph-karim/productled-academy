@@ -24,10 +24,45 @@ export function DefineCoreOffer({ readOnly = false }: DefineCoreOfferProps) {
   const [showCanvas, setShowCanvas] = useState(false);
   const [showChat, setShowChat] = useState(false);
 
+  // Get website findings from the store
+  const websiteUrl = useOfferStore((state) => state.websiteUrl);
+  const scrapingStatus = useOfferStore((state) => state.websiteScraping.status);
+  const websiteFindings = useOfferStore((state) => {
+    if (state.websiteScraping.status === 'completed') {
+      return {
+        coreOffer: state.websiteScraping.coreOffer || '',
+        targetAudience: state.websiteScraping.targetAudience || '',
+        problemSolved: state.websiteScraping.keyProblem || '',
+        valueProposition: state.websiteScraping.valueProposition || '',
+        keyBenefits: Array.isArray(state.websiteScraping.keyFeatures) ? state.websiteScraping.keyFeatures : [],
+        keyPhrases: Array.isArray(state.websiteScraping.keyPhrases) ? state.websiteScraping.keyPhrases : [],
+        missingInfo: []
+      };
+    }
+    return {
+      coreOffer: '',
+      targetAudience: '',
+      problemSolved: '',
+      valueProposition: '',
+      keyBenefits: [],
+      keyPhrases: [],
+      missingInfo: ['No website analysis available']
+    };
+  });
+
   // Listen for the launch-ai-chat event
   React.useEffect(() => {
-    const handleLaunchChat = () => {
-      console.log('Received launch-ai-chat event');
+    const handleLaunchChat = (event: Event) => {
+      console.log('Received launch-ai-chat event', event);
+
+      // Check if the event has detail data
+      const customEvent = event as CustomEvent;
+      if (customEvent.detail) {
+        console.log('Event detail:', customEvent.detail);
+        // You can use the data from the event if needed
+        // For example, update local state or fetch additional data
+      }
+
       setShowChat(true);
     };
 
@@ -59,6 +94,42 @@ export function DefineCoreOffer({ readOnly = false }: DefineCoreOfferProps) {
 
   return (
     <div className="space-y-8">
+      {/* Chat Button - Always visible when chat is not shown */}
+      {!showChat && !readOnly && (
+        <div className="mb-6">
+          <Button
+            onClick={() => setShowChat(true)}
+            className="w-full py-3 bg-[#FFD23F] text-black font-medium rounded-lg hover:bg-opacity-90 flex items-center justify-center"
+          >
+            <MessageSquare className="w-5 h-5 mr-2" />
+            <span className="text-lg">Get AI Help with Your Offer</span>
+          </Button>
+        </div>
+      )}
+
+      {/* AI Chat Assistant */}
+      {showChat && !readOnly && (
+        <div className="mb-6 bg-[#222222] p-6 rounded-lg space-y-4">
+          <div className="flex justify-between items-center mb-3">
+            <h3 className="text-xl font-semibold text-white">AI Offer Assistant</h3>
+            <Button
+              onClick={() => setShowChat(false)}
+              variant="ghost"
+              size="sm"
+              className="text-gray-400 hover:text-white"
+            >
+              Close
+            </Button>
+          </div>
+          <ContextChatInline
+            websiteUrl={websiteUrl}
+            initialContext={useOfferStore.getState().initialContext}
+            websiteScrapingStatus={scrapingStatus}
+            websiteFindings={websiteFindings}
+          />
+        </div>
+      )}
+
       <Card className="bg-[#2A2A2A] border-[#333333] text-white">
         <CardHeader>
           <div className="flex justify-between items-center">
@@ -186,49 +257,7 @@ export function DefineCoreOffer({ readOnly = false }: DefineCoreOfferProps) {
         </Card>
       )}
 
-      {/* AI Chat Assistant */}
-      {showChat && !readOnly && (
-        <div className="mt-6 bg-[#222222] p-6 rounded-lg space-y-4">
-          <div className="flex justify-between items-center mb-3">
-            <h3 className="text-xl font-semibold text-white">AI Offer Assistant</h3>
-            <Button
-              onClick={() => setShowChat(false)}
-              variant="ghost"
-              size="sm"
-              className="text-gray-400 hover:text-white"
-            >
-              Close
-            </Button>
-          </div>
-          <ContextChatInline
-            websiteUrl=""
-            initialContext={useOfferStore.getState().initialContext}
-            websiteScrapingStatus="idle"
-            websiteFindings={{
-              coreOffer: '',
-              targetAudience: '',
-              problemSolved: '',
-              valueProposition: '',
-              keyBenefits: [],
-              keyPhrases: [],
-              missingInfo: ['No website analysis available']
-            }}
-          />
-        </div>
-      )}
-
-      {/* Chat Button - Always visible */}
-      {!showChat && !readOnly && (
-        <div className="mt-6">
-          <Button
-            onClick={() => setShowChat(true)}
-            className="w-full py-3 bg-[#FFD23F] text-black font-medium rounded-lg hover:bg-opacity-90 flex items-center justify-center"
-          >
-            <MessageSquare className="w-5 h-5 mr-2" />
-            <span className="text-lg">Get AI Help with Your Offer</span>
-          </Button>
-        </div>
-      )}
+      {/* Chat components moved to the top of the page */}
     </div>
   );
 }

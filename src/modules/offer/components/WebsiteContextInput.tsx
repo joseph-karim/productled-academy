@@ -55,7 +55,16 @@ export function WebsiteContextInput({ readOnly = false }: WebsiteContextInputPro
             <Label htmlFor="websiteUrlInput" className="text-gray-300 text-sm">Analyze Website (Optional)</Label>
             {!readOnly && websiteScraping.status !== 'processing' && websiteScraping.status !== 'completed' && (
               <Button
-                onClick={() => window.dispatchEvent(new CustomEvent('launch-ai-chat'))}
+                onClick={() => {
+                  // Dispatch event with website data
+                  window.dispatchEvent(new CustomEvent('launch-ai-chat', {
+                    detail: {
+                      websiteUrl: '',
+                      scrapingStatus: 'idle',
+                      hasFindings: false
+                    }
+                  }));
+                }}
                 className="px-4 py-2 text-sm bg-[#FFD23F] text-black font-medium rounded-lg hover:bg-opacity-90"
                 size="sm"
               >
@@ -92,7 +101,16 @@ export function WebsiteContextInput({ readOnly = false }: WebsiteContextInputPro
               <p className="text-xs text-green-500">Analysis complete.</p>
               {!readOnly && (
                 <Button
-                  onClick={() => window.dispatchEvent(new CustomEvent('launch-ai-chat'))}
+                  onClick={() => {
+                    // Dispatch event with website data
+                    window.dispatchEvent(new CustomEvent('launch-ai-chat', {
+                      detail: {
+                        websiteUrl,
+                        scrapingStatus: websiteScraping.status,
+                        hasFindings: true
+                      }
+                    }));
+                  }}
                   className="px-4 py-2 text-sm bg-[#FFD23F] text-black font-medium rounded-lg hover:bg-opacity-90"
                   size="sm"
                 >
@@ -106,7 +124,16 @@ export function WebsiteContextInput({ readOnly = false }: WebsiteContextInputPro
               <p className="text-xs text-red-500">Analysis failed: {websiteScraping.error || 'Unknown error'}</p>
               {!readOnly && (
                 <Button
-                  onClick={() => window.dispatchEvent(new CustomEvent('launch-ai-chat'))}
+                  onClick={() => {
+                    // Dispatch event with website data
+                    window.dispatchEvent(new CustomEvent('launch-ai-chat', {
+                      detail: {
+                        websiteUrl,
+                        scrapingStatus: 'failed',
+                        hasFindings: false
+                      }
+                    }));
+                  }}
                   className="px-4 py-2 text-sm bg-[#FFD23F] text-black font-medium rounded-lg hover:bg-opacity-90"
                   size="sm"
                 >
