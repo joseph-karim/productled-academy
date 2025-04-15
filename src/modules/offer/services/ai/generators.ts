@@ -582,6 +582,47 @@ export interface SectionCopy {
 export type LandingPageSection = 'Hero' | 'Problem' | 'Solution' | 'Risk Reversal' | 'Social Proof' | 'CTA';
 
 /**
+ * Get section-specific instructions based on the Landing Page Outline
+ */
+function getSectionSpecificInstructions(sectionType: LandingPageSection): string {
+  switch (sectionType) {
+    case 'Hero':
+      return `**Hero Section Instructions:**
+- **Headline:** Create a compelling headline focusing on the Core Result and Target Audience, ideally following the 'Get [RESULT] Without [PROBLEM/OBJECTION]' format. Incorporate the 'Aha moment'.
+- **Sub-headline:** Expand on the headline, clarifying the benefit or target audience relevance. Mention ease of getting started or why now.
+- **CTA:** Suggest clear Call-to-Action text that relates to the 'Aha moment' or offers a risk-free next step (using the Assurance).`;
+
+    case 'Problem':
+      return `**Problem Section Instructions:**
+- **Problem with Alternatives:** Describe the main problems with other tools or current solutions, drawing contrast with the Core Advantage.
+- **Underlying Problem:** Articulate the deeper pain or negative consequences the Target Audience faces if they don't achieve the Core Result. Show you understand their struggle ("get them").`;
+
+    case 'Solution':
+      return `**Solution Section Instructions:**
+- **Headline:** Create a headline summarizing how the solution delivers the Result in a short time.
+- **Steps (3-5):** Detail the key steps involved (e.g., Setup, Eliminate, Automate, Unique Capability, Report/Export). For each step, use the format: "We do X (step) to get Y (benefit linked to Result). It's easy because Z / You don't need Z (highlighting the Advantage)." Include a mini-CTA or answer a potential question if appropriate after each step description.`;
+
+    case 'Risk Reversal':
+      return `**Risk Reversal Section Instructions:**
+- Directly address the provided **Barrier/Objection** using the **Assurance** statement. Phrase it clearly and confidently as a risk reversal. Generate 1-2 concise statements.`;
+
+    case 'Social Proof':
+      return `**Social Proof Angles Instructions:**
+- Suggest 1-2 key themes or questions for testimonials that would best support the Core Result, Key Advantage, or Risk Reversal (focus on cost avoided, result achieved, new capability enabled).`;
+
+    case 'CTA':
+      return `**Final CTA Section Instructions:**
+- Generate compelling CTA copy that reinforces the Core Result.
+- Emphasize ease of getting started.
+- Reiterate the risk-free nature (using the Assurance).
+- Explicitly state the clear next step.`;
+
+    default:
+      return `Generate a headline (concise, impactful) and body copy (1-3 sentences, clear, benefit-focused) suitable for this section.`;
+  }
+}
+
+/**
  * Generate draft content (headline & body) for a specific landing page section
  */
 export async function generateSectionDraft(
@@ -594,17 +635,14 @@ export async function generateSectionDraft(
   // Construct a detailed prompt based on the inputs
   let promptDetails = `Core Offer Nucleus:
 - Audience: ${coreOffer.targetAudience}
-- Result: ${coreOffer.desiredResult}
+- Result: ${coreOffer.desiredResult} // The 'Aha moment' for the customer
 - Advantage: ${coreOffer.keyAdvantage}
 - Barrier: ${coreOffer.biggestBarrier}
 - Assurance: ${coreOffer.assurance}
 `;
 
   if (exclusivity.hasLimit) {
-    promptDetails += `\nExclusivity:
-- Limit: ${exclusivity.capacityLimit}
-- Reason: ${exclusivity.validReason}
-`;
+    promptDetails += `\nExclusivity: Limit ${exclusivity.capacityLimit}, Reason: ${exclusivity.validReason}`;
   }
 
   if (bonuses.length > 0) {
@@ -614,18 +652,40 @@ ${bonuses.map(b => `- ${b.name}: ${b.benefit}`).join('\n')}
   }
 
   if (onboardingSteps.length > 0) {
-    promptDetails += `\nOnboarding Steps:
+    promptDetails += `\nOnboarding Steps (Value Path):
 ${onboardingSteps.map((step, index) => `${index + 1}. ${step.description} (${step.timeEstimate})`).join('\n')}
 `;
+
+    // Update the Solution section instructions if we have onboarding steps
+    if (sectionType === 'Solution') {
+      const solutionInstructions = getSectionSpecificInstructions('Solution');
+      const enhancedInstructions = solutionInstructions + '\n\n**Note:** Use the provided Onboarding Steps as a foundation for the solution steps, enhancing them with benefits linked to the Core Result and highlighting the Key Advantage.';
+      generationInstructions = enhancedInstructions;
+    }
   }
 
-  // TODO: Refine system prompt and user instruction based on sectionType
-  const systemPrompt = `You are an expert copywriter specializing in high-converting landing pages based on the ProductLed System™. Generate concise and compelling copy points.`;
-  const userInstruction = `Based on the following offer details, generate a draft headline and body copy specifically for the **${sectionType} Section** of a landing page:
+  // Enhanced system prompt for better landing page copy generation
+  const systemPrompt = `You are an expert ProductLed Copywriter, specializing in creating high-converting landing pages for Product-Led Growth companies. Your goal is to generate concise, compelling, and customer-centric copy points based on the provided Core Offer details and the ProductLed Landing Page Outline framework.
+
+Follow these principles:
+- Focus relentlessly on the customer's desired **Result** and "Aha moment."
+- Clearly articulate the unique **Advantage** and how the **Solution** delivers the result better than alternatives.
+- Directly address the customer's **Problem** and pain points, showing empathy ("get them").
+- Counter the main **Risk/Objection** with a clear **Assurance/Risk Reversal**.
+- Ensure all copy is benefit-driven, clear, and concise.
+- Use strong verbs and active voice.
+- Output should be structured clearly, providing distinct copy points suitable for direct use or easy editing for each specified landing page section.`;
+  // Create section-specific instructions based on the Landing Page Outline
+  let generationInstructions = getSectionSpecificInstructions(sectionType);
+
+  // Combine details and instructions for the final prompt
+  const userInstruction = `Based on the Core Offer Nucleus and any Enhancers provided below, generate draft copy points for the **${sectionType} Section** of a landing page:
 
 ${promptDetails}
 
-Generate a headline (concise, impactful) and body copy (1-3 sentences, clear, benefit-focused) suitable for the ${sectionType} section. For 'Social Proof', generate notes/angles on what type of proof to use.`;
+${generationInstructions}
+
+Output Format: Provide the generated copy points clearly labeled. Be concise and compelling.`;
 
   return handleOpenAIRequest(
     openai.chat.completions.create({
@@ -637,17 +697,17 @@ Generate a headline (concise, impactful) and body copy (1-3 sentences, clear, be
       functions: [
         {
           name: "generate_section_copy",
-          description: `Generate draft headline and body copy for the ${sectionType} section`, // Dynamic description
+          description: `Generate draft copy for the ${sectionType} section of a ProductLed landing page`, // Enhanced description
           parameters: {
             type: "object",
             properties: {
               headline: {
                 type: "string",
-                description: "Draft headline for the section"
+                description: "Primary headline for the section (concise, impactful, focused on Result)"
               },
               body: {
                 type: "string",
-                description: "Draft body copy for the section (or notes for Social Proof)"
+                description: "Detailed copy for the section (formatted with clear structure, bullet points where appropriate)"
               }
             },
             required: ["headline", "body"]
