@@ -97,46 +97,31 @@ export function ContextChatInline({
     setShowSuggestions(false);
 
     try {
-      // Always use fallback suggestions due to OpenAI proxy issues
-      console.log('Using fallback suggestions for', field);
-
-      // Add some default suggestions as fallback
-      const fallbackSuggestions = getFallbackSuggestions(field);
-      const formattedSuggestions = fallbackSuggestions.map(text => ({
-        text,
-        field
-      }));
-
-      setSuggestions(formattedSuggestions);
-      setShowSuggestions(true);
-
-      // Add a message to the chat
-      if (contextChat.messages.length <= 2) {
-        addChatMessage({
-          sender: 'ai',
-          content: `Here are some suggestions for ${fieldDisplayNames[field]}. You can select one or type your own.`
-        });
-      }
-
-      /* Temporarily disabled due to OpenAI proxy issues
       // Check if we have website findings to use
       if (websiteFindings && websiteScrapingStatus === 'completed' && websiteFindings.coreOffer) {
+        console.log('Using website findings for suggestions');
         // Generate suggestions based on the field and website findings
-        const fieldSuggestions = await generateSuggestions(field, initialContext, websiteFindings);
+        try {
+          const fieldSuggestions = await generateSuggestions(field, initialContext, websiteFindings);
 
-        // Format suggestions
-        const formattedSuggestions = fieldSuggestions.map(text => ({
-          text,
-          field
-        }));
+          // Format suggestions
+          const formattedSuggestions = fieldSuggestions.map(text => ({
+            text,
+            field
+          }));
 
-        setSuggestions(formattedSuggestions);
-        setShowSuggestions(true);
-      } else {
-        // If no website findings, use initial context and fallback suggestions
-        console.log('No website findings available, using fallback suggestions');
+          setSuggestions(formattedSuggestions);
+          setShowSuggestions(true);
+          return; // Exit early if successful
+        } catch (apiError) {
+          console.error('Error calling OpenAI API with website findings:', apiError);
+          // Continue to fallback if API call fails
+        }
+      }
 
-        // Try to generate suggestions with just initial context
+      // If no website findings or API call failed, try with just initial context
+      console.log('Using initial context for suggestions');
+      try {
         const fieldSuggestions = await generateSuggestions(field, initialContext, null);
 
         // Format suggestions
@@ -147,8 +132,30 @@ export function ContextChatInline({
 
         setSuggestions(formattedSuggestions);
         setShowSuggestions(true);
+        return; // Exit early if successful
+      } catch (apiError) {
+        console.error('Error calling OpenAI API with initial context:', apiError);
+        // Continue to fallback if API call fails
       }
-      */
+
+      // Fallback to predefined suggestions if all API calls fail
+      console.log('Using fallback suggestions for', field);
+      const fallbackSuggestions = getFallbackSuggestions(field);
+      const formattedSuggestions = fallbackSuggestions.map(text => ({
+        text,
+        field
+      }));
+
+      setSuggestions(formattedSuggestions);
+      setShowSuggestions(true);
+
+      // Add a message to the chat about using fallbacks
+      if (contextChat.messages.length <= 2) {
+        addChatMessage({
+          sender: 'ai',
+          content: `Here are some suggestions for ${fieldDisplayNames[field]}. You can select one or type your own.`
+        });
+      }
     } catch (error) {
       console.error(`Error generating suggestions for ${field}:`, error);
       addChatMessage({
@@ -267,9 +274,12 @@ export function ContextChatInline({
             content: welcomeMessage
           });
 
-          // Generate suggestions for the first field using fallbacks
-          // This avoids making API calls that might fail
-          setTimeout(() => {
+          // Generate suggestions for the first field
+          try {
+            await generateFieldSuggestions(firstField);
+          } catch (error) {
+            console.error('Error generating initial suggestions:', error);
+            // Fallback to predefined suggestions
             const fallbackSuggestions = getFallbackSuggestions(firstField);
             const formattedSuggestions = fallbackSuggestions.map(text => ({
               text,
@@ -278,9 +288,10 @@ export function ContextChatInline({
 
             setSuggestions(formattedSuggestions);
             setShowSuggestions(true);
-            setIsProcessing(false);
-            setIsInitialLoad(false);
-          }, 500);
+          }
+
+          setIsProcessing(false);
+          setIsInitialLoad(false);
         } catch (error) {
           console.error('[ContextChatInline] Error starting conversation:', error);
           addChatMessage({
