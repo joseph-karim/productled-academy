@@ -37,6 +37,12 @@ export interface Bonus {
   benefit: string;
 }
 
+export interface OnboardingStep {
+  id: string;
+  description: string;
+  timeEstimate: string;
+}
+
 export interface SectionCopy {
   headline: string;
   body: string;
@@ -52,8 +58,10 @@ export interface OfferStateData {
   coreOfferNucleus: CoreOfferNucleus;
   exclusivity: Exclusivity;
   bonuses: Bonus[];
+  onboardingSteps: OnboardingStep[];
 
   coreOfferConfirmed: boolean;
+  onboardingStepsConfirmed: boolean;
   enhancersConfirmed: boolean;
   landingPageContentRefined: boolean;
   finalReviewCompleted: boolean;
@@ -85,7 +93,12 @@ export interface OfferState extends OfferStateData {
   removeBonus: (index: number) => void;
   setBonuses: (bonuses: Bonus[]) => void;
 
+  addOnboardingStep: (step: OnboardingStep) => void;
+  removeOnboardingStep: (index: number) => void;
+  updateOnboardingStep: (steps: OnboardingStep[]) => void;
+
   setCoreOfferConfirmed: (confirmed: boolean) => void;
+  setOnboardingStepsConfirmed: (confirmed: boolean) => void;
   setEnhancersConfirmed: (confirmed: boolean) => void;
   setLandingPageContentRefined: (refined: boolean) => void;
   setFinalReviewCompleted: (completed: boolean) => void;
@@ -153,7 +166,9 @@ const initialState: OfferStateData = {
     validReason: '' as string
   },
   bonuses: [] as Bonus[],
+  onboardingSteps: [] as OnboardingStep[],
   coreOfferConfirmed: false,
+  onboardingStepsConfirmed: false,
   enhancersConfirmed: false,
   landingPageContentRefined: false,
   finalReviewCompleted: false,
@@ -227,7 +242,13 @@ export const useOfferStore = create<OfferState>()(
       addBonus: (bonus) => set((state) => ({ bonuses: [...state.bonuses, bonus] })),
       removeBonus: (index) => set((state) => ({ bonuses: state.bonuses.filter((_, i) => i !== index) })),
       setBonuses: (bonuses) => set({ bonuses: bonuses }),
+
+      addOnboardingStep: (step) => set((state) => ({ onboardingSteps: [...state.onboardingSteps, step] })),
+      removeOnboardingStep: (index) => set((state) => ({ onboardingSteps: state.onboardingSteps.filter((_, i) => i !== index) })),
+      updateOnboardingStep: (steps) => set({ onboardingSteps: steps }),
+
       setCoreOfferConfirmed: (confirmed) => set({ coreOfferConfirmed: confirmed }),
+      setOnboardingStepsConfirmed: (confirmed) => set({ onboardingStepsConfirmed: confirmed }),
       setEnhancersConfirmed: (confirmed) => set({ enhancersConfirmed: confirmed }),
       setLandingPageContentRefined: (refined) => set({ landingPageContentRefined: refined }),
       setFinalReviewCompleted: (completed) => set({ finalReviewCompleted: completed }),

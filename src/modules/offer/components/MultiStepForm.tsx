@@ -9,18 +9,19 @@ import { ErrorBoundary } from 'react-error-boundary';
 
 // Keep imports for the blended flow components
 import { DefineCoreOffer } from './DefineCoreOffer';
+import { SetupSteps } from './SetupSteps';
 import { AddEnhancers } from './AddEnhancers';
 import { GenerateRefineContent } from './GenerateRefineContent';
 import { FinalReview } from './FinalReview';
 import { WebsiteContextInput } from './WebsiteContextInput';
 
 // Remove imports from HEAD branch
-// import { DefineCoreOfferNucleusStep } from './steps/DefineCoreOfferNucleusStep'; 
-// import { ReviewOfferCanvasStep } from './steps/ReviewOfferCanvasStep'; 
-// import { AddEnhancersStep } from './steps/AddEnhancersStep'; 
-// import { RefineLandingPageCopyStep } from './steps/RefineLandingPageCopyStep'; 
-// import { FinalReviewStep } from './steps/FinalReviewStep'; 
-// import { AnalyzeHomepageStep } from './steps/AnalyzeHomepageStep'; 
+// import { DefineCoreOfferNucleusStep } from './steps/DefineCoreOfferNucleusStep';
+// import { ReviewOfferCanvasStep } from './steps/ReviewOfferCanvasStep';
+// import { AddEnhancersStep } from './steps/AddEnhancersStep';
+// import { RefineLandingPageCopyStep } from './steps/RefineLandingPageCopyStep';
+// import { FinalReviewStep } from './steps/FinalReviewStep';
+// import { AnalyzeHomepageStep } from './steps/AnalyzeHomepageStep';
 
 // Remove other unused imports if any (like the old consolidated components)
 // import { CoreOfferDevelopment } from './consolidated/CoreOfferDevelopment';
@@ -62,31 +63,39 @@ const steps = [
     title: 'Define Core Offer Nucleus',
     component: DefineCoreOffer,
     isUnlocked: (state: ReturnType<typeof useOfferStore.getState>) => true,
-    isComplete: (state: ReturnType<typeof useOfferStore.getState>) => 
+    isComplete: (state: ReturnType<typeof useOfferStore.getState>) =>
       state.coreOfferConfirmed
   },
   {
-    title: 'Add Offer Enhancers',
-    component: AddEnhancers,
-    isUnlocked: (state: ReturnType<typeof useOfferStore.getState>) => 
+    title: 'Setup Onboarding Steps',
+    component: SetupSteps,
+    isUnlocked: (state: ReturnType<typeof useOfferStore.getState>) =>
       state.coreOfferConfirmed,
-    isComplete: (state: ReturnType<typeof useOfferStore.getState>) => 
+    isComplete: (state: ReturnType<typeof useOfferStore.getState>) =>
+      state.onboardingStepsConfirmed
+  },
+  {
+    title: 'Add Offer Enhancers (Optional)',
+    component: AddEnhancers,
+    isUnlocked: (state: ReturnType<typeof useOfferStore.getState>) =>
+      state.onboardingStepsConfirmed,
+    isComplete: (state: ReturnType<typeof useOfferStore.getState>) =>
       state.enhancersConfirmed
   },
   {
     title: 'Generate & Refine Landing Page Content',
     component: GenerateRefineContent,
-    isUnlocked: (state: ReturnType<typeof useOfferStore.getState>) => 
-      state.enhancersConfirmed,
-    isComplete: (state: ReturnType<typeof useOfferStore.getState>) => 
+    isUnlocked: (state: ReturnType<typeof useOfferStore.getState>) =>
+      state.onboardingStepsConfirmed && state.enhancersConfirmed,
+    isComplete: (state: ReturnType<typeof useOfferStore.getState>) =>
       state.landingPageContentRefined
   },
   {
     title: 'Final Review & Output',
     component: FinalReview,
-    isUnlocked: (state: ReturnType<typeof useOfferStore.getState>) => 
+    isUnlocked: (state: ReturnType<typeof useOfferStore.getState>) =>
       state.landingPageContentRefined,
-    isComplete: (state: ReturnType<typeof useOfferStore.getState>) => 
+    isComplete: (state: ReturnType<typeof useOfferStore.getState>) =>
       state.finalReviewCompleted
   }
 ];
@@ -107,20 +116,20 @@ export function MultiStepForm({ readOnly = false, analysisId: propAnalysisId }: 
   const [pendingAction, setPendingAction] = useState<string | null>(null);
   const [modelData, setModelData] = useState<any>(null);
   const [offerNotFound, setOfferNotFound] = useState(false);
-  
+
   const store = useOfferStore();
   const { resetState } = store;
   const { user } = useAuth();
   const { id: routeId } = useParams();
   const navigate = useNavigate();
-  
+
   // Mount effect
   useEffect(() => {
     if (!routeId && !propAnalysisId) {
       resetState();
     }
   }, []);
-  
+
   useEffect(() => {
     if (currentStep >= steps.length) {
       setCurrentStep(steps.length - 1);
@@ -129,12 +138,12 @@ export function MultiStepForm({ readOnly = false, analysisId: propAnalysisId }: 
 
   const safeCurrentStep = Math.min(currentStep, steps.length - 1);
   const CurrentStepComponent = steps[safeCurrentStep]?.component;
-  
+
   if (!CurrentStepComponent) {
-     return <div>Loading step...</div>; 
+     return <div>Loading step...</div>;
   }
 
-  // Load data effect 
+  // Load data effect
   useEffect(() => {
     const idToLoad = routeId || propAnalysisId;
     if (!idToLoad) return;
@@ -153,7 +162,7 @@ export function MultiStepForm({ readOnly = false, analysisId: propAnalysisId }: 
     try {
       console.log(`Loading offer data with ID: ${idToLoad}`);
       const moduleData = await getModuleData('offer');
-      
+
       if (!moduleData) {
         console.warn("No data found for offer module or ID");
         resetState();
@@ -162,7 +171,7 @@ export function MultiStepForm({ readOnly = false, analysisId: propAnalysisId }: 
       }
 
       resetState();
-      
+
       console.log(`Loading offer with ID ${idToLoad} using direct setState.`);
       useOfferStore.setState(moduleData);
 
@@ -173,7 +182,7 @@ export function MultiStepForm({ readOnly = false, analysisId: propAnalysisId }: 
       setOfferNotFound(true);
     }
   };
-  
+
   const loadModelData = async () => {
     try {
       const data = await getModuleData('model');
@@ -221,7 +230,7 @@ export function MultiStepForm({ readOnly = false, analysisId: propAnalysisId }: 
         refinedSocialProofNotes: storeState.refinedSocialProofNotes,
         refinedCtaCopy: storeState.refinedCtaCopy,
       };
-      
+
       const savedData = await saveModuleData('offer', dataToSave);
       if (savedData && savedData.id) {
         if (!analysisId) {
@@ -238,7 +247,7 @@ export function MultiStepForm({ readOnly = false, analysisId: propAnalysisId }: 
       setIsSaving(false);
     }
   };
-  
+
   const handleAuthSuccess = () => {
     setShowAuthModal(false);
     if (pendingAction === 'save') {
@@ -283,8 +292,8 @@ export function MultiStepForm({ readOnly = false, analysisId: propAnalysisId }: 
           </div>
         </div>
         <div className="w-full bg-[#333333] rounded-full h-2">
-          <div 
-            className="bg-[#FFD23F] h-2 rounded-full" 
+          <div
+            className="bg-[#FFD23F] h-2 rounded-full"
             style={{ width: `${((safeCurrentStep + 1) / steps.length) * 100}%` }}
           />
         </div>
@@ -395,4 +404,4 @@ export function MultiStepForm({ readOnly = false, analysisId: propAnalysisId }: 
       </div>
     </div>
   );
-}            
+}

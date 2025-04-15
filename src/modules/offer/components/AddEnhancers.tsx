@@ -20,15 +20,15 @@ interface Bonus {
 }
 
 export function AddEnhancers({ readOnly = false }: AddEnhancersProps) {
-  const { 
-    exclusivity, 
-    setExclusivity, 
-    bonuses, 
-    addBonus, 
-    removeBonus, 
+  const {
+    exclusivity,
+    setExclusivity,
+    bonuses,
+    addBonus,
+    removeBonus,
     setBonuses, // Assuming you add setBonuses action to store for updating existing bonuses
-    enhancersConfirmed, 
-    setEnhancersConfirmed 
+    enhancersConfirmed,
+    setEnhancersConfirmed
   } = useOfferStore();
 
   const [currentBonusName, setCurrentBonusName] = useState('');
@@ -42,15 +42,15 @@ export function AddEnhancers({ readOnly = false }: AddEnhancersProps) {
   const handleAddBonus = () => {
     if (readOnly || !currentBonusName.trim() || !currentBonusBenefit.trim()) return;
     // Assuming addBonus in store handles creating an object with ID
-    addBonus({ 
-      id: crypto.randomUUID(), 
-      name: currentBonusName.trim(), 
-      benefit: currentBonusBenefit.trim() 
+    addBonus({
+      id: crypto.randomUUID(),
+      name: currentBonusName.trim(),
+      benefit: currentBonusBenefit.trim()
     });
     setCurrentBonusName('');
     setCurrentBonusBenefit('');
   };
-  
+
   // Function to update an existing bonus (requires setBonuses or similar in store)
   const handleUpdateBonus = (index: number, field: 'name' | 'benefit', value: string) => {
     if (readOnly) return;
@@ -74,8 +74,8 @@ export function AddEnhancers({ readOnly = false }: AddEnhancersProps) {
     <div className="space-y-8">
       <Card className="bg-[#2A2A2A] border-[#333333] text-white">
         <CardHeader>
-          <CardTitle>Step 2: Add Offer Enhancers</CardTitle>
-          <CardDescription className="text-gray-400">Layer scarcity and added value onto your core offer.</CardDescription>
+          <CardTitle>Add Offer Enhancers (Optional)</CardTitle>
+          <CardDescription className="text-gray-400">Layer scarcity and added value onto your core offer. These enhancers are optional but can make your offer more compelling.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Exclusivity Section */}
@@ -83,8 +83,8 @@ export function AddEnhancers({ readOnly = false }: AddEnhancersProps) {
             <h3 className="font-semibold text-gray-200">Exclusivity / Scarcity</h3>
             <div>
               <Label className="text-gray-300">Is there a limit to how many people you can serve?</Label>
-              <RadioGroup 
-                value={exclusivity.hasLimit ? 'yes' : 'no'} 
+              <RadioGroup
+                value={exclusivity.hasLimit ? 'yes' : 'no'}
                 onValueChange={(value: string) => handleExclusivityChange('hasLimit', value === 'yes')}
                 className="flex space-x-4 mt-2"
                 disabled={readOnly || enhancersConfirmed}
@@ -132,7 +132,7 @@ export function AddEnhancers({ readOnly = false }: AddEnhancersProps) {
           <div className="space-y-4 p-4 border border-[#444444] rounded-md bg-[#1C1C1C]">
             <h3 className="font-semibold text-gray-200">Bonuses (Optional)</h3>
             <p className="text-sm text-gray-400">List 1-3 key bonuses and their primary benefit.</p>
-            
+
             {bonuses.map((bonus, index) => (
               <div key={bonus.id || index} className="flex items-start space-x-2 p-3 bg-[#2A2A2A] rounded border border-[#444444]">
                 <div className="flex-1 space-y-2">
@@ -152,10 +152,10 @@ export function AddEnhancers({ readOnly = false }: AddEnhancersProps) {
                     rows={2}
                   />
                 </div>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  onClick={() => handleRemoveBonus(index)} 
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => handleRemoveBonus(index)}
                   disabled={readOnly || enhancersConfirmed}
                   className="text-red-500 hover:text-red-400 mt-1"
                 >
@@ -183,10 +183,10 @@ export function AddEnhancers({ readOnly = false }: AddEnhancersProps) {
                       rows={2}
                     />
                  </div>
-                <Button 
-                  variant="outline" 
-                  size="icon" 
-                  onClick={handleAddBonus} 
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={handleAddBonus}
                   disabled={readOnly || !currentBonusName.trim() || !currentBonusBenefit.trim()}
                   className="mt-1 text-gray-300 border-[#444444] hover:bg-[#333333]"
                 >
@@ -197,12 +197,12 @@ export function AddEnhancers({ readOnly = false }: AddEnhancersProps) {
           </div>
 
           {!enhancersConfirmed && (
-            <Button 
-              onClick={handleConfirm} 
+            <Button
+              onClick={handleConfirm}
               disabled={readOnly}
               className="bg-[#FFD23F] text-[#1C1C1C] hover:bg-opacity-90"
             >
-              Confirm Enhancers & Generate Landing Page Content
+              Confirm Enhancers & Continue
             </Button>
           )}
           {enhancersConfirmed && (
@@ -214,4 +214,4 @@ export function AddEnhancers({ readOnly = false }: AddEnhancersProps) {
       </Card>
     </div>
   );
-} 
+}
