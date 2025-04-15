@@ -92,49 +92,66 @@ export async function getScrapingResult(scrapingId: string): Promise<WebsiteScra
     const { data: { user } } = await supabase.auth.getUser();
     console.log(`Current user state:`, user ? `Authenticated as ${user.id}` : 'Not authenticated');
 
-    // For both authenticated and unauthenticated users, use the Edge Function
-    console.log('Using Edge Function to fetch scraping result');
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    // Try using the Edge Function first
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-scraping-result`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+          },
+          body: JSON.stringify({ scrapingId })
+        }
+      );
 
-    if (!supabaseUrl || !supabaseAnonKey) {
-      console.error('Missing Supabase environment variables');
-      return null;
-    }
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Successfully retrieved scraping result via Edge Function:', data);
 
-    // Call the Edge Function to get the scraping result
-    const response = await fetch(
-      `${supabaseUrl}/functions/v1/get-scraping-result`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${supabaseAnonKey}`
-        },
-        body: JSON.stringify({ scrapingId })
+        return {
+          id: data.id,
+          status: data.status,
+          url: data.url,
+          title: data.title,
+          metaDescription: data.meta_description,
+          analysisResult: data.analysis_result,
+          error: data.error,
+          createdAt: data.created_at,
+          completedAt: data.completed_at
+        };
+      } else {
+        console.log('Edge Function failed, falling back to direct Supabase client');
       }
-    );
+    } catch (edgeFunctionError) {
+      console.log('Edge Function error, falling back to direct Supabase client:', edgeFunctionError);
+    }
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`Edge Function call failed: ${response.status}`, errorText);
+    // Fall back to using Supabase client directly
+    const { data, error } = await supabase
+      .from('website_scraping')
+      .select('*')
+      .eq('id', scrapingId)
+      .single();
+
+    if (error) {
+      console.error('Error fetching scraping result:', error);
       return null;
     }
 
-    // If we get here, the Edge Function call was successful
-    const result = await response.json();
-    console.log('Successfully retrieved scraping result via Edge Function:', result);
+    console.log('Successfully retrieved scraping result via Supabase client:', data);
 
     return {
-      id: result.id,
-      status: result.status,
-      url: result.url,
-      title: result.title,
-      metaDescription: result.meta_description,
-      analysisResult: result.analysis_result,
-      error: result.error,
-      createdAt: result.created_at,
-      completedAt: result.completed_at
+      id: data.id,
+      status: data.status,
+      url: data.url,
+      title: data.title,
+      metaDescription: data.meta_description,
+      analysisResult: data.analysis_result,
+      error: data.error,
+      createdAt: data.created_at,
+      completedAt: data.completed_at
     };
   } catch (error) {
     console.error('Error getting scraping result:', error);
