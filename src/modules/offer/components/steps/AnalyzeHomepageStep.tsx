@@ -21,8 +21,17 @@ export function AnalyzeHomepageStep({ readOnly = false }: { readOnly?: boolean }
 
   // Prepare websiteFindings prop for ContextChat
   const websiteFindings = useOfferStore((state) => {
-      if (state.websiteScraping.status === 'completed') {
-          return { /* ... (map findings as before) ... */ };
+      if (state.websiteScraping.status === 'completed' && state.websiteScraping.analysisResult?.findings) {
+          const findings = state.websiteScraping.analysisResult.findings;
+          return {
+              coreOffer: findings.coreOffer || '',
+              targetAudience: findings.targetAudience || '',
+              problemSolved: findings.problemSolved || '',
+              valueProposition: findings.valueProposition || '',
+              keyBenefits: Array.isArray(findings.keyBenefits) ? findings.keyBenefits : [],
+              keyPhrases: Array.isArray(findings.keyPhrases) ? findings.keyPhrases : [],
+              missingInfo: Array.isArray(findings.missingInfo) ? findings.missingInfo : []
+          };
       }
       return null;
   }) as WebsiteFindings | null;
@@ -78,6 +87,13 @@ export function AnalyzeHomepageStep({ readOnly = false }: { readOnly?: boolean }
   const isProcessing = scrapingStatus === 'processing';
   const isCompleted = scrapingStatus === 'completed';
   const isFailed = scrapingStatus === 'failed';
+
+  // Auto-show chat when scraping completes
+  useEffect(() => {
+    if (isCompleted && !showChat && !readOnly) {
+      setShowChat(true);
+    }
+  }, [isCompleted, showChat, readOnly]);
 
   return (
     <div className="space-y-6">
