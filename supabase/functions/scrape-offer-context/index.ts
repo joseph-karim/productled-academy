@@ -20,7 +20,8 @@ serve(async (req) => {
 
   // Check if this is a request to get a scraping result
   const requestUrl = new URL(req.url);
-  if (requestUrl.pathname.endsWith('/result')) {
+  console.log('Request URL:', requestUrl.pathname);
+  if (requestUrl.pathname.includes('/result')) {
     try {
       const { scrapingId } = await req.json();
 

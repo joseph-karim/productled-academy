@@ -92,12 +92,11 @@ export async function getScrapingResult(scrapingId: string): Promise<WebsiteScra
     const { data: { user } } = await supabase.auth.getUser();
     console.log(`Current user state:`, user ? `Authenticated as ${user.id}` : 'Not authenticated');
 
-    // Use the scrape-offer-context Edge Function to get the result directly
-    // This bypasses the need to access the database directly
+    // Use the get-scraping-result Edge Function
     try {
-      console.log('Fetching scraping result directly from the scrape-offer-context Edge Function');
+      console.log('Fetching scraping result from the get-scraping-result Edge Function');
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/scrape-offer-context/result`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-scraping-result`,
         {
           method: 'POST',
           headers: {
