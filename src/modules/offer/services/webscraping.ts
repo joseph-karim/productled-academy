@@ -92,10 +92,12 @@ export async function getScrapingResult(scrapingId: string): Promise<WebsiteScra
     const { data: { user } } = await supabase.auth.getUser();
     console.log(`Current user state:`, user ? `Authenticated as ${user.id}` : 'Not authenticated');
 
-    // Try using the Edge Function first
+    // Use the scrape-offer-context Edge Function to get the result directly
+    // This bypasses the need to access the database directly
     try {
+      console.log('Fetching scraping result directly from the scrape-offer-context Edge Function');
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-scraping-result`,
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/scrape-offer-context/result`,
         {
           method: 'POST',
           headers: {
@@ -122,13 +124,15 @@ export async function getScrapingResult(scrapingId: string): Promise<WebsiteScra
           completedAt: data.completed_at
         };
       } else {
-        console.log('Edge Function failed, falling back to direct Supabase client');
+        const errorText = await response.text();
+        console.log(`Edge Function failed with status ${response.status}:`, errorText);
       }
     } catch (edgeFunctionError) {
-      console.log('Edge Function error, falling back to direct Supabase client:', edgeFunctionError);
+      console.log('Edge Function error:', edgeFunctionError);
     }
 
-    // Fall back to using Supabase client directly
+    // As a last resort, try using the Supabase client directly
+    console.log('Trying Supabase client as a last resort');
     const { data, error } = await supabase
       .from('website_scraping')
       .select('*')
@@ -136,7 +140,7 @@ export async function getScrapingResult(scrapingId: string): Promise<WebsiteScra
       .single();
 
     if (error) {
-      console.error('Error fetching scraping result:', error);
+      console.error('Error fetching scraping result with Supabase client:', error);
       return null;
     }
 

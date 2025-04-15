@@ -18,6 +18,68 @@ serve(async (req) => {
     });
   }
 
+  // Check if this is a request to get a scraping result
+  const requestUrl = new URL(req.url);
+  if (requestUrl.pathname.endsWith('/result')) {
+    try {
+      const { scrapingId } = await req.json();
+
+      if (!scrapingId) {
+        return new Response(
+          JSON.stringify({ error: 'Scraping ID is required' }),
+          { headers: { 'Content-Type': 'application/json', ...corsHeaders }, status: 400 }
+        );
+      }
+
+      const supabaseUrl = Deno.env.get('SUPABASE_URL');
+      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+      if (!supabaseUrl || !supabaseKey) {
+        return new Response(
+          JSON.stringify({ error: 'Missing Supabase environment variables' }),
+          { headers: { 'Content-Type': 'application/json', ...corsHeaders }, status: 500 }
+        );
+      }
+
+      const supabase = createClient(supabaseUrl, supabaseKey);
+
+      // Query the database for the scraping result
+      const { data, error } = await supabase
+        .from('website_scraping')
+        .select('*')
+        .eq('id', scrapingId)
+        .single();
+
+      if (error) {
+        console.error('Error fetching scraping result:', error);
+        return new Response(
+          JSON.stringify({ error: error.message }),
+          { headers: { 'Content-Type': 'application/json', ...corsHeaders }, status: 500 }
+        );
+      }
+
+      if (!data) {
+        return new Response(
+          JSON.stringify({ error: 'Scraping result not found' }),
+          { headers: { 'Content-Type': 'application/json', ...corsHeaders }, status: 404 }
+        );
+      }
+
+      // Return the scraping result
+      return new Response(
+        JSON.stringify(data),
+        { headers: { 'Content-Type': 'application/json', ...corsHeaders }, status: 200 }
+      );
+    } catch (error) {
+      console.error('Error retrieving scraping result:', error);
+      return new Response(
+        JSON.stringify({ error: error.message }),
+        { headers: { 'Content-Type': 'application/json', ...corsHeaders }, status: 500 }
+      );
+    }
+  }
+
+  // If we get here, this is a request to start a new scraping job
   try {
     const { url, offerId, userId } = await req.json();
 
