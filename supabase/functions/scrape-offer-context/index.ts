@@ -224,27 +224,27 @@ serve(async (req) => {
           .trim()
           .substring(0, 15000); // Limit to 15K chars for OpenAI
 
-        const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
-
-        if (!openaiApiKey) {
-          await updateScrapingStatus(supabase, scrapingRecord.id, 'failed', 'Missing OpenAI API key');
-          return;
-        }
-
-        const openai = new OpenAI({ apiKey: openaiApiKey });
-
-        console.log('Calling OpenAI API for analysis...');
+        console.log('Calling OpenAI proxy for analysis...');
         try {
-          const completion = await openai.chat.completions.create({
-          model: 'gpt-3.5-turbo-0125', // Using a faster model for better performance
-          messages: [
+          // Call the openai-proxy Edge Function instead of using the OpenAI API directly
+          const response = await fetch(
+            `${Deno.env.get('SUPABASE_URL')}/functions/v1/openai-proxy`,
             {
-              role: 'system',
-              content: `You are an expert marketing and offer analyst. Your task is to analyze the provided website text content to understand the core offer being presented. Extract the key components and structure your findings as a JSON object.`
-            },
-            {
-              role: 'user',
-              content: `
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}`
+              },
+              body: JSON.stringify({
+                model: 'gpt-3.5-turbo-0125', // Using a faster model for better performance
+                messages: [
+                  {
+                    role: 'system',
+                    content: `You are an expert marketing and offer analyst. Your task is to analyze the provided website text content to understand the core offer being presented. Extract the key components and structure your findings as a JSON object.`
+                  },
+                  {
+                    role: 'user',
+                    content: `
 Analyze this website content and extract the following key information:
 
 Website Title: ${title}
@@ -263,10 +263,19 @@ Extract and return a JSON object with these keys:
 - "missingInfo": Crucial offer components that seem absent or unclear (array).
 
 If any information is not available, indicate this with "Not found" or similar phrasing.`
+                  }
+                ],
+                response_format: { type: 'json_object' }
+              })
             }
-          ],
-          response_format: { type: 'json_object' }
-        });
+          );
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`OpenAI proxy error: ${response.status} ${errorText}`);
+          }
+
+          const completion = await response.json();
 
           console.log('OpenAI API response received');
 
