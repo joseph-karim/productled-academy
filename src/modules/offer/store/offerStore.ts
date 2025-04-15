@@ -198,7 +198,15 @@ export const useOfferStore = create<OfferState>()(
               if (findings.keyBenefits && Array.isArray(findings.keyBenefits)) {
                  processedKeyFeatures = findings.keyBenefits.map(item => typeof item === 'string' ? item : item.benefit || '').filter(Boolean);
               }
+
+              // DIRECT FIX: Create a custom event when scraping completes
+              console.log('DIRECT FIX: Scraping completed, dispatching custom event');
               set({ websiteScraping: { scrapingId, status: 'completed', coreOffer: findings.coreOffer || '', targetAudience: findings.targetAudience || '', keyProblem: findings.problemSolved || '', valueProposition: findings.valueProposition || '', keyFeatures: processedKeyFeatures, keyPhrases: findings.keyPhrases || [], competitiveAdvantages: findings.competitiveAdvantages || [], error: null }});
+
+              // Dispatch a custom event that can be listened for in components
+              if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('scraping-completed', { detail: { scrapingId } }));
+              }
             } else if (result.status === 'failed') {
               set((state) => ({ websiteScraping: { ...state.websiteScraping, status: 'failed', error: result.error || 'Scraping failed' }}));
             } else if (result.status === 'processing') {

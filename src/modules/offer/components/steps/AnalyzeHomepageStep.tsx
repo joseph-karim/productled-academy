@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Loader2, RefreshCw } from 'lucide-react';
+import { Loader2, RefreshCw, MessageSquare } from 'lucide-react';
 import { useOfferStore } from '../../store/offerStore';
 import { ContextChatInline } from '../ContextChatInline';
 import { InitialContext } from '../../services/ai/types';
@@ -77,6 +77,14 @@ export function AnalyzeHomepageStep({ readOnly = false }: { readOnly?: boolean }
     setIsRefreshing(true);
     try {
         await checkScrapingStatus(scrapingId);
+
+        // DIRECT FIX: Check if scraping is completed after refresh and show chat
+        const currentStatus = useOfferStore.getState().websiteScraping.status;
+        console.log('Status after refresh:', currentStatus);
+        if (currentStatus === 'completed') {
+          console.log('DIRECT FIX: Showing chat after status refresh');
+          setShowChat(true);
+        }
     } catch (err) {
         console.error("Error refreshing status:", err);
     } finally {
@@ -109,7 +117,20 @@ export function AnalyzeHomepageStep({ readOnly = false }: { readOnly?: boolean }
     // Also set up an interval to keep checking (belt and suspenders approach)
     const intervalId = setInterval(handleScrapingCompletion, 1000);
 
-    return () => clearInterval(intervalId);
+    // Listen for the custom event from the store
+    const handleCustomEvent = (event: Event) => {
+      console.log('DIRECT FIX - Received custom scraping-completed event');
+      setTimeout(() => {
+        setShowChat(true);
+      }, 500);
+    };
+
+    window.addEventListener('scraping-completed', handleCustomEvent);
+
+    return () => {
+      clearInterval(intervalId);
+      window.removeEventListener('scraping-completed', handleCustomEvent);
+    };
   }, [scrapingStatus, readOnly]);
 
   return (
@@ -141,6 +162,15 @@ export function AnalyzeHomepageStep({ readOnly = false }: { readOnly?: boolean }
                  <button onClick={handleRefreshStatus} disabled={isRefreshing} className="px-4 py-2 bg-[#333333] text-white rounded-lg hover:bg-[#444444] disabled:opacity-50">
                    <RefreshCw className={`w-3 h-3 mr-1 ${isRefreshing ? 'animate-spin' : ''}`} /> Refresh Status
                  </button>
+            )}
+
+            {/* Launch Chat Button */}
+            {isCompleted && !readOnly && (
+                <button
+                  onClick={() => setShowChat(true)}
+                  className="px-4 py-2 bg-[#FFD23F] text-black font-medium rounded-lg hover:bg-[#FFE066]">
+                  <MessageSquare className="w-4 h-4 mr-1 inline" /> Launch AI Chat
+                </button>
             )}
           </div>
         </div>
