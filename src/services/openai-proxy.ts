@@ -100,8 +100,8 @@ export async function callOpenAI(params: ChatCompletionRequest): Promise<ChatCom
           },
           body: JSON.stringify({
             ...params,
-            // Ensure we're using a valid model
-            model: params.model === 'gpt-4.1-nano-2025-04-14' ? 'gpt-4o' : params.model
+            // Always use gpt-4o for best results
+            model: 'gpt-4o'
           })
         });
 

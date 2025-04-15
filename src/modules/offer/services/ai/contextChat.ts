@@ -27,7 +27,7 @@ export async function generateClarifyingQuestions(
   log('generateClarifyingQuestions - websiteFindings:', websiteFindings);
   return handleOpenAIRequest(
     openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
+      model: "gpt-4o",
       messages: [
         {
           role: "system",
@@ -125,7 +125,7 @@ Be conversational, supportive, and specific in your advice. Focus on helping the
 
   return handleOpenAIRequest(
     openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
+      model: "gpt-4o",
       messages: apiMessages
     }).then(completion => {
       log('generateChatResponse - API response:', completion);

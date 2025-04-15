@@ -32,8 +32,11 @@ serve(async (req) => {
         );
       }
 
-      const supabaseUrl = Deno.env.get('SUPABASE_URL');
-      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+      const supabaseUrl = Deno.env.get('MY_SUPABASE_URL') || Deno.env.get('SUPABASE_URL') || 'http://127.0.0.1:54321';
+      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU';
+
+      console.log(`Using Supabase URL: ${supabaseUrl}`);
+      console.log(`Service role key available: ${!!supabaseKey}`);
 
       if (!supabaseUrl || !supabaseKey) {
         return new Response(
@@ -93,8 +96,11 @@ serve(async (req) => {
 
     const effectiveUserId = userId || null;
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const supabaseUrl = Deno.env.get('MY_SUPABASE_URL') || Deno.env.get('SUPABASE_URL') || 'http://127.0.0.1:54321';
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImV4cCI6MTk4MzgxMjk5Nn0.EGIM96RAZx35lJzdJsyH-qQwv8Hdp7fsn3W0YpN81IU';
+
+    console.log(`Using Supabase URL: ${supabaseUrl}`);
+    console.log(`Service role key available: ${!!supabaseKey}`);
 
     if (!supabaseUrl || !supabaseKey) {
       return new Response(
@@ -170,9 +176,11 @@ serve(async (req) => {
       throw lastError;
     }
 
-    async function fetchWithRetry(url: string, maxRetries = 1) {
-      // Skip the crawl4ai service and go directly to fetch to improve performance
+    async function fetchWithRetry(url: string, maxRetries = 3) {
+      // Try to use crawl4ai first, then fall back to direct fetch if that fails
       let lastError;
+
+      // First try direct fetch with multiple retries
       for (let attempt = 0; attempt <= maxRetries; attempt++) {
         try {
           console.log(`Attempt ${attempt + 1} to fetch ${url} directly`);
@@ -182,23 +190,44 @@ serve(async (req) => {
               'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
               'Accept-Language': 'en-US,en;q=0.5',
               'Referer': 'https://www.google.com/'
-            }
+            },
+            redirect: 'follow',
+            // Increase timeout for slow sites
+            signal: AbortSignal.timeout(30000) // 30 second timeout
           });
 
           if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
           }
 
-          return await response.text();
+          const html = await response.text();
+          if (!html || html.trim().length < 100) {
+            throw new Error('Empty or too small HTML response');
+          }
+
+          console.log(`Successfully fetched ${url} with ${html.length} bytes`);
+          return html;
         } catch (error) {
-          console.error(`Attempt ${attempt + 1} failed:`, error);
+          console.error(`Direct fetch attempt ${attempt + 1} failed:`, error);
           lastError = error;
           if (attempt < maxRetries) {
-            await new Promise(resolve => setTimeout(resolve, 500)); // Reduced timeout
+            // Exponential backoff
+            const delay = Math.pow(2, attempt) * 500;
+            console.log(`Waiting ${delay}ms before retry`);
+            await new Promise(resolve => setTimeout(resolve, delay));
           }
         }
       }
-      throw lastError;
+
+      // If direct fetch failed, try using crawl4ai as a fallback
+      try {
+        console.log('Direct fetch failed, trying crawl4ai as fallback');
+        return await fetchWithCrawl4ai(url);
+      } catch (crawlError) {
+        console.error('Both direct fetch and crawl4ai failed:', crawlError);
+        // Throw the original error from direct fetch
+        throw lastError;
+      }
     }
 
     (async () => {
@@ -219,10 +248,18 @@ serve(async (req) => {
         const bodyText = document.querySelector('body')?.textContent || '';
         const mainText = document.querySelector('main')?.textContent || bodyText;
 
-        const cleanedText = mainText
+        // Extract only the most important content for faster processing
+        // First try to get the most relevant sections
+        const h1Text = Array.from(document.querySelectorAll('h1, h2, h3')).map(el => el.textContent).join(' ');
+        const metaTags = Array.from(document.querySelectorAll('meta[name="keywords"], meta[name="description"]'))
+          .map(el => el.getAttribute('content')).filter(Boolean).join(' ');
+
+        // Get first 1000 chars of main content + headings + meta tags for a focused analysis
+        const cleanedText = [h1Text, metaTags, mainText.substring(0, 3000)]
+          .join('\n')
           .replace(/\s+/g, ' ')
           .trim()
-          .substring(0, 15000); // Limit to 15K chars for OpenAI
+          .substring(0, 4000);
 
         console.log('Calling OpenAI proxy for analysis...');
         try {
@@ -236,33 +273,32 @@ serve(async (req) => {
                 'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}`
               },
               body: JSON.stringify({
-                model: 'gpt-3.5-turbo-0125', // Using a faster model for better performance
+                model: 'gpt-4o', // Using the most capable model for best results
+                temperature: 0.2, // Lower temperature for more deterministic results
+                max_tokens: 300, // Limit response size for faster processing
                 messages: [
                   {
                     role: 'system',
-                    content: `You are an expert marketing and offer analyst. Your task is to analyze the provided website text content to understand the core offer being presented. Extract the key components and structure your findings as a JSON object.`
+                    content: `Extract key marketing information from website content. Be concise and accurate.`
                   },
                   {
                     role: 'user',
                     content: `
-Analyze this website content and extract the following key information:
+Analyze this website content and extract key information:
 
-Website Title: ${title}
-Meta Description: ${metaDescription}
-
+Website: ${title}
+Description: ${metaDescription}
 Content: ${cleanedText}
 
-Extract and return a JSON object with these keys:
+Return a JSON object with these keys:
+- "coreOffer": Main product/service offered
+- "targetAudience": Who it's for
+- "problemSolved": Main problem it solves
+- "valueProposition": Core value proposition
+- "keyBenefits": List of 3 main benefits (array)
+- "keyPhrases": 2-3 key phrases from the content (array)
 
-- "coreOffer": The primary product or service being offered.
-- "targetAudience": The specific group of people or businesses the offer is intended for.
-- "problemSolved": The main pain points or challenges the offer claims to address.
-- "valueProposition": The core value proposition.
-- "keyBenefits": A list of benefits or features highlighted in the text (array).
-- "keyPhrases": Extract 3-5 exact phrases or sentences that best capture the core messaging of the offer.
-- "missingInfo": Crucial offer components that seem absent or unclear (array).
-
-If any information is not available, indicate this with "Not found" or similar phrasing.`
+Keep it concise. Use "Not found" if information is missing.`
                   }
                 ],
                 response_format: { type: 'json_object' }
