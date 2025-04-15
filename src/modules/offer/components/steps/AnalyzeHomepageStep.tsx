@@ -90,7 +90,9 @@ export function AnalyzeHomepageStep({ readOnly = false }: { readOnly?: boolean }
 
   // Auto-show chat when scraping completes
   useEffect(() => {
+    console.log('Scraping status changed:', { isCompleted, showChat, readOnly });
     if (isCompleted && !showChat && !readOnly) {
+      console.log('Auto-showing chat');
       setShowChat(true);
     }
   }, [isCompleted, showChat, readOnly]);
@@ -144,6 +146,10 @@ export function AnalyzeHomepageStep({ readOnly = false }: { readOnly?: boolean }
         <div className="mt-6 bg-[#222222] p-6 rounded-lg space-y-4">
            <h3 className="text-xl font-semibold text-white mb-3">Refine Your Offer with AI</h3>
            {!coreOffer && <p className="text-yellow-500 mb-3">Note: Some offer details may be missing from the analysis.</p>}
+           {/* Debug info */}
+           <div className="text-xs text-gray-400 mb-2">
+             <p>Debug: Chat should be visible. Findings available: {websiteFindings ? 'Yes' : 'No'}</p>
+           </div>
            <ContextChatInline
              websiteUrl={websiteUrl}
              initialContext={initialContext}

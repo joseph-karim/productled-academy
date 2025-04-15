@@ -168,6 +168,12 @@ export function ContextChatInline({
 
   // Initial message on component mount
   useEffect(() => {
+    console.log('ContextChatInline - initializing chat:', {
+      isInitialLoad,
+      messagesLength: contextChat.messages.length,
+      websiteScrapingStatus,
+      websiteFindings
+    });
     if (isInitialLoad && contextChat.messages.length === 0) {
       // Start with the first field
       const firstField: Suggestion['field'] = 'targetAudience';
