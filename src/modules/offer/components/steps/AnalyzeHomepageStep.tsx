@@ -89,13 +89,27 @@ export function AnalyzeHomepageStep({ readOnly = false }: { readOnly?: boolean }
   const isCompleted = scrapingStatus === 'completed';
   const isFailed = scrapingStatus === 'failed';
 
-  // Auto-show chat when scraping completes
+  // DIRECT FIX: Force show chat when scraping completes
   useEffect(() => {
-    console.log('Scraping status changed:', { scrapingStatus, showChat, readOnly });
-    if (scrapingStatus === 'completed' && !readOnly) {
-      console.log('Auto-showing chat');
-      setShowChat(true);
-    }
+    const handleScrapingCompletion = () => {
+      console.log('DIRECT FIX - Scraping status:', scrapingStatus);
+
+      if (scrapingStatus === 'completed' && !readOnly) {
+        console.log('DIRECT FIX - Forcing chat to show');
+        // Force a small delay to ensure state updates have propagated
+        setTimeout(() => {
+          setShowChat(true);
+        }, 500);
+      }
+    };
+
+    // Call immediately
+    handleScrapingCompletion();
+
+    // Also set up an interval to keep checking (belt and suspenders approach)
+    const intervalId = setInterval(handleScrapingCompletion, 1000);
+
+    return () => clearInterval(intervalId);
   }, [scrapingStatus, readOnly]);
 
   return (
@@ -142,14 +156,17 @@ export function AnalyzeHomepageStep({ readOnly = false }: { readOnly?: boolean }
         {isFailed && <div className="mt-2 p-3 bg-red-900 border border-red-700 rounded-md text-red-200 text-sm">Failed to analyze website: {scrapingError || 'Unknown error'}</div>}
       </div>
 
-      {/* Conditionally render ContextChat */}
-      {showChat && isCompleted && !readOnly && (
+      {/* DIRECT FIX: Simplified conditional rendering of ContextChat */}
+      {(showChat || isCompleted) && !readOnly && (
         <div className="mt-6 bg-[#222222] p-6 rounded-lg space-y-4">
            <h3 className="text-xl font-semibold text-white mb-3">Refine Your Offer with AI</h3>
            {!coreOffer && <p className="text-yellow-500 mb-3">Note: Some offer details may be missing from the analysis.</p>}
            {/* Debug info */}
            <div className="text-xs text-gray-400 mb-2">
-             <p>Debug: Chat should be visible. Findings available: {websiteFindings ? 'Yes' : 'No'}</p>
+             <p>Debug: Chat should be visible.</p>
+             <p>Status: {scrapingStatus}, ShowChat: {showChat.toString()}, ReadOnly: {readOnly.toString()}</p>
+             <p>Findings available: {websiteFindings ? 'Yes' : 'No'}</p>
+             <p>CoreOffer: {coreOffer || 'None'}</p>
            </div>
            <ContextChatInline
              websiteUrl={websiteUrl}
