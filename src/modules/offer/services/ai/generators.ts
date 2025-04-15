@@ -160,13 +160,13 @@ Generate:
       const result = completion.choices[0].message.function_call?.arguments;
       if (!result) throw new Error("Failed to generate features content");
       const parsed = JSON.parse(result);
-      
+
       // Ensure each feature has a unique ID
       parsed.features = parsed.features.map((feature: any, index: number) => ({
         ...feature,
         id: `feature-${Date.now()}-${index}`
       }));
-      
+
       return parsed;
     }),
     'generating features'
@@ -363,12 +363,12 @@ export async function analyzeAdvantages(
   results: { tangible: string; intangible: string; improvement: string },
   advantages: { id: string; text: string; description?: string }[]
 ): Promise<string> {
-  const formattedAdvantages = advantages.map((adv, idx) => 
+  const formattedAdvantages = advantages.map((adv, idx) =>
     `${idx + 1}. '${adv.text}${adv.description ? ` (${adv.description})` : ''}'`
   ).join('\n');
-  
+
   const topResultsSummary = `${results.tangible}, ${results.intangible}, and ${results.improvement}`;
-  
+
   return handleOpenAIRequest(
     openai.chat.completions.create({
       model: "gpt-4o",
@@ -409,7 +409,7 @@ export async function suggestRiskAssurances(
   risks: { id: string; text: string }[]
 ): Promise<Record<string, string[]>> {
   const formattedRisks = risks.map((risk, idx) => `${idx + 1}. '${risk.text}'`).join('\n');
-  
+
   return handleOpenAIRequest(
     openai.chat.completions.create({
       model: "gpt-4o",
@@ -469,7 +469,7 @@ export async function analyzeHeroSection(
 ): Promise<string> {
   const topResultsSummary = `${topResults.tangible}, ${topResults.intangible}, and ${topResults.improvement}`;
   const idealUserContext = idealUser ? `(Target user: '${idealUser}')` : '';
-  
+
   return handleOpenAIRequest(
     openai.chat.completions.create({
       model: "gpt-4o",
@@ -515,7 +515,7 @@ export async function analyzeProblemSection(
   idealUser?: string
 ): Promise<string> {
   const idealUserContext = idealUser ? `(Ideal User: '${idealUser}')` : '';
-  
+
   return handleOpenAIRequest(
     openai.chat.completions.create({
       model: "gpt-4o",
@@ -568,6 +568,12 @@ export interface Bonus {
   benefit: string;
 }
 
+export interface OnboardingStep {
+  id: string;
+  description: string;
+  timeEstimate: string;
+}
+
 export interface SectionCopy {
   headline: string;
   body: string;
@@ -582,7 +588,8 @@ export async function generateSectionDraft(
   sectionType: LandingPageSection,
   coreOffer: CoreOfferNucleus,
   exclusivity: Exclusivity,
-  bonuses: Bonus[]
+  bonuses: Bonus[],
+  onboardingSteps: OnboardingStep[] = []
 ): Promise<SectionCopy> {
   // Construct a detailed prompt based on the inputs
   let promptDetails = `Core Offer Nucleus:
@@ -603,6 +610,12 @@ export async function generateSectionDraft(
   if (bonuses.length > 0) {
     promptDetails += `\nBonuses:
 ${bonuses.map(b => `- ${b.name}: ${b.benefit}`).join('\n')}
+`;
+  }
+
+  if (onboardingSteps.length > 0) {
+    promptDetails += `\nOnboarding Steps:
+${onboardingSteps.map((step, index) => `${index + 1}. ${step.description} (${step.timeEstimate})`).join('\n')}
 `;
   }
 
@@ -656,4 +669,4 @@ Generate a headline (concise, impactful) and body copy (1-3 sentences, clear, be
     }),
     `generating ${sectionType} section draft` // Dynamic status message
   );
-} 
+}

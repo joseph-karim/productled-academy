@@ -19,13 +19,13 @@ interface GenerateRefineContentProps {
 }
 
 // Simplified Section Editor
-const SectionEditor = ({ title, value, onChange, readOnly, confirmed }: 
-  { 
-    title: string, 
+const SectionEditor = ({ title, value, onChange, readOnly, confirmed }:
+  {
+    title: string,
     value: SectionCopy | string,
     onChange: (newValue: SectionCopy | string) => void,
-    readOnly?: boolean, 
-    confirmed?: boolean 
+    readOnly?: boolean,
+    confirmed?: boolean
   }
 ) => {
   const [isEditing, setIsEditing] = useState(false);
@@ -34,11 +34,12 @@ const SectionEditor = ({ title, value, onChange, readOnly, confirmed }:
   const [generateError, setGenerateError] = useState<string | null>(null);
 
   // Get necessary state from store for AI context
-  const { coreOfferNucleus, exclusivity, bonuses } = useOfferStore(
-    (state) => ({ 
+  const { coreOfferNucleus, exclusivity, bonuses, onboardingSteps } = useOfferStore(
+    (state) => ({
       coreOfferNucleus: state.coreOfferNucleus,
       exclusivity: state.exclusivity,
-      bonuses: state.bonuses
+      bonuses: state.bonuses,
+      onboardingSteps: state.onboardingSteps
     })
   );
 
@@ -68,12 +69,13 @@ const SectionEditor = ({ title, value, onChange, readOnly, confirmed }:
     try {
       // Call the AI service
       const aiDraft = await generateSectionDraft(
-        sectionType, 
-        coreOfferNucleus, 
-        exclusivity, 
-        bonuses
+        sectionType,
+        coreOfferNucleus,
+        exclusivity,
+        bonuses,
+        onboardingSteps
       );
-      
+
       // If section is Social Proof, AI returns notes in 'body', handle appropriately
       if (sectionType === 'Social Proof') {
          onChange(aiDraft.body); // Update store with the notes string
@@ -104,17 +106,17 @@ const SectionEditor = ({ title, value, onChange, readOnly, confirmed }:
       setDraft({ ...draft, [field]: newValue });
     }
   };
-  
+
   const handleNotesChange = (newValue: string) => {
      if (typeof draft === 'string') {
        setDraft(newValue);
      }
   };
 
-  const isSectionComplete = typeof value === 'string' 
-      ? value.trim() !== '' 
+  const isSectionComplete = typeof value === 'string'
+      ? value.trim() !== ''
       : (value as SectionCopy).headline.trim() !== '' || (value as SectionCopy).body.trim() !== '';
-  
+
   // Generate a unique key/id suffix based on the title
   const sectionIdSuffix = title.toLowerCase().replace(/\s+/g, '-');
 
@@ -130,20 +132,20 @@ const SectionEditor = ({ title, value, onChange, readOnly, confirmed }:
         </div>
         {!isEditing && !confirmed && (
           <div className="flex space-x-2">
-             <Button 
-               variant="outline" 
-               size="sm" 
-               onClick={handleGenerateDraft} 
+             <Button
+               variant="outline"
+               size="sm"
+               onClick={handleGenerateDraft}
                disabled={readOnly || isGenerating}
                className="border-[#444444] text-gray-300 hover:bg-[#333333]"
              >
                {isGenerating ? <Loader2 className="w-4 h-4 mr-1 animate-spin"/> : null}
                {isGenerating ? 'Generating...' : 'Generate Draft'}
              </Button>
-             <Button 
-               variant="secondary" 
-               size="sm" 
-               onClick={handleEdit} 
+             <Button
+               variant="secondary"
+               size="sm"
+               onClick={handleEdit}
                disabled={readOnly || isGenerating}
                className="bg-[#333333] text-gray-300 hover:bg-[#444444]"
              >
@@ -202,8 +204,8 @@ const SectionEditor = ({ title, value, onChange, readOnly, confirmed }:
           )}
           <div className="flex justify-end space-x-2">
             <Button variant="ghost" onClick={() => setIsEditing(false)} className="text-gray-400 hover:text-white">Cancel</Button>
-            <Button 
-              onClick={handleSave} 
+            <Button
+              onClick={handleSave}
               disabled={readOnly}
               className="bg-[#FFD23F] text-[#1C1C1C] hover:bg-opacity-90"
             >Save {title}</Button>
@@ -233,7 +235,7 @@ export function GenerateRefineContent({ readOnly = false }: GenerateRefineConten
   } = useOfferStore();
 
   // Basic check if all sections have at least some content (can be refined)
-  const allSectionsHaveContent = 
+  const allSectionsHaveContent =
     (refinedHeroCopy.headline || refinedHeroCopy.body) &&
     (refinedProblemCopy.headline || refinedProblemCopy.body) &&
     (refinedSolutionCopy.headline || refinedSolutionCopy.body) &&
@@ -278,54 +280,54 @@ export function GenerateRefineContent({ readOnly = false }: GenerateRefineConten
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <SectionEditor 
-             title="Hero Section" 
-             value={refinedHeroCopy} 
-             onChange={handleHeroChange} 
-             readOnly={readOnly} 
-             confirmed={landingPageContentRefined} 
+          <SectionEditor
+             title="Hero Section"
+             value={refinedHeroCopy}
+             onChange={handleHeroChange}
+             readOnly={readOnly}
+             confirmed={landingPageContentRefined}
           />
-          <SectionEditor 
-             title="Problem Section" 
-             value={refinedProblemCopy} 
-             onChange={handleProblemChange} 
-             readOnly={readOnly} 
-             confirmed={landingPageContentRefined} 
+          <SectionEditor
+             title="Problem Section"
+             value={refinedProblemCopy}
+             onChange={handleProblemChange}
+             readOnly={readOnly}
+             confirmed={landingPageContentRefined}
           />
-          <SectionEditor 
-             title="Solution Section" 
-             value={refinedSolutionCopy} 
-             onChange={handleSolutionChange} 
-             readOnly={readOnly} 
-             confirmed={landingPageContentRefined} 
+          <SectionEditor
+             title="Solution Section"
+             value={refinedSolutionCopy}
+             onChange={handleSolutionChange}
+             readOnly={readOnly}
+             confirmed={landingPageContentRefined}
           />
-          <SectionEditor 
-             title="Risk Reversal" 
-             value={refinedRiskReversalCopy} 
-             onChange={handleRiskReversalChange} 
-             readOnly={readOnly} 
-             confirmed={landingPageContentRefined} 
+          <SectionEditor
+             title="Risk Reversal"
+             value={refinedRiskReversalCopy}
+             onChange={handleRiskReversalChange}
+             readOnly={readOnly}
+             confirmed={landingPageContentRefined}
           />
-          <SectionEditor 
-             title="Social Proof Angles" 
-             value={refinedSocialProofNotes} 
-             onChange={handleSocialProofChange} 
-             readOnly={readOnly} 
-             confirmed={landingPageContentRefined} 
+          <SectionEditor
+             title="Social Proof Angles"
+             value={refinedSocialProofNotes}
+             onChange={handleSocialProofChange}
+             readOnly={readOnly}
+             confirmed={landingPageContentRefined}
           />
-          <SectionEditor 
-             title="Final CTA Section" 
-             value={refinedCtaCopy} 
-             onChange={handleCtaChange} 
-             readOnly={readOnly} 
-             confirmed={landingPageContentRefined} 
+          <SectionEditor
+             title="Final CTA Section"
+             value={refinedCtaCopy}
+             onChange={handleCtaChange}
+             readOnly={readOnly}
+             confirmed={landingPageContentRefined}
           />
 
           {!landingPageContentRefined && (
             <div className="mt-6">
-              <Button 
-                onClick={handleConfirm} 
-                disabled={readOnly || !allSectionsHaveContent} 
+              <Button
+                onClick={handleConfirm}
+                disabled={readOnly || !allSectionsHaveContent}
                 title={!allSectionsHaveContent ? "Please add content to all sections before confirming." : ""}
                 className="bg-[#FFD23F] text-[#1C1C1C] hover:bg-opacity-90 disabled:opacity-50"
               >
@@ -342,4 +344,4 @@ export function GenerateRefineContent({ readOnly = false }: GenerateRefineConten
       </Card>
     </div>
   );
-} 
+}
