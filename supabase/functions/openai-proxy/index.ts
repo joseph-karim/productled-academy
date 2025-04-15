@@ -20,20 +20,32 @@ serve(async (req) => {
   try {
     // Get the OpenAI API key from environment variables
     // For local development, you can set a dummy key or your actual key
-    const openaiApiKey = Deno.env.get('OPENAI_API_KEY') || 'sk-dummy-key-for-local-development';
+    const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
 
     console.log(`OpenAI API key available: ${!!openaiApiKey}`);
-    console.log(`Using key starting with: ${openaiApiKey.substring(0, 10)}...`);
 
     if (!openaiApiKey) {
+      console.error('CRITICAL ERROR: OpenAI API key not found in environment variables');
       return new Response(
-        JSON.stringify({ error: 'OpenAI API key not configured on the server' }),
+        JSON.stringify({
+          error: 'OpenAI API key not configured on the server',
+          message: 'Please check the Edge Function configuration and ensure the OPENAI_API_KEY is set correctly.'
+        }),
         { headers: { 'Content-Type': 'application/json', ...corsHeaders }, status: 500 }
       );
     }
 
-    // Initialize OpenAI client
-    const openai = new OpenAI({ apiKey: openaiApiKey });
+    // Log a safe version of the key for debugging
+    console.log(`Using key starting with: ${openaiApiKey.substring(0, 7)}...`);
+    console.log('Key length:', openaiApiKey.length);
+
+    // Initialize OpenAI client with proper configuration
+    const openai = new OpenAI({
+      apiKey: openaiApiKey,
+      dangerouslyAllowBrowser: false, // This is a server environment
+      maxRetries: 3, // Add retries for better reliability
+      timeout: 30000 // 30 second timeout
+    });
 
     // Parse the request body
     const requestData = await req.json();
@@ -68,15 +80,42 @@ serve(async (req) => {
         }
       };
     } else {
-      // Call the actual OpenAI API
-      completion = await openai.chat.completions.create({
+      // Call the actual OpenAI API with proper handling of all parameters
+      console.log('Calling OpenAI API with model:', requestData.model || 'gpt-4o');
+
+      // Prepare the API call parameters
+      const apiParams = {
         model: requestData.model || 'gpt-4o',
         messages: requestData.messages,
         temperature: requestData.temperature,
         max_tokens: requestData.max_tokens,
-        function_call: requestData.function_call,
-        response_format: requestData.response_format
-      });
+        top_p: requestData.top_p,
+        frequency_penalty: requestData.frequency_penalty,
+        presence_penalty: requestData.presence_penalty,
+        stop: requestData.stop,
+        stream: false // We don't support streaming in this proxy
+      };
+
+      // Handle function calling if present
+      if (requestData.functions || requestData.function_call) {
+        console.log('Function calling detected');
+        if (requestData.functions) {
+          apiParams.functions = requestData.functions;
+        }
+        if (requestData.function_call) {
+          apiParams.function_call = requestData.function_call;
+        }
+      }
+
+      // Handle response format if present
+      if (requestData.response_format) {
+        apiParams.response_format = requestData.response_format;
+      }
+
+      // Make the API call
+      completion = await openai.chat.completions.create(apiParams);
+
+      console.log('OpenAI API call successful');
     }
 
     // Return the response
