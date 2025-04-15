@@ -600,7 +600,13 @@ function getSectionSpecificInstructions(sectionType: LandingPageSection): string
     case 'Solution':
       return `**Solution Section Instructions:**
 - **Headline:** Create a headline summarizing how the solution delivers the Result in a short time.
-- **Steps (3-5):** Detail the key steps involved (e.g., Setup, Eliminate, Automate, Unique Capability, Report/Export). For each step, use the format: "We do X (step) to get Y (benefit linked to Result). It's easy because Z / You don't need Z (highlighting the Advantage)." Include a mini-CTA or answer a potential question if appropriate after each step description.`;
+- **Steps (3-5):** Detail the key steps involved in the value path. For each step, use the format:
+  1. **Step Name:** Brief description of what the user does
+  2. **Benefit:** How this step contributes to the desired Result
+  3. **Advantage:** Why this step is easier/better with your solution (highlighting the Key Advantage)
+  4. **Time Frame:** Approximate time to complete this step (if available)
+
+Include a mini-CTA or answer a potential question after each step description if appropriate.`;
 
     case 'Risk Reversal':
       return `**Risk Reversal Section Instructions:**
@@ -651,19 +657,6 @@ ${bonuses.map(b => `- ${b.name}: ${b.benefit}`).join('\n')}
 `;
   }
 
-  if (onboardingSteps.length > 0) {
-    promptDetails += `\nOnboarding Steps (Value Path):
-${onboardingSteps.map((step, index) => `${index + 1}. ${step.description} (${step.timeEstimate})`).join('\n')}
-`;
-
-    // Update the Solution section instructions if we have onboarding steps
-    if (sectionType === 'Solution') {
-      const solutionInstructions = getSectionSpecificInstructions('Solution');
-      const enhancedInstructions = solutionInstructions + '\n\n**Note:** Use the provided Onboarding Steps as a foundation for the solution steps, enhancing them with benefits linked to the Core Result and highlighting the Key Advantage.';
-      generationInstructions = enhancedInstructions;
-    }
-  }
-
   // Enhanced system prompt for better landing page copy generation
   const systemPrompt = `You are an expert ProductLed Copywriter, specializing in creating high-converting landing pages for Product-Led Growth companies. Your goal is to generate concise, compelling, and customer-centric copy points based on the provided Core Offer details and the ProductLed Landing Page Outline framework.
 
@@ -675,8 +668,21 @@ Follow these principles:
 - Ensure all copy is benefit-driven, clear, and concise.
 - Use strong verbs and active voice.
 - Output should be structured clearly, providing distinct copy points suitable for direct use or easy editing for each specified landing page section.`;
-  // Create section-specific instructions based on the Landing Page Outline
+
+  // Add onboarding steps to the prompt details
+  if (onboardingSteps.length > 0) {
+    promptDetails += `\nOnboarding Steps (Value Path):
+${onboardingSteps.map((step, index) => `${index + 1}. ${step.description} (${step.timeEstimate})`).join('\n')}
+`;
+  }
+
+  // Get section-specific instructions
   let generationInstructions = getSectionSpecificInstructions(sectionType);
+
+  // Enhance solution section instructions if we have onboarding steps
+  if (sectionType === 'Solution' && onboardingSteps.length > 0) {
+    generationInstructions += '\n\n**Important:** Use the provided Onboarding Steps (Value Path) as the foundation for your solution steps. For each onboarding step:\n1. Extract the core action/task\n2. Add how it contributes to the desired Result\n3. Explain why it\'s easier/better with your solution (highlighting the Key Advantage)\n4. Include the time estimate provided\n\nMake sure to maintain the same number and sequence of steps as in the Onboarding Steps, but enhance them with benefits and advantages.';
+  }
 
   // Combine details and instructions for the final prompt
   const userInstruction = `Based on the Core Offer Nucleus and any Enhancers provided below, generate draft copy points for the **${sectionType} Section** of a landing page:
