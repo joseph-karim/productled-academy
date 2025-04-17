@@ -48,6 +48,43 @@ export interface SectionCopy {
   body: string;
 }
 
+export interface HeroSection {
+  tagline: string;
+  subCopy: string;
+  ctaText: string;
+  visualDesc: string;
+  socialProofExample?: string;
+}
+
+export interface FeaturesSection {
+  title: string;
+  description: string;
+  features: {
+    id: string;
+    title: string;
+    description: string;
+  }[];
+}
+
+export interface ProblemSection {
+  alternativesProblems: string;
+  underlyingProblem: string;
+}
+
+export interface SolutionSection {
+  headline: string;
+  steps: {
+    id: string;
+    title: string;
+    description: string;
+  }[];
+}
+
+export interface CtaSection {
+  mainCtaText: string;
+  surroundingCopy: string;
+}
+
 export interface OfferStateData {
   title: string;
   websiteUrl: string;
@@ -59,6 +96,20 @@ export interface OfferStateData {
   exclusivity: Exclusivity;
   bonuses: Bonus[];
   onboardingSteps: OnboardingStep[];
+
+  // Landing page sections
+  heroSection: HeroSection;
+  featuresSection: FeaturesSection;
+  problemSection: ProblemSection;
+  solutionSection: SolutionSection;
+  riskReversals: { id: string; objection: string; assurance: string }[];
+  socialProof: {
+    testimonials: string[];
+    caseStudies: string[];
+    logos: string[];
+    numbers: string[];
+  };
+  ctaSection: CtaSection;
 
   coreOfferConfirmed: boolean;
   onboardingStepsConfirmed: boolean;
@@ -72,6 +123,9 @@ export interface OfferStateData {
   refinedRiskReversalCopy: SectionCopy;
   refinedSocialProofNotes: string;
   refinedCtaCopy: SectionCopy;
+
+  // Processing state for different sections
+  processingState: Record<string, boolean>;
 
   // Insight panel state
   insightState: InsightState;
@@ -96,6 +150,21 @@ export interface OfferState extends OfferStateData {
   addOnboardingStep: (step: OnboardingStep) => void;
   removeOnboardingStep: (index: number) => void;
   updateOnboardingStep: (steps: OnboardingStep[]) => void;
+
+  // Landing page section actions
+  setHeroSection: (section: HeroSection) => void;
+  setFeaturesSection: (section: FeaturesSection) => void;
+  setProblemSection: (section: ProblemSection) => void;
+  setSolutionSection: (section: SolutionSection) => void;
+  addRiskReversal: (riskReversal: { id: string; objection: string; assurance: string }) => void;
+  removeRiskReversal: (index: number) => void;
+  setRiskReversals: (riskReversals: { id: string; objection: string; assurance: string }[]) => void;
+  addSocialProof: (type: 'testimonials' | 'caseStudies' | 'logos' | 'numbers', item: string) => void;
+  removeSocialProof: (type: 'testimonials' | 'caseStudies' | 'logos' | 'numbers', index: number) => void;
+  setCtaSection: (section: CtaSection) => void;
+
+  // Set processing state for a section
+  setProcessing: (section: string, isProcessing: boolean) => void;
 
   setCoreOfferConfirmed: (confirmed: boolean) => void;
   setOnboardingStepsConfirmed: (confirmed: boolean) => void;
@@ -167,6 +236,39 @@ const initialState: OfferStateData = {
   },
   bonuses: [] as Bonus[],
   onboardingSteps: [] as OnboardingStep[],
+
+  // Landing page sections
+  heroSection: {
+    tagline: '',
+    subCopy: '',
+    ctaText: '',
+    visualDesc: ''
+  },
+  featuresSection: {
+    title: '',
+    description: '',
+    features: []
+  },
+  problemSection: {
+    alternativesProblems: '',
+    underlyingProblem: ''
+  },
+  solutionSection: {
+    headline: '',
+    steps: []
+  },
+  riskReversals: [],
+  socialProof: {
+    testimonials: [],
+    caseStudies: [],
+    logos: [],
+    numbers: []
+  },
+  ctaSection: {
+    mainCtaText: '',
+    surroundingCopy: ''
+  },
+
   coreOfferConfirmed: false,
   onboardingStepsConfirmed: false,
   enhancersConfirmed: false,
@@ -178,6 +280,9 @@ const initialState: OfferStateData = {
   refinedRiskReversalCopy: { ...initialSectionCopy },
   refinedSocialProofNotes: '' as string,
   refinedCtaCopy: { ...initialSectionCopy },
+
+  // Processing state for different sections
+  processingState: {},
 
   // Insight panel state
   insightState: initialInsightState
@@ -298,6 +403,36 @@ export const useOfferStore = create<OfferState>()(
 
       resetInsights: () => set((state) => ({
         insightState: initialInsightState
+      })),
+
+      // Landing page section actions
+      setHeroSection: (section) => set({ heroSection: section }),
+      setFeaturesSection: (section) => set({ featuresSection: section }),
+      setProblemSection: (section) => set({ problemSection: section }),
+      setSolutionSection: (section) => set({ solutionSection: section }),
+      addRiskReversal: (riskReversal) => set((state) => ({ riskReversals: [...state.riskReversals, riskReversal] })),
+      removeRiskReversal: (index) => set((state) => ({ riskReversals: state.riskReversals.filter((_, i) => i !== index) })),
+      setRiskReversals: (riskReversals) => set({ riskReversals }),
+      addSocialProof: (type, item) => set((state) => ({
+        socialProof: {
+          ...state.socialProof,
+          [type]: [...state.socialProof[type], item]
+        }
+      })),
+      removeSocialProof: (type, index) => set((state) => ({
+        socialProof: {
+          ...state.socialProof,
+          [type]: state.socialProof[type].filter((_, i) => i !== index)
+        }
+      })),
+      setCtaSection: (section) => set({ ctaSection: section }),
+
+      // Set processing state for a section
+      setProcessing: (section, isProcessing) => set((state) => ({
+        processingState: {
+          ...state.processingState,
+          [section]: isProcessing
+        }
       })),
     }),
     { name: 'offer-store' }

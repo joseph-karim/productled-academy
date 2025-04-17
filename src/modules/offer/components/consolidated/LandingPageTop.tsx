@@ -5,6 +5,7 @@ import { CheckCircle2 } from 'lucide-react';
 import { HeroSectionBuilder } from '../HeroSectionBuilder';
 import { FeaturesSectionBuilder } from '../FeaturesSectionBuilder';
 import { ProblemSectionBuilder } from '../ProblemSectionBuilder';
+import { GenerateLandingPageButton } from '../GenerateLandingPageButton';
 
 // Placeholder components to be replaced with actual implementations
 const SolutionSectionBuilder = ({ modelData, readOnly = false }: { modelData?: any; readOnly?: boolean }) => (
@@ -26,26 +27,26 @@ export function LandingPageTop({ modelData, readOnly = false }: LandingPageTopPr
   const [activeTab, setActiveTab] = useState('hero');
 
   // Calculate completion status for each sub-step
-  const heroCompleted = 
-    store.heroSection.tagline.length > 0 && 
-    store.heroSection.subCopy.length > 0 && 
+  const heroCompleted =
+    store.heroSection.tagline.length > 0 &&
+    store.heroSection.subCopy.length > 0 &&
     store.heroSection.ctaText.length > 0;
-  
-  const featuresCompleted = 
+
+  const featuresCompleted =
     store.featuresSection?.features?.length > 0;
 
-  const problemCompleted = 
-    store.problemSection.alternativesProblems.length > 0 && 
+  const problemCompleted =
+    store.problemSection.alternativesProblems.length > 0 &&
     store.problemSection.underlyingProblem.length > 0;
-  
+
   const solutionCompleted = store.solutionSection.steps.length > 0;
 
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-white">Landing Page Top Section</h2>
-      
-      <Tabs 
-        value={activeTab} 
+
+      <Tabs
+        value={activeTab}
         onValueChange={setActiveTab}
         className="w-full"
       >
@@ -69,59 +70,64 @@ export function LandingPageTop({ modelData, readOnly = false }: LandingPageTopPr
             )}
           </TabsTrigger>
         </TabsList>
-        
+
         <TabsContent value="hero" className="mt-0">
           <HeroSectionBuilder modelData={modelData} readOnly={readOnly} />
         </TabsContent>
-        
+
         <TabsContent value="features" className="mt-0">
           <FeaturesSectionBuilder modelData={modelData} readOnly={readOnly} />
         </TabsContent>
-        
+
         <TabsContent value="problem" className="mt-0">
           <ProblemSectionBuilder modelData={modelData} readOnly={readOnly} />
         </TabsContent>
       </Tabs>
-      
-      <div className="flex justify-between mt-8">
-        <div className="text-sm text-gray-400">
-          {heroCompleted && featuresCompleted && problemCompleted ? (
-            <span className="text-green-500">All sections complete!</span>
-          ) : (
-            <span>Complete all sections to continue</span>
-          )}
+
+      <div className="space-y-4 mt-8">
+        <div className="flex justify-between">
+          <div className="text-sm text-gray-400">
+            {heroCompleted && featuresCompleted && problemCompleted ? (
+              <span className="text-green-500">All sections complete!</span>
+            ) : (
+              <span>Complete all sections to continue</span>
+            )}
+          </div>
+
+          <div className="flex space-x-2">
+            {activeTab !== 'hero' && (
+              <button
+                onClick={() => {
+                  const tabs = ['hero', 'features', 'problem'];
+                  const currentIndex = tabs.indexOf(activeTab);
+                  setActiveTab(tabs[currentIndex - 1]);
+                }}
+                className="px-4 py-2 bg-[#333333] text-white rounded-lg hover:bg-[#444444]"
+              >
+                Previous
+              </button>
+            )}
+
+            {activeTab !== 'problem' && (
+              <button
+                onClick={() => {
+                  const tabs = ['hero', 'features', 'problem'];
+                  const currentIndex = tabs.indexOf(activeTab);
+                  setActiveTab(tabs[currentIndex + 1]);
+                }}
+                className="px-4 py-2 bg-[#333333] text-white rounded-lg hover:bg-[#444444]"
+                disabled={(activeTab === 'hero' && !heroCompleted) ||
+                        (activeTab === 'features' && !featuresCompleted)}
+              >
+                Next
+              </button>
+            )}
+          </div>
         </div>
-        
-        <div className="flex space-x-2">
-          {activeTab !== 'hero' && (
-            <button
-              onClick={() => {
-                const tabs = ['hero', 'features', 'problem'];
-                const currentIndex = tabs.indexOf(activeTab);
-                setActiveTab(tabs[currentIndex - 1]);
-              }}
-              className="px-4 py-2 bg-[#333333] text-white rounded-lg hover:bg-[#444444]"
-            >
-              Previous
-            </button>
-          )}
-          
-          {activeTab !== 'problem' && (
-            <button
-              onClick={() => {
-                const tabs = ['hero', 'features', 'problem'];
-                const currentIndex = tabs.indexOf(activeTab);
-                setActiveTab(tabs[currentIndex + 1]);
-              }}
-              className="px-4 py-2 bg-[#FFD23F] text-[#1C1C1C] rounded-lg hover:bg-opacity-90"
-              disabled={(activeTab === 'hero' && !heroCompleted) || 
-                       (activeTab === 'features' && !featuresCompleted)}
-            >
-              Next
-            </button>
-          )}
-        </div>
+
+        {/* Single generate button for all sections */}
+        <GenerateLandingPageButton readOnly={readOnly} />
       </div>
     </div>
   );
-} 
+}

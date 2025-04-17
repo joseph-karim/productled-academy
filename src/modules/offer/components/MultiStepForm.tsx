@@ -12,6 +12,7 @@ import { DefineCoreOffer } from './DefineCoreOffer';
 import { SetupSteps } from './SetupSteps';
 import { AddEnhancers } from './AddEnhancers';
 import { GenerateRefineContent } from './GenerateRefineContent';
+import { LandingPageWireframes } from './LandingPageWireframes';
 import { FinalReview } from './FinalReview';
 import { WebsiteContextInput } from './WebsiteContextInput';
 
@@ -91,10 +92,18 @@ const steps = [
       state.landingPageContentRefined
   },
   {
+    title: 'Create Landing Page Wireframes',
+    component: LandingPageWireframes,
+    isUnlocked: (state: ReturnType<typeof useOfferStore.getState>) =>
+      state.landingPageContentRefined,
+    isComplete: (state: ReturnType<typeof useOfferStore.getState>) =>
+      state.finalReviewCompleted
+  },
+  {
     title: 'Final Review & Output',
     component: FinalReview,
     isUnlocked: (state: ReturnType<typeof useOfferStore.getState>) =>
-      state.landingPageContentRefined,
+      state.finalReviewCompleted,
     isComplete: (state: ReturnType<typeof useOfferStore.getState>) =>
       state.finalReviewCompleted
   }
