@@ -5,8 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { CheckCircle, Sparkles, MessageSquare } from 'lucide-react';
-import { ContextChatInline } from './ContextChatInline';
+import { CheckCircle, Sparkles } from 'lucide-react';
 import { OfferInsights } from './OfferInsights';
 
 interface DefineCoreOfferProps {
@@ -23,57 +22,10 @@ export function DefineCoreOffer({ readOnly = false }: DefineCoreOfferProps) {
   } = useOfferStore();
 
   const [showCanvas, setShowCanvas] = useState(false);
-  const [showChat, setShowChat] = useState(false);
 
   // Get data from the store
   const websiteUrl = useOfferStore((state) => state.websiteUrl);
   const scrapingStatus = useOfferStore((state) => state.websiteScraping.status);
-  const initialContext = useOfferStore((state) => state.initialContext);
-  const websiteFindings = useOfferStore((state) => {
-    if (state.websiteScraping.status === 'completed') {
-      return {
-        coreOffer: state.websiteScraping.coreOffer || '',
-        targetAudience: state.websiteScraping.targetAudience || '',
-        problemSolved: state.websiteScraping.keyProblem || '',
-        valueProposition: state.websiteScraping.valueProposition || '',
-        keyBenefits: Array.isArray(state.websiteScraping.keyFeatures) ? state.websiteScraping.keyFeatures : [],
-        keyPhrases: Array.isArray(state.websiteScraping.keyPhrases) ? state.websiteScraping.keyPhrases : [],
-        missingInfo: []
-      };
-    }
-    return {
-      coreOffer: '',
-      targetAudience: '',
-      problemSolved: '',
-      valueProposition: '',
-      keyBenefits: [],
-      keyPhrases: [],
-      missingInfo: ['No website analysis available']
-    };
-  });
-
-  // Listen for the launch-ai-chat event
-  React.useEffect(() => {
-    const handleLaunchChat = (event: Event) => {
-      console.log('Received launch-ai-chat event', event);
-
-      // Check if the event has detail data
-      const customEvent = event as CustomEvent;
-      if (customEvent.detail) {
-        console.log('Event detail:', customEvent.detail);
-        // You can use the data from the event if needed
-        // For example, update local state or fetch additional data
-      }
-
-      setShowChat(true);
-    };
-
-    window.addEventListener('launch-ai-chat', handleLaunchChat);
-
-    return () => {
-      window.removeEventListener('launch-ai-chat', handleLaunchChat);
-    };
-  }, []);
 
   const handleInputChange = (field: keyof typeof coreOfferNucleus, value: string) => {
     if (readOnly) return;
@@ -96,41 +48,7 @@ export function DefineCoreOffer({ readOnly = false }: DefineCoreOfferProps) {
 
   return (
     <div className="space-y-8">
-      {/* Chat Button - Always visible when chat is not shown */}
-      {!showChat && !readOnly && (
-        <div className="mb-6">
-          <Button
-            onClick={() => setShowChat(true)}
-            className="w-full py-3 bg-[#FFD23F] text-black font-medium rounded-lg hover:bg-opacity-90 flex items-center justify-center"
-          >
-            <MessageSquare className="w-5 h-5 mr-2" />
-            <span className="text-lg">Get AI Help with Your Offer</span>
-          </Button>
-        </div>
-      )}
-
-      {/* AI Chat Assistant */}
-      {showChat && !readOnly && (
-        <div className="mb-6 bg-[#222222] p-6 rounded-lg space-y-4">
-          <div className="flex justify-between items-center mb-3">
-            <h3 className="text-xl font-semibold text-white">AI Offer Assistant</h3>
-            <Button
-              onClick={() => setShowChat(false)}
-              variant="ghost"
-              size="sm"
-              className="text-gray-400 hover:text-white"
-            >
-              Close
-            </Button>
-          </div>
-          <ContextChatInline
-            websiteUrl={websiteUrl}
-            initialContext={initialContext}
-            websiteScrapingStatus={scrapingStatus}
-            websiteFindings={websiteFindings}
-          />
-        </div>
-      )}
+      {/* Chat is now in the left column */}
 
       <Card className="bg-[#2A2A2A] border-[#333333] text-white">
         <CardHeader>

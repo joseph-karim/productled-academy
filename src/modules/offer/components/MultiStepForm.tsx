@@ -15,6 +15,7 @@ import { GenerateRefineContent } from './GenerateRefineContent';
 import { LandingPageWireframes } from './LandingPageWireframes';
 import { FinalReview } from './FinalReview';
 import { WebsiteContextInput } from './WebsiteContextInput';
+import { PersistentOfferChat } from './PersistentOfferChat';
 
 // Remove imports from HEAD branch
 // import { DefineCoreOfferNucleusStep } from './steps/DefineCoreOfferNucleusStep';
@@ -290,7 +291,8 @@ export function MultiStepForm({ readOnly = false, analysisId: propAnalysisId }: 
   }
 
   return (
-    <div className="min-h-[80vh] flex flex-col max-w-4xl mx-auto">
+    <div className="min-h-[80vh] flex flex-col max-w-7xl mx-auto">
+      {/* Title and progress bar */}
       <div className="mb-8 space-y-3">
         <div className="flex justify-between items-center">
           <h2 className="text-xl font-bold text-white">
@@ -308,6 +310,71 @@ export function MultiStepForm({ readOnly = false, analysisId: propAnalysisId }: 
         </div>
       </div>
 
+      {/* Two-column layout */}
+      <div className="flex flex-col lg:flex-row gap-6 min-h-[600px]">
+        {/* Left column - AI Chat */}
+        <div className="w-full lg:w-1/3 lg:max-w-sm">
+          <PersistentOfferChat currentStep={safeCurrentStep} />
+        </div>
+
+        {/* Right column - Form content */}
+        <div className="w-full lg:w-2/3 flex flex-col">
+          {error && (
+            <div className="mb-4 p-3 bg-red-500 bg-opacity-20 border border-red-500 rounded-md text-red-300">
+              {error}
+            </div>
+          )}
+
+          {safeCurrentStep === 0 && (
+            <WebsiteContextInput readOnly={readOnly} />
+          )}
+
+          <div className="flex-grow mb-8">
+            <ErrorBoundary
+              FallbackComponent={ErrorFallback}
+              onReset={() => setError(null)}
+            >
+              <CurrentStepComponent readOnly={readOnly} />
+            </ErrorBoundary>
+          </div>
+
+          <div className="mt-auto flex justify-between sticky bottom-0 py-4 bg-opacity-90 backdrop-blur-sm">
+            <button
+              onClick={goPrevious}
+              disabled={safeCurrentStep === 0}
+              className="flex items-center px-4 py-2 bg-[#333333] text-white rounded-lg hover:bg-[#444444] disabled:opacity-50"
+            >
+              <ChevronLeft className="w-5 h-5 mr-1" />
+              Previous Step
+            </button>
+            <div className="flex space-x-2">
+              {!readOnly && (
+                <button
+                  onClick={handleSave}
+                  disabled={isSaving}
+                  className="flex items-center px-4 py-2 bg-[#333333] text-white rounded-lg hover:bg-[#444444] disabled:opacity-50"
+                >
+                  {isSaving ? <Loader2 className="w-5 h-5 mr-1 animate-spin" /> : <Save className="w-5 h-5 mr-1" />}
+                  {isSaving ? 'Saving...' : 'Save Progress'}
+                </button>
+              )}
+              <button
+                onClick={goNext}
+                disabled={
+                  safeCurrentStep === steps.length - 1 ||
+                  !steps[safeCurrentStep]?.isComplete(store)
+                }
+                className="flex items-center px-4 py-2 bg-[#FFD23F] text-[#1C1C1C] rounded-lg hover:bg-opacity-90 disabled:opacity-50"
+              >
+                {safeCurrentStep === steps.length - 1 ? 'Finish' : 'Next Step'}
+                <ChevronRight className="w-5 h-5 ml-1" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Modals */}
       {showTitlePrompt && (
         <div className="fixed inset-0 bg-black bg-opacity-70 z-50 flex items-center justify-center p-4">
           <div className="bg-[#222222] rounded-lg p-6 max-w-md w-full">
@@ -360,59 +427,6 @@ export function MultiStepForm({ readOnly = false, analysisId: propAnalysisId }: 
           }}
         />
       )}
-
-      {error && (
-        <div className="mt-4 p-3 bg-red-500 bg-opacity-20 border border-red-500 rounded-md text-red-300">
-          {error}
-        </div>
-      )}
-
-      {safeCurrentStep === 0 && (
-        <WebsiteContextInput readOnly={readOnly} />
-      )}
-
-      <div className="flex-grow mb-8">
-        <ErrorBoundary
-          FallbackComponent={ErrorFallback}
-          onReset={() => setError(null)}
-        >
-          <CurrentStepComponent readOnly={readOnly} />
-        </ErrorBoundary>
-      </div>
-
-      <div className="mt-auto flex justify-between sticky bottom-0 py-4 bg-opacity-90 backdrop-blur-sm">
-        <button
-          onClick={goPrevious}
-          disabled={safeCurrentStep === 0}
-          className="flex items-center px-4 py-2 bg-[#333333] text-white rounded-lg hover:bg-[#444444] disabled:opacity-50"
-        >
-          <ChevronLeft className="w-5 h-5 mr-1" />
-          Previous Step
-        </button>
-        <div className="flex space-x-2">
-          {!readOnly && (
-            <button
-              onClick={handleSave}
-              disabled={isSaving}
-              className="flex items-center px-4 py-2 bg-[#333333] text-white rounded-lg hover:bg-[#444444] disabled:opacity-50"
-            >
-              {isSaving ? <Loader2 className="w-5 h-5 mr-1 animate-spin" /> : <Save className="w-5 h-5 mr-1" />}
-              {isSaving ? 'Saving...' : 'Save Progress'}
-            </button>
-          )}
-          <button
-            onClick={goNext}
-            disabled={
-              safeCurrentStep === steps.length - 1 ||
-              !steps[safeCurrentStep]?.isComplete(store)
-            }
-            className="flex items-center px-4 py-2 bg-[#FFD23F] text-[#1C1C1C] rounded-lg hover:bg-opacity-90 disabled:opacity-50"
-          >
-            {safeCurrentStep === steps.length - 1 ? 'Finish' : 'Next Step'}
-            <ChevronRight className="w-5 h-5 ml-1" />
-          </button>
-        </div>
-      </div>
     </div>
   );
 }
