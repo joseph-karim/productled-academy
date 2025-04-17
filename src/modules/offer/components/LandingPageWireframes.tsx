@@ -101,6 +101,14 @@ export function LandingPageWireframes({ readOnly = false }: LandingPageWireframe
   // Initialize with original landing page and extract branding details
   useEffect(() => {
     if (heroSection && problemSection && solutionSection && riskReversals.length > 0 && ctaSection) {
+      console.log('Initializing original variation with data:', {
+        heroSection,
+        problemSection,
+        solutionSection,
+        riskReversals: riskReversals.length > 0 ? riskReversals[0] : 'none',
+        ctaSection
+      });
+
       const initializeOriginalVariation = async () => {
         // Try to extract branding details from the website
         let brandingDetails = getFallbackBrandingDetails();
@@ -125,27 +133,31 @@ export function LandingPageWireframes({ readOnly = false }: LandingPageWireframe
           name: 'Original Version',
           description: 'The baseline landing page generated from your offer inputs.',
           hero: {
-            headline: heroSection.tagline,
-            subheadline: heroSection.subCopy,
-            cta: heroSection.ctaText,
-            visualDescription: heroSection.visualDesc
+            headline: heroSection.tagline || 'Your Product Headline',
+            subheadline: heroSection.subCopy || 'Your product subheadline goes here',
+            cta: heroSection.ctaText || 'Get Started',
+            visualDescription: heroSection.visualDesc || 'Product screenshot or illustration'
           },
           problem: {
             headline: 'The Problem',
-            description: problemSection.alternativesProblems + '\\n\\n' + problemSection.underlyingProblem
+            description: (problemSection.alternativesProblems || 'Problem description') +
+              '\\n\\n' + (problemSection.underlyingProblem || 'Underlying problem description')
           },
           solution: {
-            headline: solutionSection.headline,
-            steps: solutionSection.steps
+            headline: solutionSection.headline || 'The Solution',
+            steps: solutionSection.steps.length > 0 ? solutionSection.steps : [
+              { id: 'step-1', title: 'Step 1', description: 'Description of step 1' },
+              { id: 'step-2', title: 'Step 2', description: 'Description of step 2' }
+            ]
           },
           riskReversal: {
-            objection: riskReversals[0]?.objection || '',
-            assurance: riskReversals[0]?.assurance || ''
+            objection: riskReversals[0]?.objection || 'Common objection',
+            assurance: riskReversals[0]?.assurance || 'Your assurance'
           },
           cta: {
             headline: 'Ready to get started?',
-            description: ctaSection.surroundingCopy,
-            buttonText: ctaSection.mainCtaText
+            description: ctaSection.surroundingCopy || 'Start your journey today',
+            buttonText: ctaSection.mainCtaText || 'Get Started'
           },
           visualStyleGuide: {
             colorPalette: brandingDetails.colorPalette,
@@ -161,7 +173,9 @@ export function LandingPageWireframes({ readOnly = false }: LandingPageWireframe
           }
         };
 
+        console.log('Setting original variation:', originalVariation);
         setVariations([originalVariation]);
+        setActiveVariation('original');
 
         // Score the original variation
         handleScoreVariation(originalVariation);
@@ -174,25 +188,100 @@ export function LandingPageWireframes({ readOnly = false }: LandingPageWireframe
   const handleGenerateVariations = async () => {
     if (isGenerating) return;
 
+    console.log('Starting variation generation, current variations:', variations);
+
     setIsGenerating(true);
     setProcessing('landingPageVariations', true);
 
     try {
-      // Generate variations based on the original landing page
-      const originalVariation = variations.find(v => v.id === 'original');
-      if (!originalVariation) throw new Error('Original variation not found');
+      // Check if we have any variations
+      if (variations.length === 0) {
+        console.log('No variations found, creating default original variation');
 
-      const newVariations = await generateLandingPageVariations(originalVariation);
+        // Create a default original variation if none exists
+        const defaultBrandingDetails = getFallbackBrandingDetails();
+        const defaultOriginalVariation: LandingPageVariation = {
+          id: 'original',
+          name: 'Original Version',
+          description: 'The baseline landing page generated from your offer inputs.',
+          hero: {
+            headline: heroSection?.tagline || 'Your Product Headline',
+            subheadline: heroSection?.subCopy || 'Your product subheadline goes here',
+            cta: heroSection?.ctaText || 'Get Started',
+            visualDescription: heroSection?.visualDesc || 'Product screenshot or illustration'
+          },
+          problem: {
+            headline: 'The Problem',
+            description: (problemSection?.alternativesProblems || 'Problem description') +
+              '\\n\\n' + (problemSection?.underlyingProblem || 'Underlying problem description')
+          },
+          solution: {
+            headline: solutionSection?.headline || 'The Solution',
+            steps: solutionSection?.steps?.length > 0 ? solutionSection.steps : [
+              { id: 'step-1', title: 'Step 1', description: 'Description of step 1' },
+              { id: 'step-2', title: 'Step 2', description: 'Description of step 2' }
+            ]
+          },
+          riskReversal: {
+            objection: riskReversals[0]?.objection || 'Common objection',
+            assurance: riskReversals[0]?.assurance || 'Your assurance'
+          },
+          cta: {
+            headline: 'Ready to get started?',
+            description: ctaSection?.surroundingCopy || 'Start your journey today',
+            buttonText: ctaSection?.mainCtaText || 'Get Started'
+          },
+          visualStyleGuide: {
+            colorPalette: defaultBrandingDetails.colorPalette,
+            typography: defaultBrandingDetails.typography,
+            spacing: defaultBrandingDetails.spacing,
+            imagery: defaultBrandingDetails.imagery
+          },
+          detailedStructure: 'Default landing page structure',
+          score: {
+            total: 0,
+            criteria: {},
+            feedback: ''
+          }
+        };
 
-      // Add the new variations to the existing ones
-      setVariations(prev => {
-        const existingVariations = prev.filter(v => v.id === 'original');
-        return [...existingVariations, ...newVariations];
-      });
+        // Set the default original variation
+        setVariations([defaultOriginalVariation]);
 
-      // Score each new variation
-      for (const variation of newVariations) {
-        await handleScoreVariation(variation);
+        // Use this as our original variation
+        const newVariations = await generateLandingPageVariations(defaultOriginalVariation);
+
+        // Add the new variations to the existing ones
+        setVariations([defaultOriginalVariation, ...newVariations]);
+
+        // Score each new variation
+        for (const variation of newVariations) {
+          await handleScoreVariation(variation);
+        }
+      } else {
+        // Generate variations based on the original landing page
+        const originalVariation = variations.find(v => v.id === 'original');
+
+        if (!originalVariation) {
+          console.error('Original variation not found in existing variations:', variations);
+          throw new Error('Original variation not found');
+        }
+
+        console.log('Found original variation, generating new variations:', originalVariation);
+
+        const newVariations = await generateLandingPageVariations(originalVariation);
+        console.log('Generated new variations:', newVariations);
+
+        // Add the new variations to the existing ones
+        setVariations(prev => {
+          const existingVariations = prev.filter(v => v.id === 'original');
+          return [...existingVariations, ...newVariations];
+        });
+
+        // Score each new variation
+        for (const variation of newVariations) {
+          await handleScoreVariation(variation);
+        }
       }
     } catch (error) {
       console.error('Error generating landing page variations:', error);
