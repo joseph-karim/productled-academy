@@ -273,8 +273,16 @@ export function LandingPageWireframes({ readOnly = false }: LandingPageWireframe
         // Use this as our original variation
         const newVariations = await generateLandingPageVariations(defaultOriginalVariation);
 
-        // Add the new variations to the existing ones
-        setVariations([defaultOriginalVariation, ...newVariations]);
+        // Add the new variations to the existing ones and update state
+        const allVariations = [defaultOriginalVariation, ...newVariations];
+        setVariations(allVariations);
+
+        // Set the active variation to the first new variation
+        if (newVariations.length > 0) {
+          setActiveVariation(newVariations[0].id);
+        }
+
+        console.log('Updated variations array:', allVariations);
 
         // Score each new variation
         for (const variation of newVariations) {
@@ -295,10 +303,16 @@ export function LandingPageWireframes({ readOnly = false }: LandingPageWireframe
         console.log('Generated new variations:', newVariations);
 
         // Add the new variations to the existing ones
-        setVariations(prev => {
-          const existingVariations = prev.filter(v => v.id === 'original');
-          return [...existingVariations, ...newVariations];
-        });
+        const existingVariations = variations.filter(v => v.id === 'original');
+        const allVariations = [...existingVariations, ...newVariations];
+        setVariations(allVariations);
+
+        // Set the active variation to the first new variation
+        if (newVariations.length > 0) {
+          setActiveVariation(newVariations[0].id);
+        }
+
+        console.log('Updated variations array:', allVariations);
 
         // Score each new variation
         for (const variation of newVariations) {
@@ -444,6 +458,12 @@ The mockup should be comprehensive enough that a designer could implement it exa
     }
   };
 
+  // Debug log for variations
+  useEffect(() => {
+    console.log('Current variations state:', variations);
+    console.log('Active variation:', activeVariation);
+  }, [variations, activeVariation]);
+
   return (
     <div className="space-y-8">
       {showConfetti && <ConfettiEffect />}
@@ -477,18 +497,22 @@ The mockup should be comprehensive enough that a designer could implement it exa
 
           <Tabs value={activeVariation} onValueChange={setActiveVariation}>
             <TabsList className="bg-[#333333] mb-6">
-              {variations.map(variation => (
-                <TabsTrigger
-                  key={variation.id}
-                  value={variation.id}
-                  className="data-[state=active]:bg-[#FFD23F] data-[state=active]:text-[#1C1C1C]"
-                >
-                  {variation.name}
-                </TabsTrigger>
-              ))}
+              {variations.length > 0 ? (
+                variations.map(variation => (
+                  <TabsTrigger
+                    key={variation.id}
+                    value={variation.id}
+                    className="data-[state=active]:bg-[#FFD23F] data-[state=active]:text-[#1C1C1C]"
+                  >
+                    {variation.name}
+                  </TabsTrigger>
+                ))
+              ) : (
+                <p className="text-white p-2">No variations available</p>
+              )}
             </TabsList>
 
-            {variations.map(variation => (
+            {variations.length > 0 && variations.map(variation => (
               <TabsContent key={variation.id} value={variation.id} className="mt-0">
                 <div className="space-y-6">
                   <div className="flex justify-between items-start">
