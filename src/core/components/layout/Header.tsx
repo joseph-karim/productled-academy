@@ -18,8 +18,8 @@ export function Header() {
 
         {/* Navigation Links */}
         <div className="hidden md:flex items-center space-x-6">
-          <Link to="/model" className="text-gray-300 hover:text-[#FFD23F] transition-colors">
-            Model Analyzer
+          <Link to="/tools" className="text-gray-300 hover:text-[#FFD23F] transition-colors">
+            Academy Tools
           </Link>
           {isAppRoute && (
             <>
@@ -50,14 +50,14 @@ export function Header() {
             </div>
           ) : (
             <div className="flex items-center space-x-4">
-              <Link 
-                to="/login" 
+              <Link
+                to="/login"
                 className="text-sm font-medium text-gray-300 hover:text-[#FFD23F] transition-colors"
               >
                 Log In
               </Link>
-              <Link 
-                to="/signup" 
+              <Link
+                to="/signup"
                 className="text-sm font-medium px-4 py-2 bg-[#FFD23F] text-[#1C1C1C] rounded-lg hover:bg-opacity-90 transition-colors"
               >
                 Sign Up
@@ -68,4 +68,4 @@ export function Header() {
       </div>
     </header>
   );
-} 
+}
