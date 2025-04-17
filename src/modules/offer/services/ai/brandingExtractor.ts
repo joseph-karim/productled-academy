@@ -30,7 +30,7 @@ export async function extractBrandingDetails(scrapingId: string | null): Promise
   try {
     // Get the scraping result
     const scrapingResult = await getScrapingResult(scrapingId);
-    
+
     if (!scrapingResult || scrapingResult.status !== 'completed') {
       console.log('Scraping result not available or not completed');
       return null;
@@ -38,7 +38,7 @@ export async function extractBrandingDetails(scrapingId: string | null): Promise
 
     // Create a prompt for the OpenAI API to extract branding details
     const brandingPrompt = `
-You are a design expert specializing in extracting branding details from website content. 
+You are a design expert specializing in extracting branding details from website content.
 I need you to analyze the following website content and extract the brand's visual identity elements.
 
 Website URL: ${scrapingResult.url}
@@ -49,8 +49,8 @@ ${scrapingResult.analysisResult?.findings ? `
 Core Offer: ${scrapingResult.analysisResult.findings.coreOffer || 'Not available'}
 Target Audience: ${scrapingResult.analysisResult.findings.targetAudience || 'Not available'}
 Value Proposition: ${scrapingResult.analysisResult.findings.valueProposition || 'Not available'}
-Tone: ${typeof scrapingResult.analysisResult.findings.tone === 'string' 
-  ? scrapingResult.analysisResult.findings.tone 
+Tone: ${typeof scrapingResult.analysisResult.findings.tone === 'string'
+  ? scrapingResult.analysisResult.findings.tone
   : scrapingResult.analysisResult.findings.tone?.overall || 'Not available'}
 ` : ''}
 
@@ -193,9 +193,9 @@ Format your response as a JSON object with the following structure:
 export function getFallbackBrandingDetails(): BrandingDetails {
   return {
     colorPalette: {
-      primary: '#4C6FFF',
+      primary: '#FFD23F', // Yellow as primary color
       secondary: '#1C1C1C',
-      accent: '#FFD23F',
+      accent: '#4C6FFF',
       background: '#FFFFFF',
       text: '#333333'
     },

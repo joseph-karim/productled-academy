@@ -1,7 +1,7 @@
 import { openai, handleOpenAIRequest } from './client';
 
 // Define the types for the landing page variations
-interface LandingPageVariation {
+export interface LandingPageVariation {
   id: string;
   name: string;
   description: string;

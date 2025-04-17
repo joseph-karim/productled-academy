@@ -8,6 +8,7 @@ import { generateLandingPageVariations, refineLandingPageCopy, createVisualStyle
 import { extractBrandingDetails, getFallbackBrandingDetails } from '../services/ai/brandingExtractor';
 import { LandingPageScorecard } from './LandingPageScorecard';
 import { ConfettiEffect } from './ConfettiEffect';
+import { LandingPageVisualPreview } from './LandingPageVisualPreview';
 
 interface LandingPageWireframesProps {
   modelData?: any;
@@ -77,12 +78,12 @@ export function LandingPageWireframes({ readOnly = false }: LandingPageWireframe
   const [isRefining, setIsRefining] = useState(false);
   const [isScoring, setIsScoring] = useState(false);
   const [copySuccess, setCopySuccess] = useState<string | null>(null);
-  
-  const { 
-    heroSection, 
-    problemSection, 
-    solutionSection, 
-    riskReversals, 
+
+  const {
+    heroSection,
+    problemSection,
+    solutionSection,
+    riskReversals,
     ctaSection,
     finalReviewCompleted,
     setFinalReviewCompleted,
@@ -103,7 +104,7 @@ export function LandingPageWireframes({ readOnly = false }: LandingPageWireframe
       const initializeOriginalVariation = async () => {
         // Try to extract branding details from the website
         let brandingDetails = getFallbackBrandingDetails();
-        
+
         if (websiteScraping.scrapingId) {
           setProcessing('brandingExtraction', true);
           try {
@@ -118,7 +119,7 @@ export function LandingPageWireframes({ readOnly = false }: LandingPageWireframe
             setProcessing('brandingExtraction', false);
           }
         }
-        
+
         const originalVariation: LandingPageVariation = {
           id: 'original',
           name: 'Original Version',
@@ -159,36 +160,36 @@ export function LandingPageWireframes({ readOnly = false }: LandingPageWireframe
             feedback: ''
           }
         };
-        
+
         setVariations([originalVariation]);
-        
+
         // Score the original variation
         handleScoreVariation(originalVariation);
       };
-      
+
       initializeOriginalVariation();
     }
   }, [heroSection, problemSection, solutionSection, riskReversals, ctaSection, websiteScraping.scrapingId, setProcessing]);
 
   const handleGenerateVariations = async () => {
     if (isGenerating) return;
-    
+
     setIsGenerating(true);
     setProcessing('landingPageVariations', true);
-    
+
     try {
       // Generate variations based on the original landing page
       const originalVariation = variations.find(v => v.id === 'original');
       if (!originalVariation) throw new Error('Original variation not found');
-      
+
       const newVariations = await generateLandingPageVariations(originalVariation);
-      
+
       // Add the new variations to the existing ones
       setVariations(prev => {
         const existingVariations = prev.filter(v => v.id === 'original');
         return [...existingVariations, ...newVariations];
       });
-      
+
       // Score each new variation
       for (const variation of newVariations) {
         await handleScoreVariation(variation);
@@ -203,21 +204,21 @@ export function LandingPageWireframes({ readOnly = false }: LandingPageWireframe
 
   const handleRefineCopy = async (variationId: string) => {
     if (isRefining) return;
-    
+
     setIsRefining(true);
     setProcessing('refineCopy', true);
-    
+
     try {
       const variationToRefine = variations.find(v => v.id === variationId);
       if (!variationToRefine) throw new Error('Variation not found');
-      
+
       const refinedVariation = await refineLandingPageCopy(variationToRefine);
-      
+
       // Update the variation with refined copy
-      setVariations(prev => 
+      setVariations(prev =>
         prev.map(v => v.id === variationId ? refinedVariation : v)
       );
-      
+
       // Score the refined variation
       await handleScoreVariation(refinedVariation);
     } catch (error) {
@@ -230,20 +231,20 @@ export function LandingPageWireframes({ readOnly = false }: LandingPageWireframe
 
   const handleScoreVariation = async (variation: LandingPageVariation) => {
     if (isScoring) return;
-    
+
     setIsScoring(true);
-    
+
     try {
       // Create a copy of the variation to update
       const updatedVariation = { ...variation };
-      
+
       // Score the landing page based on the criteria
       const scoreResult = await scoreLandingPage(variation);
-      
+
       updatedVariation.score = scoreResult;
-      
+
       // Update the variation with the score
-      setVariations(prev => 
+      setVariations(prev =>
         prev.map(v => v.id === variation.id ? updatedVariation : v)
       );
     } catch (error) {
@@ -256,7 +257,7 @@ export function LandingPageWireframes({ readOnly = false }: LandingPageWireframe
   const handleCopyPrompt = (variationId: string) => {
     const variation = variations.find(v => v.id === variationId);
     if (!variation) return;
-    
+
     // Create the prompt to copy
     const prompt = `PROMPT: Using the following landing page structure and visual style guide, please create a complete landing page mockup:
 
@@ -308,7 +309,7 @@ Please create a full, detailed mockup of the landing page that follows these gui
 - Spacing and hierarchy notes
 
 The mockup should be comprehensive enough that a designer could implement it exactly as described.`;
-    
+
     // Copy to clipboard
     navigator.clipboard.writeText(prompt)
       .then(() => {
@@ -335,7 +336,7 @@ The mockup should be comprehensive enough that a designer could implement it exa
   return (
     <div className="space-y-8">
       {showConfetti && <ConfettiEffect />}
-      
+
       <Card className="bg-[#2A2A2A] border-[#333333] text-white">
         <CardHeader>
           <div className="flex items-center">
@@ -352,7 +353,7 @@ The mockup should be comprehensive enough that a designer could implement it exa
               Your landing page has been generated! Now you can create variations, refine the copy, and export the wireframes for implementation.
             </p>
           </div>
-          
+
           <div className="mb-8">
             <Button
               onClick={handleGenerateVariations}
@@ -362,12 +363,12 @@ The mockup should be comprehensive enough that a designer could implement it exa
               {isGenerating ? 'Generating Variations...' : 'Generate Variations'}
             </Button>
           </div>
-          
+
           <Tabs value={activeVariation} onValueChange={setActiveVariation}>
             <TabsList className="bg-[#333333] mb-6">
               {variations.map(variation => (
-                <TabsTrigger 
-                  key={variation.id} 
+                <TabsTrigger
+                  key={variation.id}
                   value={variation.id}
                   className="data-[state=active]:bg-[#FFD23F] data-[state=active]:text-[#1C1C1C]"
                 >
@@ -375,7 +376,7 @@ The mockup should be comprehensive enough that a designer could implement it exa
                 </TabsTrigger>
               ))}
             </TabsList>
-            
+
             {variations.map(variation => (
               <TabsContent key={variation.id} value={variation.id} className="mt-0">
                 <div className="space-y-6">
@@ -421,147 +422,183 @@ The mockup should be comprehensive enough that a designer could implement it exa
                       </Button>
                     </div>
                   </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-6">
-                      <div className="bg-[#222222] p-4 rounded-lg border border-[#444444]">
-                        <h4 className="text-lg font-medium text-[#FFD23F] mb-2">Hero Section</h4>
-                        <div className="space-y-2">
-                          <div>
-                            <p className="text-sm font-medium text-gray-400">Headline</p>
-                            <p className="text-white">{variation.hero.headline}</p>
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium text-gray-400">Subheadline</p>
-                            <p className="text-white">{variation.hero.subheadline}</p>
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium text-gray-400">CTA</p>
-                            <p className="text-white">{variation.hero.cta}</p>
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium text-gray-400">Visual</p>
-                            <p className="text-white">{variation.hero.visualDescription}</p>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="bg-[#222222] p-4 rounded-lg border border-[#444444]">
-                        <h4 className="text-lg font-medium text-[#FFD23F] mb-2">Problem Section</h4>
-                        <div className="space-y-2">
-                          <div>
-                            <p className="text-sm font-medium text-gray-400">Headline</p>
-                            <p className="text-white">{variation.problem.headline}</p>
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium text-gray-400">Description</p>
-                            <p className="text-white whitespace-pre-line">{variation.problem.description}</p>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="bg-[#222222] p-4 rounded-lg border border-[#444444]">
-                        <h4 className="text-lg font-medium text-[#FFD23F] mb-2">Solution Section</h4>
-                        <div className="space-y-2">
-                          <div>
-                            <p className="text-sm font-medium text-gray-400">Headline</p>
-                            <p className="text-white">{variation.solution.headline}</p>
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium text-gray-400">Steps</p>
-                            <div className="space-y-2">
-                              {variation.solution.steps.map((step, index) => (
-                                <div key={index} className="bg-[#1C1C1C] p-2 rounded">
-                                  <p className="text-white font-medium">{step.title}</p>
-                                  <p className="text-gray-300 text-sm">{step.description}</p>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-6">
-                      <div className="bg-[#222222] p-4 rounded-lg border border-[#444444]">
-                        <h4 className="text-lg font-medium text-[#FFD23F] mb-2">Risk Reversal</h4>
-                        <div className="space-y-2">
-                          <div>
-                            <p className="text-sm font-medium text-gray-400">Objection</p>
-                            <p className="text-white">{variation.riskReversal.objection}</p>
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium text-gray-400">Assurance</p>
-                            <p className="text-white">{variation.riskReversal.assurance}</p>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="bg-[#222222] p-4 rounded-lg border border-[#444444]">
-                        <h4 className="text-lg font-medium text-[#FFD23F] mb-2">CTA Section</h4>
-                        <div className="space-y-2">
-                          <div>
-                            <p className="text-sm font-medium text-gray-400">Headline</p>
-                            <p className="text-white">{variation.cta.headline}</p>
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium text-gray-400">Description</p>
-                            <p className="text-white">{variation.cta.description}</p>
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium text-gray-400">Button Text</p>
-                            <p className="text-white">{variation.cta.buttonText}</p>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="bg-[#222222] p-4 rounded-lg border border-[#444444]">
-                        <h4 className="text-lg font-medium text-[#FFD23F] mb-2">Visual Style Guide</h4>
-                        <div className="space-y-2">
-                          <div>
-                            <p className="text-sm font-medium text-gray-400">Color Palette</p>
-                            <div className="flex flex-wrap gap-2 mt-1">
-                              {Object.entries(variation.visualStyleGuide.colorPalette).map(([name, color]) => (
-                                <div key={name} className="flex items-center">
-                                  <div 
-                                    className="w-4 h-4 rounded-full mr-1" 
-                                    style={{ backgroundColor: color }}
-                                  ></div>
-                                  <span className="text-xs text-white">{name}: {color}</span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium text-gray-400">Typography</p>
-                            <p className="text-white text-sm">
-                              Headings: {variation.visualStyleGuide.typography.headings}<br />
-                              Body: {variation.visualStyleGuide.typography.body}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium text-gray-400">Spacing</p>
-                            <p className="text-white text-sm">{variation.visualStyleGuide.spacing}</p>
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium text-gray-400">Imagery</p>
-                            <p className="text-white text-sm">{variation.visualStyleGuide.imagery}</p>
-                          </div>
-                        </div>
-                      </div>
+
+                  {/* Visual Preview */}
+                  <div className="bg-[#222222] p-4 rounded-lg border border-[#444444] overflow-hidden">
+                    <h4 className="text-lg font-medium text-[#FFD23F] mb-4">Visual Preview</h4>
+                    <div className="bg-white rounded-lg overflow-hidden" style={{ maxHeight: '600px', overflowY: 'auto' }}>
+                      <LandingPageVisualPreview variation={variation} />
                     </div>
                   </div>
-                  
-                  <LandingPageScorecard score={variation.score} />
+
+                  <Tabs defaultValue="content">
+                    <TabsList className="bg-[#333333] mb-4">
+                      <TabsTrigger value="content">Content</TabsTrigger>
+                      <TabsTrigger value="style">Style Guide</TabsTrigger>
+                      <TabsTrigger value="analysis">Analysis</TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value="content" className="mt-0">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-6">
+                          <div className="bg-[#222222] p-4 rounded-lg border border-[#444444]">
+                            <h4 className="text-lg font-medium text-[#FFD23F] mb-2">Hero Section</h4>
+                            <div className="space-y-2">
+                              <div>
+                                <p className="text-sm font-medium text-gray-400">Headline</p>
+                                <p className="text-white">{variation.hero.headline}</p>
+                              </div>
+                              <div>
+                                <p className="text-sm font-medium text-gray-400">Subheadline</p>
+                                <p className="text-white">{variation.hero.subheadline}</p>
+                              </div>
+                              <div>
+                                <p className="text-sm font-medium text-gray-400">CTA</p>
+                                <p className="text-white">{variation.hero.cta}</p>
+                              </div>
+                              <div>
+                                <p className="text-sm font-medium text-gray-400">Visual</p>
+                                <p className="text-white">{variation.hero.visualDescription}</p>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="bg-[#222222] p-4 rounded-lg border border-[#444444]">
+                            <h4 className="text-lg font-medium text-[#FFD23F] mb-2">Problem Section</h4>
+                            <div className="space-y-2">
+                              <div>
+                                <p className="text-sm font-medium text-gray-400">Headline</p>
+                                <p className="text-white">{variation.problem.headline}</p>
+                              </div>
+                              <div>
+                                <p className="text-sm font-medium text-gray-400">Description</p>
+                                <p className="text-white whitespace-pre-line">{variation.problem.description}</p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="space-y-6">
+                          <div className="bg-[#222222] p-4 rounded-lg border border-[#444444]">
+                            <h4 className="text-lg font-medium text-[#FFD23F] mb-2">Solution Section</h4>
+                            <div className="space-y-2">
+                              <div>
+                                <p className="text-sm font-medium text-gray-400">Headline</p>
+                                <p className="text-white">{variation.solution.headline}</p>
+                              </div>
+                              <div>
+                                <p className="text-sm font-medium text-gray-400">Steps</p>
+                                <div className="space-y-2">
+                                  {variation.solution.steps.map((step, index) => (
+                                    <div key={index} className="bg-[#1C1C1C] p-2 rounded">
+                                      <p className="text-white font-medium">{step.title}</p>
+                                      <p className="text-gray-300 text-sm">{step.description}</p>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="bg-[#222222] p-4 rounded-lg border border-[#444444]">
+                            <h4 className="text-lg font-medium text-[#FFD23F] mb-2">Risk Reversal</h4>
+                            <div className="space-y-2">
+                              <div>
+                                <p className="text-sm font-medium text-gray-400">Objection</p>
+                                <p className="text-white">{variation.riskReversal.objection}</p>
+                              </div>
+                              <div>
+                                <p className="text-sm font-medium text-gray-400">Assurance</p>
+                                <p className="text-white">{variation.riskReversal.assurance}</p>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="bg-[#222222] p-4 rounded-lg border border-[#444444]">
+                            <h4 className="text-lg font-medium text-[#FFD23F] mb-2">CTA Section</h4>
+                            <div className="space-y-2">
+                              <div>
+                                <p className="text-sm font-medium text-gray-400">Headline</p>
+                                <p className="text-white">{variation.cta.headline}</p>
+                              </div>
+                              <div>
+                                <p className="text-sm font-medium text-gray-400">Description</p>
+                                <p className="text-white">{variation.cta.description}</p>
+                              </div>
+                              <div>
+                                <p className="text-sm font-medium text-gray-400">Button Text</p>
+                                <p className="text-white">{variation.cta.buttonText}</p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </TabsContent>
+
+                    <TabsContent value="style" className="mt-0">
+                      <div className="bg-[#222222] p-4 rounded-lg border border-[#444444]">
+                        <h4 className="text-lg font-medium text-[#FFD23F] mb-2">Visual Style Guide</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div>
+                            <h5 className="text-white font-medium mb-2">Color Palette</h5>
+                            <div className="grid grid-cols-2 gap-4">
+                              {Object.entries(variation.visualStyleGuide.colorPalette).map(([name, color]) => (
+                                <div key={name} className="flex items-center bg-[#1C1C1C] p-3 rounded">
+                                  <div
+                                    className="w-8 h-8 rounded-md mr-3"
+                                    style={{ backgroundColor: color }}
+                                  ></div>
+                                  <div>
+                                    <p className="text-white capitalize">{name}</p>
+                                    <p className="text-gray-400 text-sm">{color}</p>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="space-y-6">
+                            <div>
+                              <h5 className="text-white font-medium mb-2">Typography</h5>
+                              <div className="bg-[#1C1C1C] p-3 rounded mb-4">
+                                <p className="text-sm font-medium text-gray-400">Headings</p>
+                                <p className="text-white">{variation.visualStyleGuide.typography.headings}</p>
+                              </div>
+                              <div className="bg-[#1C1C1C] p-3 rounded">
+                                <p className="text-sm font-medium text-gray-400">Body</p>
+                                <p className="text-white">{variation.visualStyleGuide.typography.body}</p>
+                              </div>
+                            </div>
+
+                            <div>
+                              <h5 className="text-white font-medium mb-2">Layout</h5>
+                              <div className="bg-[#1C1C1C] p-3 rounded mb-4">
+                                <p className="text-sm font-medium text-gray-400">Spacing</p>
+                                <p className="text-white">{variation.visualStyleGuide.spacing}</p>
+                              </div>
+                              <div className="bg-[#1C1C1C] p-3 rounded">
+                                <p className="text-sm font-medium text-gray-400">Imagery</p>
+                                <p className="text-white">{variation.visualStyleGuide.imagery}</p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </TabsContent>
+
+                    <TabsContent value="analysis" className="mt-0">
+                      <LandingPageScorecard score={variation.score} />
+                    </TabsContent>
+                  </Tabs>
                 </div>
               </TabsContent>
             ))}
           </Tabs>
-          
+
           {!finalReviewCompleted && (
             <div className="mt-8">
-              <Button 
-                onClick={handleFinalize} 
+              <Button
+                onClick={handleFinalize}
                 disabled={readOnly}
                 className="bg-[#FFD23F] text-[#1C1C1C] hover:bg-opacity-90"
               >
@@ -569,7 +606,7 @@ The mockup should be comprehensive enough that a designer could implement it exa
               </Button>
             </div>
           )}
-          
+
           {finalReviewCompleted && (
             <p className="mt-8 text-green-400 text-lg font-semibold flex items-center">
               <CheckCircle className="w-5 h-5 mr-2" /> Module Complete!
