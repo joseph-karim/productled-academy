@@ -62,6 +62,7 @@ interface LandingPageVariation {
 export async function generateLandingPageVariations(
   originalVariation: LandingPageVariation
 ): Promise<LandingPageVariation[]> {
+  // Use the original variation's visual style guide for all variations to maintain brand consistency
   // Create the prompt for generating variations
   const variationsPrompt = `
 PURPOSE: Generate alternative versions of landing page sections to test different approaches.
@@ -139,21 +140,7 @@ Please explain the strategic thinking behind each variation and what specific hy
             description: `Only 50 spots remaining at this price point. Don't miss this opportunity to transform your results.`,
             buttonText: `Claim Your Spot Now`
           },
-          visualStyleGuide: {
-            colorPalette: {
-              primary: '#FF4C6F',
-              secondary: '#1C1C1C',
-              accent: '#FFD23F',
-              background: '#FFFFFF',
-              text: '#333333'
-            },
-            typography: {
-              headings: 'Sans-serif (e.g., Inter, Helvetica) with bold weight',
-              body: 'Sans-serif (e.g., Inter, Helvetica)'
-            },
-            spacing: 'Tighter spacing to create urgency, 12px/20px/28px increments',
-            imagery: 'Images showing active usage and time-sensitive elements like countdown timers'
-          },
+          visualStyleGuide: originalVariation.visualStyleGuide,
           detailedStructure: 'FOMO-driven landing page structure with countdown elements and scarcity indicators'
         },
         {
@@ -186,21 +173,7 @@ Please explain the strategic thinking behind each variation and what specific hy
             description: `"This solution increased our results by 42% in just 3 weeks" - Jane D., CEO`,
             buttonText: `Get These Results Now`
           },
-          visualStyleGuide: {
-            colorPalette: {
-              primary: '#4C6FFF',
-              secondary: '#1C1C1C',
-              accent: '#00C853',
-              background: '#FFFFFF',
-              text: '#333333'
-            },
-            typography: {
-              headings: 'Sans-serif (e.g., Inter, Helvetica) with medium weight',
-              body: 'Sans-serif (e.g., Inter, Helvetica)'
-            },
-            spacing: 'Standard spacing with 16px/24px/32px increments',
-            imagery: 'Data visualizations, before/after comparisons, and customer testimonial photos'
-          },
+          visualStyleGuide: originalVariation.visualStyleGuide,
           detailedStructure: 'Results-focused landing page with prominent testimonials and data points throughout'
         },
         {
@@ -233,21 +206,7 @@ Please explain the strategic thinking behind each variation and what specific hy
             description: `No credit card required. No complicated setup. Just immediate results.`,
             buttonText: `Start Simply Now`
           },
-          visualStyleGuide: {
-            colorPalette: {
-              primary: '#00C853',
-              secondary: '#1C1C1C',
-              accent: '#4C6FFF',
-              background: '#FFFFFF',
-              text: '#333333'
-            },
-            typography: {
-              headings: 'Sans-serif (e.g., Inter, Helvetica) with light weight',
-              body: 'Sans-serif (e.g., Inter, Helvetica)'
-            },
-            spacing: 'Generous spacing with 20px/32px/48px increments for a clean, simple feel',
-            imagery: 'Simple illustrations showing ease of use and quick implementation'
-          },
+          visualStyleGuide: originalVariation.visualStyleGuide,
           detailedStructure: 'Simplified landing page structure with emphasis on ease of use and quick implementation'
         }
       ];

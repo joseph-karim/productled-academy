@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Download, Copy, RefreshCw, CheckCircle, Star, Sparkles } from 'lucide-react';
 import { generateLandingPageVariations, refineLandingPageCopy, createVisualStyleGuide, createDetailedLandingPageStructure, scoreLandingPage } from '../services/ai/landingPageWireframeGenerator';
+import { extractBrandingDetails, getFallbackBrandingDetails } from '../services/ai/brandingExtractor';
 import { LandingPageScorecard } from './LandingPageScorecard';
 import { ConfettiEffect } from './ConfettiEffect';
 
@@ -76,16 +77,17 @@ export function LandingPageWireframes({ readOnly = false }: LandingPageWireframe
   const [isRefining, setIsRefining] = useState(false);
   const [isScoring, setIsScoring] = useState(false);
   const [copySuccess, setCopySuccess] = useState<string | null>(null);
-
-  const {
-    heroSection,
-    problemSection,
-    solutionSection,
-    riskReversals,
+  
+  const { 
+    heroSection, 
+    problemSection, 
+    solutionSection, 
+    riskReversals, 
     ctaSection,
     finalReviewCompleted,
     setFinalReviewCompleted,
-    setProcessing
+    setProcessing,
+    websiteScraping
   } = useOfferStore();
 
   // Show confetti when component mounts
@@ -95,85 +97,98 @@ export function LandingPageWireframes({ readOnly = false }: LandingPageWireframe
     return () => clearTimeout(timer);
   }, []);
 
-  // Initialize with original landing page
+  // Initialize with original landing page and extract branding details
   useEffect(() => {
     if (heroSection && problemSection && solutionSection && riskReversals.length > 0 && ctaSection) {
-      const originalVariation: LandingPageVariation = {
-        id: 'original',
-        name: 'Original Version',
-        description: 'The baseline landing page generated from your offer inputs.',
-        hero: {
-          headline: heroSection.tagline,
-          subheadline: heroSection.subCopy,
-          cta: heroSection.ctaText,
-          visualDescription: heroSection.visualDesc
-        },
-        problem: {
-          headline: 'The Problem',
-          description: problemSection.alternativesProblems + '\\n\\n' + problemSection.underlyingProblem
-        },
-        solution: {
-          headline: solutionSection.headline,
-          steps: solutionSection.steps
-        },
-        riskReversal: {
-          objection: riskReversals[0]?.objection || '',
-          assurance: riskReversals[0]?.assurance || ''
-        },
-        cta: {
-          headline: 'Ready to get started?',
-          description: ctaSection.surroundingCopy,
-          buttonText: ctaSection.mainCtaText
-        },
-        visualStyleGuide: {
-          colorPalette: {
-            primary: '#FFD23F',
-            secondary: '#1C1C1C',
-            accent: '#4C6FFF',
-            background: '#FFFFFF',
-            text: '#333333'
-          },
-          typography: {
-            headings: 'Sans-serif (e.g., Inter, Helvetica)',
-            body: 'Sans-serif (e.g., Inter, Helvetica)'
-          },
-          spacing: 'Consistent spacing with 16px/24px/32px increments',
-          imagery: 'Clean, minimal illustrations or screenshots'
-        },
-        detailedStructure: 'Default landing page structure',
-        score: {
-          total: 0,
-          criteria: {},
-          feedback: ''
+      const initializeOriginalVariation = async () => {
+        // Try to extract branding details from the website
+        let brandingDetails = getFallbackBrandingDetails();
+        
+        if (websiteScraping.scrapingId) {
+          setProcessing('brandingExtraction', true);
+          try {
+            const extractedBranding = await extractBrandingDetails(websiteScraping.scrapingId);
+            if (extractedBranding) {
+              console.log('Successfully extracted branding details:', extractedBranding);
+              brandingDetails = extractedBranding;
+            }
+          } catch (error) {
+            console.error('Error extracting branding details:', error);
+          } finally {
+            setProcessing('brandingExtraction', false);
+          }
         }
+        
+        const originalVariation: LandingPageVariation = {
+          id: 'original',
+          name: 'Original Version',
+          description: 'The baseline landing page generated from your offer inputs.',
+          hero: {
+            headline: heroSection.tagline,
+            subheadline: heroSection.subCopy,
+            cta: heroSection.ctaText,
+            visualDescription: heroSection.visualDesc
+          },
+          problem: {
+            headline: 'The Problem',
+            description: problemSection.alternativesProblems + '\\n\\n' + problemSection.underlyingProblem
+          },
+          solution: {
+            headline: solutionSection.headline,
+            steps: solutionSection.steps
+          },
+          riskReversal: {
+            objection: riskReversals[0]?.objection || '',
+            assurance: riskReversals[0]?.assurance || ''
+          },
+          cta: {
+            headline: 'Ready to get started?',
+            description: ctaSection.surroundingCopy,
+            buttonText: ctaSection.mainCtaText
+          },
+          visualStyleGuide: {
+            colorPalette: brandingDetails.colorPalette,
+            typography: brandingDetails.typography,
+            spacing: brandingDetails.spacing,
+            imagery: brandingDetails.imagery
+          },
+          detailedStructure: 'Default landing page structure',
+          score: {
+            total: 0,
+            criteria: {},
+            feedback: ''
+          }
+        };
+        
+        setVariations([originalVariation]);
+        
+        // Score the original variation
+        handleScoreVariation(originalVariation);
       };
-
-      setVariations([originalVariation]);
-
-      // Score the original variation
-      handleScoreVariation(originalVariation);
+      
+      initializeOriginalVariation();
     }
-  }, [heroSection, problemSection, solutionSection, riskReversals, ctaSection]);
+  }, [heroSection, problemSection, solutionSection, riskReversals, ctaSection, websiteScraping.scrapingId, setProcessing]);
 
   const handleGenerateVariations = async () => {
     if (isGenerating) return;
-
+    
     setIsGenerating(true);
     setProcessing('landingPageVariations', true);
-
+    
     try {
       // Generate variations based on the original landing page
       const originalVariation = variations.find(v => v.id === 'original');
       if (!originalVariation) throw new Error('Original variation not found');
-
+      
       const newVariations = await generateLandingPageVariations(originalVariation);
-
+      
       // Add the new variations to the existing ones
       setVariations(prev => {
         const existingVariations = prev.filter(v => v.id === 'original');
         return [...existingVariations, ...newVariations];
       });
-
+      
       // Score each new variation
       for (const variation of newVariations) {
         await handleScoreVariation(variation);
@@ -188,21 +203,21 @@ export function LandingPageWireframes({ readOnly = false }: LandingPageWireframe
 
   const handleRefineCopy = async (variationId: string) => {
     if (isRefining) return;
-
+    
     setIsRefining(true);
     setProcessing('refineCopy', true);
-
+    
     try {
       const variationToRefine = variations.find(v => v.id === variationId);
       if (!variationToRefine) throw new Error('Variation not found');
-
+      
       const refinedVariation = await refineLandingPageCopy(variationToRefine);
-
+      
       // Update the variation with refined copy
-      setVariations(prev =>
+      setVariations(prev => 
         prev.map(v => v.id === variationId ? refinedVariation : v)
       );
-
+      
       // Score the refined variation
       await handleScoreVariation(refinedVariation);
     } catch (error) {
@@ -215,20 +230,20 @@ export function LandingPageWireframes({ readOnly = false }: LandingPageWireframe
 
   const handleScoreVariation = async (variation: LandingPageVariation) => {
     if (isScoring) return;
-
+    
     setIsScoring(true);
-
+    
     try {
       // Create a copy of the variation to update
       const updatedVariation = { ...variation };
-
+      
       // Score the landing page based on the criteria
       const scoreResult = await scoreLandingPage(variation);
-
+      
       updatedVariation.score = scoreResult;
-
+      
       // Update the variation with the score
-      setVariations(prev =>
+      setVariations(prev => 
         prev.map(v => v.id === variation.id ? updatedVariation : v)
       );
     } catch (error) {
@@ -238,12 +253,10 @@ export function LandingPageWireframes({ readOnly = false }: LandingPageWireframe
     }
   };
 
-
-
   const handleCopyPrompt = (variationId: string) => {
     const variation = variations.find(v => v.id === variationId);
     if (!variation) return;
-
+    
     // Create the prompt to copy
     const prompt = `PROMPT: Using the following landing page structure and visual style guide, please create a complete landing page mockup:
 
@@ -295,7 +308,7 @@ Please create a full, detailed mockup of the landing page that follows these gui
 - Spacing and hierarchy notes
 
 The mockup should be comprehensive enough that a designer could implement it exactly as described.`;
-
+    
     // Copy to clipboard
     navigator.clipboard.writeText(prompt)
       .then(() => {
@@ -322,7 +335,7 @@ The mockup should be comprehensive enough that a designer could implement it exa
   return (
     <div className="space-y-8">
       {showConfetti && <ConfettiEffect />}
-
+      
       <Card className="bg-[#2A2A2A] border-[#333333] text-white">
         <CardHeader>
           <div className="flex items-center">
@@ -339,7 +352,7 @@ The mockup should be comprehensive enough that a designer could implement it exa
               Your landing page has been generated! Now you can create variations, refine the copy, and export the wireframes for implementation.
             </p>
           </div>
-
+          
           <div className="mb-8">
             <Button
               onClick={handleGenerateVariations}
@@ -349,12 +362,12 @@ The mockup should be comprehensive enough that a designer could implement it exa
               {isGenerating ? 'Generating Variations...' : 'Generate Variations'}
             </Button>
           </div>
-
+          
           <Tabs value={activeVariation} onValueChange={setActiveVariation}>
             <TabsList className="bg-[#333333] mb-6">
               {variations.map(variation => (
-                <TabsTrigger
-                  key={variation.id}
+                <TabsTrigger 
+                  key={variation.id} 
                   value={variation.id}
                   className="data-[state=active]:bg-[#FFD23F] data-[state=active]:text-[#1C1C1C]"
                 >
@@ -362,7 +375,7 @@ The mockup should be comprehensive enough that a designer could implement it exa
                 </TabsTrigger>
               ))}
             </TabsList>
-
+            
             {variations.map(variation => (
               <TabsContent key={variation.id} value={variation.id} className="mt-0">
                 <div className="space-y-6">
@@ -408,7 +421,7 @@ The mockup should be comprehensive enough that a designer could implement it exa
                       </Button>
                     </div>
                   </div>
-
+                  
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-6">
                       <div className="bg-[#222222] p-4 rounded-lg border border-[#444444]">
@@ -432,7 +445,7 @@ The mockup should be comprehensive enough that a designer could implement it exa
                           </div>
                         </div>
                       </div>
-
+                      
                       <div className="bg-[#222222] p-4 rounded-lg border border-[#444444]">
                         <h4 className="text-lg font-medium text-[#FFD23F] mb-2">Problem Section</h4>
                         <div className="space-y-2">
@@ -446,7 +459,7 @@ The mockup should be comprehensive enough that a designer could implement it exa
                           </div>
                         </div>
                       </div>
-
+                      
                       <div className="bg-[#222222] p-4 rounded-lg border border-[#444444]">
                         <h4 className="text-lg font-medium text-[#FFD23F] mb-2">Solution Section</h4>
                         <div className="space-y-2">
@@ -468,7 +481,7 @@ The mockup should be comprehensive enough that a designer could implement it exa
                         </div>
                       </div>
                     </div>
-
+                    
                     <div className="space-y-6">
                       <div className="bg-[#222222] p-4 rounded-lg border border-[#444444]">
                         <h4 className="text-lg font-medium text-[#FFD23F] mb-2">Risk Reversal</h4>
@@ -483,7 +496,7 @@ The mockup should be comprehensive enough that a designer could implement it exa
                           </div>
                         </div>
                       </div>
-
+                      
                       <div className="bg-[#222222] p-4 rounded-lg border border-[#444444]">
                         <h4 className="text-lg font-medium text-[#FFD23F] mb-2">CTA Section</h4>
                         <div className="space-y-2">
@@ -501,7 +514,7 @@ The mockup should be comprehensive enough that a designer could implement it exa
                           </div>
                         </div>
                       </div>
-
+                      
                       <div className="bg-[#222222] p-4 rounded-lg border border-[#444444]">
                         <h4 className="text-lg font-medium text-[#FFD23F] mb-2">Visual Style Guide</h4>
                         <div className="space-y-2">
@@ -510,8 +523,8 @@ The mockup should be comprehensive enough that a designer could implement it exa
                             <div className="flex flex-wrap gap-2 mt-1">
                               {Object.entries(variation.visualStyleGuide.colorPalette).map(([name, color]) => (
                                 <div key={name} className="flex items-center">
-                                  <div
-                                    className="w-4 h-4 rounded-full mr-1"
+                                  <div 
+                                    className="w-4 h-4 rounded-full mr-1" 
                                     style={{ backgroundColor: color }}
                                   ></div>
                                   <span className="text-xs text-white">{name}: {color}</span>
@@ -538,17 +551,17 @@ The mockup should be comprehensive enough that a designer could implement it exa
                       </div>
                     </div>
                   </div>
-
+                  
                   <LandingPageScorecard score={variation.score} />
                 </div>
               </TabsContent>
             ))}
           </Tabs>
-
+          
           {!finalReviewCompleted && (
             <div className="mt-8">
-              <Button
-                onClick={handleFinalize}
+              <Button 
+                onClick={handleFinalize} 
                 disabled={readOnly}
                 className="bg-[#FFD23F] text-[#1C1C1C] hover:bg-opacity-90"
               >
@@ -556,7 +569,7 @@ The mockup should be comprehensive enough that a designer could implement it exa
               </Button>
             </div>
           )}
-
+          
           {finalReviewCompleted && (
             <p className="mt-8 text-green-400 text-lg font-semibold flex items-center">
               <CheckCircle className="w-5 h-5 mr-2" /> Module Complete!
