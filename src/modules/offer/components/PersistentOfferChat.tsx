@@ -30,7 +30,8 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
     problemSection,
     solutionSection,
     riskReversals,
-    ctaSection
+    ctaSection,
+    transcriptData
   } = useOfferStore();
 
   const [currentInput, setCurrentInput] = useState('');
@@ -39,7 +40,7 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [currentField, setCurrentField] = useState<string | null>(null);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
-  
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Create website findings object with better null/undefined handling
@@ -85,168 +86,200 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
     }
   }, [contextChat.messages]);
 
-  // Generate context-aware suggestions based on the current step
+  // Generate initial welcome message based on the current step
   useEffect(() => {
     if (isInitialLoad) {
-      generateContextAwareSuggestions();
+      generateInitialWelcomeMessage();
       setIsInitialLoad(false);
     }
   }, [currentStep, isInitialLoad]);
 
-  // Function to generate context-aware suggestions based on the current step
-  const generateContextAwareSuggestions = async () => {
+  // Function to generate the initial welcome message
+  const generateInitialWelcomeMessage = () => {
+    // Clear previous messages if switching steps
+    if (contextChat.messages.length > 0) {
+      clearChatMessages();
+    }
+
+    // Add initial welcome message based on the current step
+    let welcomeMessage = '';
+
+    // Check if we have website data or transcript data
+    const hasWebsiteData = websiteScraping.status === 'completed' && websiteFindings !== null;
+    const hasTranscriptData = transcriptData !== null;
+    const hasCompletedCoreOffer = coreOfferNucleus.targetAudience &&
+                                 coreOfferNucleus.desiredResult &&
+                                 coreOfferNucleus.keyAdvantage &&
+                                 coreOfferNucleus.biggestBarrier &&
+                                 coreOfferNucleus.assurance;
+
+    // Step 0: Define Core Offer Nucleus
+    if (currentStep === 0) {
+      if (!hasWebsiteData && !hasTranscriptData) {
+        welcomeMessage = "Welcome to the AI Offer Assistant! To get started, I recommend either entering your website URL or uploading a customer call transcript using the tabs on the right. This will help me provide more relevant suggestions for your offer. Alternatively, you can tell me about your business or product, and I'll help you craft your core offer nucleus.";
+      } else if (hasWebsiteData && !hasTranscriptData && !hasCompletedCoreOffer) {
+        welcomeMessage = "Thanks for providing your website information! I've analyzed your site and can help you define your core offer nucleus. Let me know when you're ready to start with your target audience, desired result, key advantage, biggest barrier, or assurance.";
+      } else if (!hasWebsiteData && hasTranscriptData && !hasCompletedCoreOffer) {
+        welcomeMessage = "Thanks for uploading your customer call transcript! I've analyzed it and extracted key insights to help you define your core offer nucleus. Let me know when you're ready to start with your target audience, desired result, key advantage, biggest barrier, or assurance.";
+      } else if (hasWebsiteData && hasTranscriptData && !hasCompletedCoreOffer) {
+        welcomeMessage = "Great! I have both your website analysis and customer call transcript. This gives me a comprehensive understanding of your offer. Let me know when you're ready to start defining your core offer nucleus.";
+      } else {
+        welcomeMessage = "I see you've already defined your core offer nucleus. Is there anything specific you'd like help with or would you like me to review what you've entered so far?";
+      }
+    }
+    // Step 1: Setup Onboarding Steps
+    else if (currentStep === 1) {
+      welcomeMessage = "Now let's define the onboarding steps for your offer. These are the key steps users need to take to get value from your product. What would you like help with?";
+    }
+    // Step 2: Add Enhancers
+    else if (currentStep === 2) {
+      welcomeMessage = "Let's enhance your offer with bonuses and exclusivity. I can help you brainstorm compelling bonuses or craft exclusivity elements that create urgency. What would you like to focus on first?";
+    }
+    // Step 3: Generate & Refine Landing Page Content
+    else if (currentStep === 3) {
+      welcomeMessage = "Now let's create compelling landing page content. I can help you craft persuasive copy for your hero section, problem statement, solution description, risk reversal, and call to action. Where would you like to start?";
+    }
+    // Step 4: Create Landing Page Wireframes
+    else if (currentStep === 4) {
+      welcomeMessage = "Let's create wireframes for your landing page. I can help you visualize how your content will look and provide suggestions for layout and design elements. What aspect of the wireframes would you like help with?";
+    }
+    // Step 5: Final Review & Output
+    else if (currentStep === 5) {
+      welcomeMessage = "Let's review your complete offer. I can help you identify any areas that need improvement or suggest final touches to make your offer more compelling. What would you like me to review first?";
+    }
+
+    // Add the welcome message
+    addChatMessage({
+      sender: 'ai',
+      content: welcomeMessage
+    });
+  };
+
+  // Function to generate context-aware suggestions based on user request
+  const generateContextAwareSuggestions = async (field: string) => {
     setIsProcessing(true);
-    
+
     try {
-      // Clear previous messages if switching steps
-      if (contextChat.messages.length > 0) {
-        clearChatMessages();
-      }
-      
-      // Add initial message based on the current step
-      let initialMessage = '';
-      let fieldToSuggest: string | null = null;
-      
-      // Step 0: Define Core Offer Nucleus
-      if (currentStep === 0) {
-        initialMessage = "I'm here to help you define your core offer nucleus. Let's start with your target audience. Who is your offer specifically designed for?";
-        fieldToSuggest = 'targetAudience';
-      } 
-      // Step 1: Setup Onboarding Steps
-      else if (currentStep === 1) {
-        initialMessage = "Now let's define the onboarding steps for your offer. What are the key steps users need to take to get value from your product?";
-        fieldToSuggest = 'onboardingStep';
-      }
-      // Step 2: Add Enhancers
-      else if (currentStep === 2) {
-        initialMessage = "Let's enhance your offer with bonuses and exclusivity. What bonuses could you add to make your offer more compelling?";
-        fieldToSuggest = 'bonus';
-      }
-      // Step 3: Generate & Refine Landing Page Content
-      else if (currentStep === 3) {
-        initialMessage = "Now let's create compelling landing page content. I can help you craft persuasive copy for each section.";
-        fieldToSuggest = 'heroSection';
-      }
-      // Step 4: Create Landing Page Wireframes
-      else if (currentStep === 4) {
-        initialMessage = "Let's create wireframes for your landing page. I can help you visualize how your content will look.";
-        fieldToSuggest = null;
-      }
-      // Step 5: Final Review & Output
-      else if (currentStep === 5) {
-        initialMessage = "Let's review your complete offer. I can help you identify any areas that need improvement.";
-        fieldToSuggest = null;
-      }
-      
-      // Add the initial message
-      addChatMessage({
-        sender: 'ai',
-        content: initialMessage
-      });
-      
-      // Generate suggestions if needed
-      if (fieldToSuggest) {
-        setCurrentField(fieldToSuggest);
-        
-        if (fieldToSuggest === 'targetAudience' || 
-            fieldToSuggest === 'desiredResult' || 
-            fieldToSuggest === 'keyAdvantage' || 
-            fieldToSuggest === 'biggestBarrier' || 
-            fieldToSuggest === 'assurance') {
-          
+      setCurrentField(field);
+
+      if (field === 'targetAudience' ||
+          field === 'desiredResult' ||
+          field === 'keyAdvantage' ||
+          field === 'biggestBarrier' ||
+          field === 'assurance') {
+
+        // Only generate suggestions if we have website data
+        if (websiteFindings) {
           const fieldSuggestions = await generateSuggestions(
-            fieldToSuggest as any,
+            field as any,
             initialContext,
             websiteFindings
           );
-          
+
           const formattedSuggestions = fieldSuggestions.map(text => ({
             text,
-            field: fieldToSuggest as string
+            field
           }));
-          
+
           setSuggestions(formattedSuggestions);
           setShowSuggestions(true);
-          
+
           addChatMessage({
             sender: 'ai',
-            content: `Here are some suggestions for ${fieldDisplayNames[fieldToSuggest]}. You can select one or type your own.`
+            content: `Based on your website, here are some suggestions for ${fieldDisplayNames[field]}. You can select one or type your own.`
           });
-        } else if (fieldToSuggest === 'onboardingStep') {
-          // Generate onboarding step suggestions
-          const stepSuggestions = [
-            "Complete a quick 2-minute setup wizard",
-            "Watch the 5-minute getting started video",
-            "Import your existing data (10 minutes)",
-            "Set up your first automation (15 minutes)",
-            "Connect with your team members (5 minutes)"
-          ];
-          
-          const formattedSuggestions = stepSuggestions.map(text => ({
-            text,
-            field: 'onboardingStep'
-          }));
-          
-          setSuggestions(formattedSuggestions);
-          setShowSuggestions(true);
-          
+        } else {
+          // Fallback suggestions if no website data
           addChatMessage({
             sender: 'ai',
-            content: `Here are some suggestions for onboarding steps. You can select one or type your own.`
-          });
-        } else if (fieldToSuggest === 'bonus') {
-          // Generate bonus suggestions
-          const bonusSuggestions = [
-            "Free 30-minute strategy call",
-            "Exclusive PDF guide with advanced tips",
-            "Access to private community",
-            "Monthly live Q&A sessions",
-            "Template library worth $197"
-          ];
-          
-          const formattedSuggestions = bonusSuggestions.map(text => ({
-            text,
-            field: 'bonus'
-          }));
-          
-          setSuggestions(formattedSuggestions);
-          setShowSuggestions(true);
-          
-          addChatMessage({
-            sender: 'ai',
-            content: `Here are some suggestions for bonuses. You can select one or type your own.`
-          });
-        } else if (fieldToSuggest === 'heroSection') {
-          // Generate hero section suggestions
-          const heroSuggestions = [
-            `Get ${coreOfferNucleus.desiredResult} Without ${coreOfferNucleus.biggestBarrier}`,
-            `The Only ${coreOfferNucleus.keyAdvantage} Solution for ${coreOfferNucleus.targetAudience}`,
-            `Transform Your Results: ${coreOfferNucleus.desiredResult} in Just Days`
-          ];
-          
-          const formattedSuggestions = heroSuggestions.map(text => ({
-            text,
-            field: 'heroSection'
-          }));
-          
-          setSuggestions(formattedSuggestions);
-          setShowSuggestions(true);
-          
-          addChatMessage({
-            sender: 'ai',
-            content: `Here are some headline suggestions for your hero section. You can select one or type your own.`
+            content: `To provide more specific suggestions for your ${fieldDisplayNames[field]}, it would help to have your website URL or more information about your business. In the meantime, could you tell me more about your target audience and what problem your product solves?`
           });
         }
+      } else if (field === 'onboardingStep') {
+        // Generate onboarding step suggestions
+        const stepSuggestions = [
+          "Complete a quick 2-minute setup wizard",
+          "Watch the 5-minute getting started video",
+          "Import your existing data (10 minutes)",
+          "Set up your first automation (15 minutes)",
+          "Connect with your team members (5 minutes)"
+        ];
+
+        const formattedSuggestions = stepSuggestions.map(text => ({
+          text,
+          field: 'onboardingStep'
+        }));
+
+        setSuggestions(formattedSuggestions);
+        setShowSuggestions(true);
+
+        addChatMessage({
+          sender: 'ai',
+          content: `Here are some suggestions for onboarding steps. You can select one or type your own.`
+        });
+      } else if (field === 'bonus') {
+        // Generate bonus suggestions
+        const bonusSuggestions = [
+          "Free 30-minute strategy call",
+          "Exclusive PDF guide with advanced tips",
+          "Access to private community",
+          "Monthly live Q&A sessions",
+          "Template library worth $197"
+        ];
+
+        const formattedSuggestions = bonusSuggestions.map(text => ({
+          text,
+          field: 'bonus'
+        }));
+
+        setSuggestions(formattedSuggestions);
+        setShowSuggestions(true);
+
+        addChatMessage({
+          sender: 'ai',
+          content: `Here are some suggestions for bonuses. You can select one or type your own.`
+        });
+      } else if (field === 'heroSection' && hasCompleteCoreOffer()) {
+        // Generate hero section suggestions
+        const heroSuggestions = [
+          `Get ${coreOfferNucleus.desiredResult} Without ${coreOfferNucleus.biggestBarrier}`,
+          `The Only ${coreOfferNucleus.keyAdvantage} Solution for ${coreOfferNucleus.targetAudience}`,
+          `Transform Your Results: ${coreOfferNucleus.desiredResult} in Just Days`
+        ];
+
+        const formattedSuggestions = heroSuggestions.map(text => ({
+          text,
+          field: 'heroSection'
+        }));
+
+        setSuggestions(formattedSuggestions);
+        setShowSuggestions(true);
+
+        addChatMessage({
+          sender: 'ai',
+          content: `Here are some headline suggestions for your hero section. You can select one or type your own.`
+        });
       }
     } catch (error) {
       console.error('Error generating suggestions:', error);
       addChatMessage({
         sender: 'ai',
-        content: `I'm here to help with your offer. What would you like assistance with?`
+        content: `I encountered an error generating suggestions. Could you try again or provide more information about what you're looking for?`
       });
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  // Helper function to check if core offer is complete
+  const hasCompleteCoreOffer = () => {
+    return Boolean(
+      coreOfferNucleus.targetAudience &&
+      coreOfferNucleus.desiredResult &&
+      coreOfferNucleus.keyAdvantage &&
+      coreOfferNucleus.biggestBarrier &&
+      coreOfferNucleus.assurance
+    );
   };
 
   // Function to handle selecting a suggestion
@@ -261,23 +294,23 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
     setShowSuggestions(false);
 
     // Update the store based on the field
-    if (suggestion.field === 'targetAudience' || 
-        suggestion.field === 'desiredResult' || 
-        suggestion.field === 'keyAdvantage' || 
-        suggestion.field === 'biggestBarrier' || 
+    if (suggestion.field === 'targetAudience' ||
+        suggestion.field === 'desiredResult' ||
+        suggestion.field === 'keyAdvantage' ||
+        suggestion.field === 'biggestBarrier' ||
         suggestion.field === 'assurance') {
-      
+
       setCoreOfferNucleus({
         ...coreOfferNucleus,
         [suggestion.field]: suggestion.text
       });
-      
+
       // Provide feedback
       addChatMessage({
         sender: 'ai',
         content: `Great choice! I've updated your ${fieldDisplayNames[suggestion.field]}.`
       });
-    } 
+    }
     // Handle other field types as needed
     else if (suggestion.field === 'onboardingStep') {
       // Logic to add an onboarding step
@@ -320,44 +353,68 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
       // Get current website findings
       const currentFindings = websiteScraping.status === 'completed' ? websiteFindings : null;
 
-      // Generate response based on the current step and user input
-      const response = await generateChatResponse(
-        useOfferStore.getState().contextChat.messages,
-        useOfferStore.getState().initialContext,
-        currentFindings
-      );
+      // Check for specific field requests in the user input
+      const lowerInput = userInput.toLowerCase();
+      const fieldKeywords = {
+        targetAudience: ['target audience', 'audience', 'who is it for', 'customer', 'user', 'buyer'],
+        desiredResult: ['desired result', 'result', 'outcome', 'benefit', 'achieve'],
+        keyAdvantage: ['advantage', 'unique', 'different', 'better', 'competitive'],
+        biggestBarrier: ['barrier', 'objection', 'risk', 'concern', 'worry', 'obstacle'],
+        assurance: ['assurance', 'guarantee', 'promise', 'risk reversal'],
+        onboardingStep: ['onboarding', 'step', 'setup', 'getting started'],
+        bonus: ['bonus', 'extra', 'additional', 'free'],
+        heroSection: ['hero', 'headline', 'tagline', 'above fold']
+      };
 
-      addChatMessage({
-        sender: 'ai',
-        content: response
-      });
-
-      // Generate new suggestions based on the response
-      if (currentStep === 0) {
-        // For core offer nucleus step, generate suggestions for the next field
-        const fields = ['targetAudience', 'desiredResult', 'keyAdvantage', 'biggestBarrier', 'assurance'];
-        const emptyFields = fields.filter(field => !coreOfferNucleus[field as keyof typeof coreOfferNucleus]);
-        
-        if (emptyFields.length > 0) {
-          const nextField = emptyFields[0];
-          setCurrentField(nextField);
-          
-          const fieldSuggestions = await generateSuggestions(
-            nextField as any,
-            initialContext,
-            websiteFindings
-          );
-          
-          const formattedSuggestions = fieldSuggestions.map(text => ({
-            text,
-            field: nextField
-          }));
-          
-          setSuggestions(formattedSuggestions);
-          setShowSuggestions(true);
+      // Check if the user is asking for suggestions for a specific field
+      let requestedField: string | null = null;
+      for (const [field, keywords] of Object.entries(fieldKeywords)) {
+        if (keywords.some(keyword => lowerInput.includes(keyword))) {
+          requestedField = field;
+          break;
         }
       }
-      // Handle other steps similarly
+
+      // If user is asking for suggestions for a specific field
+      if (requestedField && (
+          lowerInput.includes('suggest') ||
+          lowerInput.includes('recommendation') ||
+          lowerInput.includes('help with') ||
+          lowerInput.includes('ideas for')
+        )) {
+        // Generate suggestions for the requested field
+        await generateContextAwareSuggestions(requestedField);
+      } else {
+        // Generate a general response
+        const response = await generateChatResponse(
+          useOfferStore.getState().contextChat.messages,
+          useOfferStore.getState().initialContext,
+          currentFindings,
+          useOfferStore.getState().transcriptData
+        );
+
+        addChatMessage({
+          sender: 'ai',
+          content: response
+        });
+
+        // Check if we should offer suggestions after the response
+        if (currentStep === 0 && !hasCompleteCoreOffer()) {
+          // For core offer nucleus step, check which fields are empty
+          const fields = ['targetAudience', 'desiredResult', 'keyAdvantage', 'biggestBarrier', 'assurance'];
+          const emptyFields = fields.filter(field => !coreOfferNucleus[field as keyof typeof coreOfferNucleus]);
+
+          if (emptyFields.length > 0) {
+            // Ask if the user wants suggestions for the next empty field
+            setTimeout(() => {
+              addChatMessage({
+                sender: 'ai',
+                content: `Would you like suggestions for your ${fieldDisplayNames[emptyFields[0]]}? Just ask me for suggestions.`
+              });
+            }, 1000);
+          }
+        }
+      }
     } catch (error) {
       console.error('Error generating chat response:', error);
       addChatMessage({

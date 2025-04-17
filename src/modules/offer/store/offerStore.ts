@@ -4,6 +4,7 @@ import { generateUUID } from '../utils/uuid';
 import { WebsiteScrapingData, InitialContext, AISuggestion, ConversationalCheckpoint } from '../services/ai/types';
 import { InsightState, InsightCategory, InsightResult } from '../components/insights/types';
 import { scrapeWebsite, getScrapingResult } from '../services/webscraping';
+import { TranscriptData } from '../services/ai/transcriptProcessor';
 
 export interface ChatMessage {
   id: string;
@@ -90,6 +91,7 @@ export interface OfferStateData {
   websiteUrl: string;
   initialContext: InitialContext;
   websiteScraping: WebsiteScrapingData;
+  transcriptData: TranscriptData | null;
   contextChat: ContextChat;
 
   coreOfferNucleus: CoreOfferNucleus;
@@ -137,6 +139,7 @@ export interface OfferState extends OfferStateData {
   setInitialContext: (field: keyof InitialContext, value: string) => void;
   startWebsiteScraping: (url: string) => Promise<void>;
   checkScrapingStatus: (scrapingId: string) => Promise<void>;
+  setTranscriptData: (data: TranscriptData) => void;
   addChatMessage: (message: Omit<ChatMessage, 'id' | 'timestamp'>) => void;
   clearChatMessages: () => void;
   resetState: () => void;
@@ -218,6 +221,7 @@ const initialState: OfferStateData = {
     competitiveAdvantages: [],
     error: null
   },
+  transcriptData: null,
   contextChat: {
     messages: [],
     lastUpdated: null
@@ -296,6 +300,27 @@ export const useOfferStore = create<OfferState>()(
       setTitle: (title) => set({ title }),
       setWebsiteUrl: (url) => set({ websiteUrl: url }),
       setInitialContext: (field, value) => set((state) => ({ initialContext: { ...state.initialContext, [field]: value }})),
+      setTranscriptData: (data) => {
+        // Update transcript data
+        set({ transcriptData: data });
+
+        // Also update core offer nucleus with transcript data
+        set((state) => ({
+          coreOfferNucleus: {
+            ...state.coreOfferNucleus,
+            targetAudience: data.targetAudience || state.coreOfferNucleus.targetAudience,
+            desiredResult: data.desiredResult || state.coreOfferNucleus.desiredResult,
+            keyAdvantage: data.keyAdvantage || state.coreOfferNucleus.keyAdvantage,
+            biggestBarrier: data.biggestBarrier || state.coreOfferNucleus.biggestBarrier,
+            assurance: data.assurance || state.coreOfferNucleus.assurance
+          }
+        }));
+
+        // Dispatch a custom event that can be listened for in components
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('transcript-processed'));
+        }
+      },
       startWebsiteScraping: async (url) => {
          if (!url) return;
          set((state) => ({ websiteScraping: { ...state.websiteScraping, status: 'processing', error: null }}));
