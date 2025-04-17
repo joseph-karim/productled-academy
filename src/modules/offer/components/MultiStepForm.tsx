@@ -367,7 +367,9 @@ export function MultiStepForm({ readOnly = false, analysisId: propAnalysisId }: 
         </div>
       )}
 
-      <WebsiteContextInput readOnly={readOnly} />
+      {safeCurrentStep === 0 && (
+        <WebsiteContextInput readOnly={readOnly} />
+      )}
 
       <div className="flex-grow mb-8">
         <ErrorBoundary
