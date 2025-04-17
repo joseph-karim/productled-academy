@@ -23,7 +23,7 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Custom button styles */
 .pl-button {
-  @apply bg-[#FFD23F] text-[#1C1C1C] font-semibold px-4 py-2 rounded-lg 
+  @apply bg-[#FFD23F] text-[#1C1C1C] font-semibold px-4 py-2 rounded-lg
          hover:bg-opacity-90 transition-colors duration-200;
 }
 
@@ -66,6 +66,15 @@ textarea, input[type="text"], input[type="number"], select {
 
 textarea:focus, input[type="text"]:focus, input[type="number"]:focus, select:focus {
   @apply ring-[#FFD23F] border-[#FFD23F];
+}
+
+/* Radio buttons */
+[data-state="checked"] {
+  @apply border-[#FFD23F] bg-[#FFD23F] bg-opacity-20;
+}
+
+[data-state="checked"] .lucide-circle {
+  @apply fill-[#FFD23F] text-[#FFD23F];
 }
 
 /* Button variants */
@@ -180,7 +189,7 @@ textarea:focus, input[type="text"]:focus, input[type="number"]:focus, select:foc
 }
 
 .canvas-input {
-  @apply w-full bg-[#3A3A3A] text-white p-2 rounded border border-[#444444] 
+  @apply w-full bg-[#3A3A3A] text-white p-2 rounded border border-[#444444]
          focus:ring-2 focus:ring-[#FFD23F] focus:border-transparent
          break-words whitespace-normal overflow-hidden;
 }
