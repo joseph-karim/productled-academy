@@ -2,12 +2,13 @@ import React, { useState } from 'react';
 import { useOfferStore, OfferState } from '../store/offerStore';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { CheckCircle, Edit, Loader2 } from 'lucide-react';
+import { CheckCircle, Edit, Loader2, Sparkles } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 
 // Import AI generator and types with corrected path
 import { generateSectionDraft, LandingPageSection } from '../services/ai/generators';
+import { generateLandingPage } from '../services/ai/landingPageGenerator';
 import type { CoreOfferNucleus, Exclusivity, Bonus, SectionCopy } from '../services/ai/generators'; // Corrected path
 
 // Define structure for section copy if not imported from store types
@@ -128,20 +129,10 @@ const SectionEditor = ({ title, value, onChange, readOnly, confirmed }:
              {isSectionComplete && !isEditing && <CheckCircle className="w-4 h-4 mr-2 text-green-500" />}
              {title}
           </CardTitle>
-          {!isEditing && <CardDescription className="text-gray-400">{isSectionComplete ? 'Content saved.' : 'Generate or edit content.'}</CardDescription>}
+          {!isEditing && <CardDescription className="text-gray-400">{isSectionComplete ? 'Content saved.' : 'Review or edit content.'}</CardDescription>}
         </div>
         {!isEditing && !confirmed && (
           <div className="flex space-x-2">
-             <Button
-               variant="outline"
-               size="sm"
-               onClick={handleGenerateDraft}
-               disabled={readOnly || isGenerating}
-               className="border-[#444444] text-gray-300 hover:bg-[#333333]"
-             >
-               {isGenerating ? <Loader2 className="w-4 h-4 mr-1 animate-spin"/> : null}
-               {isGenerating ? 'Generating...' : 'Generate Draft'}
-             </Button>
              <Button
                variant="secondary"
                size="sm"
@@ -231,8 +222,20 @@ export function GenerateRefineContent({ readOnly = false }: GenerateRefineConten
     refinedSocialProofNotes,
     setRefinedSocialProofNotes,
     refinedCtaCopy,
-    setRefinedCtaCopy
+    setRefinedCtaCopy,
+    coreOfferNucleus,
+    exclusivity,
+    bonuses,
+    onboardingSteps,
+    setHeroSection,
+    setProblemSection,
+    setSolutionSection,
+    setRiskReversals,
+    setCtaSection,
+    setProcessing
   } = useOfferStore();
+
+  const [isGenerating, setIsGenerating] = useState(false);
 
   // Basic check if all sections have at least some content (can be refined)
   const allSectionsHaveContent =
@@ -246,6 +249,90 @@ export function GenerateRefineContent({ readOnly = false }: GenerateRefineConten
   const handleConfirm = () => {
     if (!readOnly) {
       setLandingPageContentRefined(true);
+    }
+  };
+
+  const handleGenerateLandingPage = async () => {
+    if (readOnly || isGenerating) return;
+
+    setIsGenerating(true);
+    setProcessing('landingPage', true);
+
+    try {
+      const landingPage = await generateLandingPage(
+        coreOfferNucleus,
+        exclusivity,
+        bonuses,
+        onboardingSteps
+      );
+
+      // Update all sections with generated content
+      setHeroSection({
+        tagline: landingPage.hero.headline,
+        subCopy: landingPage.hero.body,
+        ctaText: landingPage.hero.cta || 'Get Started Now',
+        visualDesc: landingPage.hero.visualDescription || 'Product screenshot or illustration'
+      });
+
+      setProblemSection({
+        alternativesProblems: landingPage.problem.alternativesProblems,
+        underlyingProblem: landingPage.problem.underlyingProblem
+      });
+
+      setSolutionSection({
+        headline: landingPage.solution.headline,
+        steps: landingPage.solution.steps.map((step, index) => ({
+          id: `step-${index + 1}`,
+          title: step.title,
+          description: step.description
+        }))
+      });
+
+      setRiskReversals([{
+        id: 'risk-1',
+        objection: landingPage.riskReversal.objection,
+        assurance: landingPage.riskReversal.assurance
+      }]);
+
+      setCtaSection({
+        mainCtaText: landingPage.cta.buttonText,
+        surroundingCopy: landingPage.cta.surroundingCopy
+      });
+
+      // Also update the refined copies for consistency
+      setRefinedHeroCopy({
+        headline: landingPage.hero.headline,
+        body: landingPage.hero.body
+      });
+
+      setRefinedProblemCopy({
+        headline: 'The Problem',
+        body: landingPage.problem.alternativesProblems + '\n\n' + landingPage.problem.underlyingProblem
+      });
+
+      setRefinedSolutionCopy({
+        headline: landingPage.solution.headline,
+        body: landingPage.solution.steps.map(step => `${step.title}: ${step.description}`).join('\n\n')
+      });
+
+      setRefinedRiskReversalCopy({
+        headline: 'Risk Reversal',
+        body: `Objection: ${landingPage.riskReversal.objection}\n\nAssurance: ${landingPage.riskReversal.assurance}`
+      });
+
+      setRefinedCtaCopy({
+        headline: 'Ready to get started?',
+        body: landingPage.cta.surroundingCopy
+      });
+
+      // Set social proof notes
+      setRefinedSocialProofNotes('Use testimonials and case studies that specifically address the main objection and highlight the key advantage.');
+
+    } catch (error) {
+      console.error('Error generating landing page:', error);
+    } finally {
+      setIsGenerating(false);
+      setProcessing('landingPage', false);
     }
   };
 
@@ -275,11 +362,31 @@ export function GenerateRefineContent({ readOnly = false }: GenerateRefineConten
         <CardHeader>
           <CardTitle>Step 3: Generate & Refine Landing Page Content</CardTitle>
           <CardDescription className="text-gray-400">
-            Use AI to generate draft copy points for each section based on your core offer and enhancers.
-            Review and edit the drafts to match your voice and add specifics.
+            Use AI to generate a complete landing page based on your core offer and enhancers.
+            Review and edit the content to match your voice and add specifics.
           </CardDescription>
         </CardHeader>
         <CardContent>
+          <div className="mb-6">
+            <Button
+              onClick={handleGenerateLandingPage}
+              disabled={isGenerating || readOnly}
+              className="w-full bg-[#FFD23F] text-[#1C1C1C] hover:bg-opacity-90 disabled:opacity-50 mb-8"
+            >
+              {isGenerating ? (
+                <>
+                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                  Generating Landing Page...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-5 h-5 mr-2" />
+                  Generate Complete Landing Page
+                </>
+              )}
+            </Button>
+          </div>
+
           <SectionEditor
              title="Hero Section"
              value={refinedHeroCopy}
