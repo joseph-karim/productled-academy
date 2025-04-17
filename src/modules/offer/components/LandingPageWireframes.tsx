@@ -98,7 +98,7 @@ export function LandingPageWireframes({ readOnly = false }: LandingPageWireframe
     return () => clearTimeout(timer);
   }, []);
 
-  // Initialize with original landing page and extract branding details
+  // Initialize with original landing page
   useEffect(() => {
     if (heroSection && problemSection && solutionSection && riskReversals.length > 0 && ctaSection) {
       console.log('Initializing original variation with data:', {
@@ -109,81 +109,103 @@ export function LandingPageWireframes({ readOnly = false }: LandingPageWireframe
         ctaSection
       });
 
-      const initializeOriginalVariation = async () => {
-        // Try to extract branding details from the website
-        let brandingDetails = getFallbackBrandingDetails();
+      // Use fallback branding details initially
+      const brandingDetails = getFallbackBrandingDetails();
 
-        if (websiteScraping.scrapingId) {
-          setProcessing('brandingExtraction', true);
-          try {
-            const extractedBranding = await extractBrandingDetails(websiteScraping.scrapingId);
-            if (extractedBranding) {
-              console.log('Successfully extracted branding details:', extractedBranding);
-              brandingDetails = extractedBranding;
-            }
-          } catch (error) {
-            console.error('Error extracting branding details:', error);
-          } finally {
-            setProcessing('brandingExtraction', false);
-          }
+      const originalVariation: LandingPageVariation = {
+        id: 'original',
+        name: 'Original Version',
+        description: 'The baseline landing page generated from your offer inputs.',
+        hero: {
+          headline: heroSection.tagline || 'Your Product Headline',
+          subheadline: heroSection.subCopy || 'Your product subheadline goes here',
+          cta: heroSection.ctaText || 'Get Started',
+          visualDescription: heroSection.visualDesc || 'Product screenshot or illustration'
+        },
+        problem: {
+          headline: 'The Problem',
+          description: (problemSection.alternativesProblems || 'Problem description') +
+            '\\n\\n' + (problemSection.underlyingProblem || 'Underlying problem description')
+        },
+        solution: {
+          headline: solutionSection.headline || 'The Solution',
+          steps: solutionSection.steps.length > 0 ? solutionSection.steps : [
+            { id: 'step-1', title: 'Step 1', description: 'Description of step 1' },
+            { id: 'step-2', title: 'Step 2', description: 'Description of step 2' }
+          ]
+        },
+        riskReversal: {
+          objection: riskReversals[0]?.objection || 'Common objection',
+          assurance: riskReversals[0]?.assurance || 'Your assurance'
+        },
+        cta: {
+          headline: 'Ready to get started?',
+          description: ctaSection.surroundingCopy || 'Start your journey today',
+          buttonText: ctaSection.mainCtaText || 'Get Started'
+        },
+        visualStyleGuide: {
+          colorPalette: brandingDetails.colorPalette,
+          typography: brandingDetails.typography,
+          spacing: brandingDetails.spacing,
+          imagery: brandingDetails.imagery
+        },
+        detailedStructure: 'Default landing page structure',
+        score: {
+          total: 0,
+          criteria: {},
+          feedback: ''
         }
-
-        const originalVariation: LandingPageVariation = {
-          id: 'original',
-          name: 'Original Version',
-          description: 'The baseline landing page generated from your offer inputs.',
-          hero: {
-            headline: heroSection.tagline || 'Your Product Headline',
-            subheadline: heroSection.subCopy || 'Your product subheadline goes here',
-            cta: heroSection.ctaText || 'Get Started',
-            visualDescription: heroSection.visualDesc || 'Product screenshot or illustration'
-          },
-          problem: {
-            headline: 'The Problem',
-            description: (problemSection.alternativesProblems || 'Problem description') +
-              '\\n\\n' + (problemSection.underlyingProblem || 'Underlying problem description')
-          },
-          solution: {
-            headline: solutionSection.headline || 'The Solution',
-            steps: solutionSection.steps.length > 0 ? solutionSection.steps : [
-              { id: 'step-1', title: 'Step 1', description: 'Description of step 1' },
-              { id: 'step-2', title: 'Step 2', description: 'Description of step 2' }
-            ]
-          },
-          riskReversal: {
-            objection: riskReversals[0]?.objection || 'Common objection',
-            assurance: riskReversals[0]?.assurance || 'Your assurance'
-          },
-          cta: {
-            headline: 'Ready to get started?',
-            description: ctaSection.surroundingCopy || 'Start your journey today',
-            buttonText: ctaSection.mainCtaText || 'Get Started'
-          },
-          visualStyleGuide: {
-            colorPalette: brandingDetails.colorPalette,
-            typography: brandingDetails.typography,
-            spacing: brandingDetails.spacing,
-            imagery: brandingDetails.imagery
-          },
-          detailedStructure: 'Default landing page structure',
-          score: {
-            total: 0,
-            criteria: {},
-            feedback: ''
-          }
-        };
-
-        console.log('Setting original variation:', originalVariation);
-        setVariations([originalVariation]);
-        setActiveVariation('original');
-
-        // Score the original variation
-        handleScoreVariation(originalVariation);
       };
 
-      initializeOriginalVariation();
+      console.log('Setting original variation:', originalVariation);
+      setVariations([originalVariation]);
+      setActiveVariation('original');
+
+      // Score the original variation
+      handleScoreVariation(originalVariation);
     }
-  }, [heroSection, problemSection, solutionSection, riskReversals, ctaSection, websiteScraping.scrapingId, setProcessing]);
+  }, [heroSection, problemSection, solutionSection, riskReversals, ctaSection]);
+
+  // Separate effect to handle branding extraction without blocking the main flow
+  useEffect(() => {
+    if (websiteScraping.scrapingId && variations.length > 0) {
+      const updateBrandingDetails = async () => {
+        console.log('Starting asynchronous branding extraction...');
+        setProcessing('brandingExtraction', true);
+
+        try {
+          const extractedBranding = await extractBrandingDetails(websiteScraping.scrapingId);
+          if (extractedBranding) {
+            console.log('Successfully extracted branding details:', extractedBranding);
+
+            // Update the original variation with the extracted branding details
+            setVariations(prev => {
+              return prev.map(v => {
+                if (v.id === 'original') {
+                  return {
+                    ...v,
+                    visualStyleGuide: {
+                      colorPalette: extractedBranding.colorPalette,
+                      typography: extractedBranding.typography,
+                      spacing: extractedBranding.spacing,
+                      imagery: extractedBranding.imagery
+                    }
+                  };
+                }
+                return v;
+              });
+            });
+          }
+        } catch (error) {
+          console.error('Error extracting branding details:', error);
+        } finally {
+          setProcessing('brandingExtraction', false);
+        }
+      };
+
+      updateBrandingDetails();
+    }
+  }, [websiteScraping.scrapingId, variations.length, setProcessing]);
 
   const handleGenerateVariations = async () => {
     if (isGenerating) return;
