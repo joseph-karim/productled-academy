@@ -435,95 +435,101 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
 
   return (
     <div className="flex flex-col h-full bg-[#1C1C1C] rounded-lg border border-[#333333]">
-      <div className="p-4 bg-[#2A2A2A] border-b border-[#333333] flex items-center">
+      {/* Header - Keep compact */}
+      <div className="py-3 px-4 bg-[#2A2A2A] border-b border-[#333333] flex items-center">
         <Bot className="w-5 h-5 text-[#FFD23F] mr-2" />
         <h3 className="text-white font-medium">AI Offer Assistant</h3>
       </div>
 
-      <div className="flex-grow overflow-y-auto p-4 space-y-4" style={{ scrollbarWidth: 'thin' }}>
-        {contextChat.messages.map((message) => (
-          <div
-            key={message.id}
-            className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
-          >
+      {/* Chat content - Use flex with min-height to ensure proper distribution */}
+      <div className="flex flex-col h-full">
+        {/* Messages area - Set to flex-1 instead of flex-grow for better balance */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-[200px] max-h-[calc(100vh-300px)]" style={{ scrollbarWidth: 'thin' }}>
+          {contextChat.messages.map((message) => (
             <div
-              className={`max-w-[85%] rounded-lg p-3 text-sm ${
-                message.sender === 'user'
-                  ? 'bg-[#FFD23F] text-[#1C1C1C]'
-                  : message.sender === 'ai'
-                    ? 'bg-[#3A3A3A] text-white'
-                    : 'bg-transparent text-gray-400 italic'
-              }`}
+              key={message.id}
+              className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
             >
-              <div className="whitespace-pre-wrap">{message.content}</div>
-              {message.sender !== 'system' && (
-                 <div className="text-xs opacity-60 mt-1 text-right">
-                   {message.timestamp.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
-                 </div>
-              )}
-            </div>
-          </div>
-        ))}
-
-        {/* Show suggestions if available */}
-        {showSuggestions && suggestions.length > 0 && (
-          <div className="mt-4 p-4 bg-[#2A2A2A] rounded-lg border border-[#333333]">
-            <h4 className="text-sm font-medium text-white mb-3">Suggestions for {currentField && fieldDisplayNames[currentField]}:</h4>
-            <div className="space-y-3">
-              {suggestions.map((suggestion, index) => (
-                <button
-                  key={index}
-                  onClick={() => handleSelectSuggestion(suggestion)}
-                  className="w-full justify-start text-left text-sm py-3 px-4 bg-[#333333] hover:bg-[#444444] text-white rounded-md flex items-start group h-auto min-h-[3rem]"
-                >
-                  <div className="flex-1 overflow-hidden mr-2">
-                    <div className="line-clamp-3 whitespace-normal break-words">{suggestion.text}</div>
+              <div
+                className={`max-w-[85%] rounded-lg p-3 text-sm ${
+                  message.sender === 'user'
+                    ? 'bg-[#FFD23F] text-[#1C1C1C]'
+                    : message.sender === 'ai'
+                      ? 'bg-[#3A3A3A] text-white'
+                      : 'bg-transparent text-gray-400 italic'
+                }`}
+              >
+                <div className="whitespace-pre-wrap">{message.content}</div>
+                {message.sender !== 'system' && (
+                  <div className="text-xs opacity-60 mt-1 text-right">
+                    {message.timestamp.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
                   </div>
-                </button>
-              ))}
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          ))}
 
-        {/* Processing indicator */}
-        {isProcessing && (
-          <div className="flex justify-center">
-            <div className="bg-[#2A2A2A] px-4 py-2 rounded-full">
-              <Loader2 className="w-5 h-5 animate-spin text-[#FFD23F]" />
+          {/* Show suggestions if available */}
+          {showSuggestions && suggestions.length > 0 && (
+            <div className="mt-3 p-3 bg-[#2A2A2A] rounded-lg border border-[#333333]">
+              <h4 className="text-sm font-medium text-white mb-2">Suggestions for {currentField && fieldDisplayNames[currentField]}:</h4>
+              <div className="space-y-2">
+                {suggestions.map((suggestion, index) => (
+                  <button
+                    key={index}
+                    onClick={() => handleSelectSuggestion(suggestion)}
+                    className="w-full justify-start text-left text-sm py-2 px-3 bg-[#333333] hover:bg-[#444444] text-white rounded-md flex items-start group h-auto min-h-[2.5rem]"
+                  >
+                    <div className="flex-1 overflow-hidden mr-2">
+                      <div className="line-clamp-2 whitespace-normal break-words">{suggestion.text}</div>
+                    </div>
+                  </button>
+                ))}
+              </div>
             </div>
+          )}
+
+          {/* Processing indicator */}
+          {isProcessing && (
+            <div className="flex justify-center">
+              <div className="bg-[#2A2A2A] px-4 py-2 rounded-full">
+                <Loader2 className="w-5 h-5 animate-spin text-[#FFD23F]" />
+              </div>
+            </div>
+          )}
+
+          <div ref={messagesEndRef} />
+        </div>
+
+        {/* Input area - Fixed at bottom with auto-height */}
+        <div className="p-3 border-t border-[#333333] mt-auto">
+          <div className="flex space-x-2">
+            <textarea
+              value={currentInput}
+              onChange={(e) => setCurrentInput(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder="Ask for help with your offer..."
+              className="flex-1 p-2 bg-[#1C1C1C] border border-[#333333] rounded-lg text-white placeholder-gray-500 focus:ring-1 focus:ring-[#FFD23F] focus:border-transparent resize-none text-sm"
+              rows={1}
+              disabled={isProcessing}
+            />
+            <button
+              onClick={handleSendMessage}
+              disabled={!currentInput.trim() || isProcessing}
+              className={`p-2 rounded-lg self-end ${
+                !currentInput.trim() || isProcessing
+                  ? 'bg-[#333333] text-gray-500 cursor-not-allowed'
+                  : 'bg-[#FFD23F] text-[#1C1C1C] hover:bg-[#FFD23F]/90'
+              }`}
+              aria-label="Send"
+            >
+              {isProcessing ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <Send className="w-5 h-5" />
+              )}
+            </button>
           </div>
-        )}
-
-        <div ref={messagesEndRef} />
-      </div>
-
-      <div className="p-4 border-t border-[#333333]">
-        <div className="flex space-x-2">
-          <textarea
-            value={currentInput}
-            onChange={(e) => setCurrentInput(e.target.value)}
-            onKeyPress={handleKeyPress}
-            placeholder="Ask for help with your offer..."
-            className="flex-1 p-3 bg-[#1C1C1C] border border-[#333333] rounded-lg text-white placeholder-gray-500 focus:ring-1 focus:ring-[#FFD23F] focus:border-transparent resize-none text-sm"
-            rows={2}
-            disabled={isProcessing}
-          />
-          <button
-            onClick={handleSendMessage}
-            disabled={!currentInput.trim() || isProcessing}
-            className={`p-3 rounded-lg self-end ${
-              !currentInput.trim() || isProcessing
-                ? 'bg-[#333333] text-gray-500 cursor-not-allowed'
-                : 'bg-[#FFD23F] text-[#1C1C1C] hover:bg-[#FFD23F]/90'
-            }`}
-            aria-label="Send"
-          >
-            {isProcessing ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
-            ) : (
-              <Send className="w-5 h-5" />
-            )}
-          </button>
         </div>
       </div>
     </div>

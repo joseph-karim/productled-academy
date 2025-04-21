@@ -311,9 +311,9 @@ export function MultiStepForm({ readOnly = false, analysisId: propAnalysisId }: 
       </div>
 
       {/* Two-column layout */}
-      <div className="flex flex-col lg:flex-row gap-6 min-h-[600px]">
+      <div className="flex flex-col lg:flex-row gap-6 min-h-[calc(100vh-200px)]">
         {/* Left column - AI Chat */}
-        <div className="w-full lg:w-1/3 lg:max-w-sm">
+        <div className="w-full lg:w-1/3 lg:max-w-sm h-[calc(100vh-200px)] sticky top-[100px]">
           <PersistentOfferChat currentStep={safeCurrentStep} />
         </div>
 
