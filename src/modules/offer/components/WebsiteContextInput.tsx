@@ -55,7 +55,7 @@ export function WebsiteContextInput({ readOnly = false }: WebsiteContextInputPro
       <CardHeader>
         <CardTitle>Context Sources</CardTitle>
         <CardDescription className="text-gray-400">
-          Provide context for AI suggestions by analyzing your website or uploading customer call transcripts.
+          Provide context for AI suggestions by analyzing your website or uploading customer call transcripts. This helps the AI generate more relevant and personalized recommendations for your offer.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -74,7 +74,10 @@ export function WebsiteContextInput({ readOnly = false }: WebsiteContextInputPro
           <TabsContent value="website" className="space-y-4">
             <div className="space-y-2">
               <div className="flex justify-between items-center">
-                <Label htmlFor="websiteUrlInput" className="text-gray-300 text-sm">Analyze Website (Optional)</Label>
+                <div>
+                  <Label htmlFor="websiteUrlInput" className="text-gray-300 text-sm">Analyze Website (Optional)</Label>
+                  <p className="text-xs text-gray-400 mt-1">Enter your website URL to extract offer details, target audience, and key benefits</p>
+                </div>
                 {!readOnly && websiteScraping.status !== 'processing' && websiteScraping.status !== 'completed' && (
                   <Button
                     onClick={() => {
@@ -103,6 +106,12 @@ export function WebsiteContextInput({ readOnly = false }: WebsiteContextInputPro
                   placeholder="https://example.com"
                   className="flex-1 p-2 bg-[#1C1C1C] border-[#333333] text-white rounded-lg placeholder-gray-500 text-sm focus:border-[#FFD23F] focus:outline-none"
                   disabled={readOnly || websiteScraping.status === 'processing'}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter' && isValidUrl) {
+                      e.preventDefault();
+                      handleStartScraping();
+                    }
+                  }}
                 />
                 <Button
                   onClick={handleStartScraping}
