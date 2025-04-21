@@ -163,6 +163,22 @@ export function WebsiteContextInput({ readOnly = false }: WebsiteContextInputPro
                   {websiteScraping.status === 'completed' && (
                     <div className="flex items-center justify-between">
                       <p className="text-xs text-green-500">Analysis complete.</p>
+                      <Button
+                        onClick={() => {
+                          // Dispatch event to launch AI chat with completed website data
+                          window.dispatchEvent(new CustomEvent('launch-ai-chat', {
+                            detail: {
+                              websiteUrl: websiteUrl,
+                              scrapingStatus: 'completed',
+                              hasFindings: true
+                            }
+                          }));
+                        }}
+                        className="px-4 py-2 text-xs bg-[#FFD23F] text-black font-medium rounded-lg hover:bg-opacity-90"
+                        size="sm"
+                      >
+                        Start AI Chat
+                      </Button>
                     </div>
                   )}
                   {websiteScraping.status === 'failed' && (

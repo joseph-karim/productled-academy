@@ -360,9 +360,19 @@ export const useOfferStore = create<OfferState>()(
                 error: null
               }});
 
-              // Dispatch a custom event that can be listened for in components
+              // Dispatch custom events that can be listened for in components
               if (typeof window !== 'undefined') {
+                // Event for general scraping completion
                 window.dispatchEvent(new CustomEvent('scraping-completed', { detail: { scrapingId } }));
+
+                // Also dispatch launch-ai-chat event to automatically start the chat
+                window.dispatchEvent(new CustomEvent('launch-ai-chat', {
+                  detail: {
+                    websiteUrl: useOfferStore.getState().websiteUrl,
+                    scrapingStatus: 'completed',
+                    hasFindings: true
+                  }
+                }));
               }
             } else if (result.status === 'failed') {
               set((state) => ({ websiteScraping: { ...state.websiteScraping, status: 'failed', error: result.error || 'Scraping failed' }}));

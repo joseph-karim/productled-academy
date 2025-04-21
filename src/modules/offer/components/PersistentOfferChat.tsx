@@ -86,6 +86,25 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
     }
   }, [contextChat.messages]);
 
+  // Listen for scraping completion event
+  useEffect(() => {
+    const handleScrapingCompleted = (event: Event) => {
+      console.log('PersistentOfferChat: Received scraping-completed event');
+      // Reset initial load to trigger welcome message with website data
+      setIsInitialLoad(true);
+      // Generate welcome message with a slight delay to ensure store is updated
+      setTimeout(() => {
+        generateInitialWelcomeMessage();
+      }, 500);
+    };
+
+    window.addEventListener('scraping-completed', handleScrapingCompleted);
+
+    return () => {
+      window.removeEventListener('scraping-completed', handleScrapingCompleted);
+    };
+  }, []);
+
   // Generate initial welcome message based on the current step
   useEffect(() => {
     if (isInitialLoad) {
