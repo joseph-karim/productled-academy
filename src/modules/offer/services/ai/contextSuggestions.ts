@@ -178,7 +178,9 @@ export async function generateTopResultsSuggestions(
 export async function generateSuggestions(
   field: 'targetAudience' | 'desiredResult' | 'keyAdvantage' | 'biggestBarrier' | 'assurance' | 'onboardingStep',
   initialContext: InitialContext,
-  websiteFindings: WebsiteAnalysisContext | null
+  websiteFindings: WebsiteAnalysisContext | null,
+  transcriptData?: any | null,
+  raraStage?: number
 ): Promise<string[]> {
   try {
     return handleOpenAIRequest(
@@ -187,7 +189,7 @@ export async function generateSuggestions(
         messages: [
           {
             role: "system",
-            content: `You're an assistant helping create a compelling offer. Generate 3-5 specific, actionable suggestions for the ${field} field.`
+            content: `You're an expert ProductLed Offer Strategist helping create a compelling offer using the R-A-R-A framework (Result-Advantage-Risk-Assurance). Generate 3-5 specific, actionable suggestions for the ${field} field that follow ProductLed principles.${raraStage ? `\n\nThe user is currently in Stage ${raraStage} of the R-A-R-A framework.` : ''}`
           },
           {
             role: "user",
@@ -207,13 +209,34 @@ export async function generateSuggestions(
             Onboarding Steps:
             ${websiteFindings.onboardingSteps.map((step, index) => `${index + 1}. ${step.description} (${step.timeEstimate})`).join('\n')}` : ''}
             ` : ''}
+            ${transcriptData ? `
+            Customer Call Transcript Analysis:
+            Target Audience: ${transcriptData.targetAudience || 'Not identified'}
+            Problem Solved: ${transcriptData.problemSolved || 'Not identified'}
+            Desired Result: ${transcriptData.desiredResult || 'Not identified'}
+            Key Advantage: ${transcriptData.keyAdvantage || 'Not identified'}
+            Biggest Barrier: ${transcriptData.biggestBarrier || 'Not identified'}
+            Assurance: ${transcriptData.assurance || 'Not identified'}
+            ${transcriptData.keyPhrases && transcriptData.keyPhrases.length > 0 ? `
+            Key Customer Phrases:
+            ${transcriptData.keyPhrases.map((phrase, index) => `${index + 1}. "${phrase}"`).join('\n')}` : ''}
+            ${transcriptData.customerQuotes && transcriptData.customerQuotes.length > 0 ? `
+            Notable Customer Quotes:
+            ${transcriptData.customerQuotes.map((quote, index) => `${index + 1}. "${quote}"`).join('\n')}` : ''}
+            ` : ''}
 
-            Generate 3-5 specific, compelling suggestions for the "${field}" field of my offer.
-            For targetAudience: Focus on specific demographics, roles, or situations.
-            For desiredResult: Focus on specific, measurable outcomes.
-            For keyAdvantage: Focus on unique selling points or competitive advantages.
-            For biggestBarrier: Focus on common objections or hesitations.
-            For assurance: Focus on guarantees, social proof, or risk reversals.
+            Generate 3-5 specific, compelling suggestions for the "${field}" field of my offer following the R-A-R-A framework principles.
+
+            For targetAudience: Focus on who experiences the most significant transformation or solves the biggest pain with this product. Think beyond demographics – what job are they trying to get done? Who is the Ideal User?
+
+            For desiredResult: Focus on the single most desirable Result or outcome they achieve. What transformation or ultimate benefit do they get? Frame this clearly and compellingly.
+
+            For keyAdvantage: Focus on what makes this solution 5-10x better than alternatives. Why are you uniquely positioned to deliver this result? Consider speed, ease, cost, unique tech/method, better support, or eliminating specific pains.
+
+            For biggestBarrier: Focus on the #1 perceived Risk or objection that would stop the target audience from signing up. Why wouldn't they buy? Consider setup complexity, cost concerns, integration worries, trust issues, or doubts about getting the promised result.
+
+            For assurance: Focus on how you can reverse the risk identified in biggestBarrier. Consider guarantees, easy onboarding, clear ROI proof, strong testimonials, free trials, or security certifications.
+
             For onboardingStep: Focus on clear, actionable steps users need to take to get value from the product, with time estimates.
 
             Format as a JSON array of strings.`

@@ -116,15 +116,15 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
     // Step 0: Define Core Offer Nucleus
     if (currentStep === 0) {
       if (!hasWebsiteData && !hasTranscriptData) {
-        welcomeMessage = "Welcome to the AI Offer Assistant! To get started, I recommend either entering your website URL or uploading a customer call transcript using the tabs on the right. This will help me provide more relevant suggestions for your offer. Alternatively, you can tell me about your business or product, and I'll help you craft your core offer nucleus.";
+        welcomeMessage = "Welcome to the ProductLed Offer Assistant! I'm here to help you craft an irresistible offer using the R-A-R-A framework (Result-Advantage-Risk-Assurance).\n\nTo get started, I recommend either entering your website URL or uploading a customer call transcript using the tabs on the right. This will help me provide more relevant suggestions.\n\nAlternatively, you can simply tell me about your product or service in 1-3 sentences, and I'll guide you through defining your core offer nucleus step-by-step.";
       } else if (hasWebsiteData && !hasTranscriptData && !hasCompletedCoreOffer) {
-        welcomeMessage = "Thanks for providing your website information! I've analyzed your site and can help you define your core offer nucleus. Let me know when you're ready to start with your target audience, desired result, key advantage, biggest barrier, or assurance.";
+        welcomeMessage = "Thanks for providing your website information! I've analyzed your site and can help you define your core offer nucleus using the R-A-R-A framework.\n\nLet's work through this step-by-step:\n\n1. First, let's identify your ideal Target Audience - who benefits most from your solution?\n2. Then we'll clarify the primary Result they achieve\n3. Next, we'll define your unique Advantage over alternatives\n4. Finally, we'll address the biggest Risk and your Assurance to overcome it\n\nWould you like to start with defining your Target Audience?";
       } else if (!hasWebsiteData && hasTranscriptData && !hasCompletedCoreOffer) {
-        welcomeMessage = "Thanks for uploading your customer call transcript! I've analyzed it and extracted key insights to help you define your core offer nucleus. Let me know when you're ready to start with your target audience, desired result, key advantage, biggest barrier, or assurance.";
+        welcomeMessage = "Thanks for uploading your customer call transcript! I've analyzed it and extracted key insights to help you define your core offer nucleus using the R-A-R-A framework.\n\nLet's work through this step-by-step:\n\n1. First, let's identify your ideal Target Audience - who benefits most from your solution?\n2. Then we'll clarify the primary Result they achieve\n3. Next, we'll define your unique Advantage over alternatives\n4. Finally, we'll address the biggest Risk and your Assurance to overcome it\n\nWould you like to start with defining your Target Audience?";
       } else if (hasWebsiteData && hasTranscriptData && !hasCompletedCoreOffer) {
-        welcomeMessage = "Great! I have both your website analysis and customer call transcript. This gives me a comprehensive understanding of your offer. Let me know when you're ready to start defining your core offer nucleus.";
+        welcomeMessage = "Great! I have both your website analysis and customer call transcript. This gives me a comprehensive understanding of your offer.\n\nLet's define your core offer nucleus using the R-A-R-A framework:\n\n1. First, let's identify your ideal Target Audience - who benefits most from your solution?\n2. Then we'll clarify the primary Result they achieve\n3. Next, we'll define your unique Advantage over alternatives\n4. Finally, we'll address the biggest Risk and your Assurance to overcome it\n\nWould you like to start with defining your Target Audience?";
       } else {
-        welcomeMessage = "I see you've already defined your core offer nucleus. Is there anything specific you'd like help with or would you like me to review what you've entered so far?";
+        welcomeMessage = "I see you've already defined your core offer nucleus. Is there anything specific you'd like help with or would you like me to review what you've entered so far using the R-A-R-A framework?";
       }
     }
     // Step 1: Setup Onboarding Steps
@@ -162,40 +162,78 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
     try {
       setCurrentField(field);
 
+      // Get current RARA stage if we're in the Core Offer Nucleus step
+      const raraStage = currentStep === 0 ? determineRARAStage() : undefined;
+
       if (field === 'targetAudience' ||
           field === 'desiredResult' ||
           field === 'keyAdvantage' ||
           field === 'biggestBarrier' ||
           field === 'assurance') {
 
-        // Only generate suggestions if we have website data
-        if (websiteFindings) {
-          const fieldSuggestions = await generateSuggestions(
-            field as any,
-            initialContext,
-            websiteFindings
-          );
+        // Get data sources for context
+        const hasWebsiteData = websiteFindings !== null;
+        const hasTranscriptData = transcriptData !== null;
 
-          const formattedSuggestions = fieldSuggestions.map(text => ({
-            text,
-            field
-          }));
+        // Generate suggestions using available data
+        const fieldSuggestions = await generateSuggestions(
+          field as any,
+          initialContext,
+          websiteFindings,
+          transcriptData,
+          raraStage
+        );
 
-          setSuggestions(formattedSuggestions);
-          setShowSuggestions(true);
+        const formattedSuggestions = fieldSuggestions.map(text => ({
+          text,
+          field
+        }));
 
-          addChatMessage({
-            sender: 'ai',
-            content: `Based on your website, here are some suggestions for ${fieldDisplayNames[field]}. You can select one or type your own.`
-          });
-        } else {
-          // Fallback suggestions if no website data
-          addChatMessage({
-            sender: 'ai',
-            content: `To provide more specific suggestions for your ${fieldDisplayNames[field]}, it would help to have your website URL or more information about your business. In the meantime, could you tell me more about your target audience and what problem your product solves?`
-          });
+        setSuggestions(formattedSuggestions);
+        setShowSuggestions(true);
+
+        // Create a context-aware message based on RARA stage
+        let message = `Here are some suggestions for ${fieldDisplayNames[field]}. You can select one or type your own.`;
+
+        if (hasWebsiteData && hasTranscriptData) {
+          message = `Based on your website and customer transcript analysis, here are some suggestions for ${fieldDisplayNames[field]}. You can select one or type your own.`;
+        } else if (hasWebsiteData) {
+          message = `Based on your website analysis, here are some suggestions for ${fieldDisplayNames[field]}. You can select one or type your own.`;
+        } else if (hasTranscriptData) {
+          message = `Based on your customer transcript analysis, here are some suggestions for ${fieldDisplayNames[field]}. You can select one or type your own.`;
         }
-      } else if (field === 'onboardingStep') {
+
+        // Add RARA framework guidance if we're in the Core Offer step
+        if (currentStep === 0 && raraStage) {
+          if (raraStage === 1) {
+            if (field === 'targetAudience') {
+              message = `Let's start with your Target Audience. Who experiences the most significant transformation with your product? Here are some suggestions:`;
+            } else if (field === 'desiredResult') {
+              message = `Great! Now let's define the primary Result your target audience achieves. What's the single most desirable outcome they get? Here are some suggestions:`;
+            }
+          } else if (raraStage === 2) {
+            message = `Now let's identify your key Advantage. What makes your solution 5-10x better than alternatives? Here are some suggestions:`;
+          } else if (raraStage === 3) {
+            if (field === 'biggestBarrier') {
+              message = `Let's address potential concerns. What's the #1 perceived Risk that might stop someone from signing up? Here are some suggestions:`;
+            } else if (field === 'assurance') {
+              message = `Finally, let's provide an Assurance to overcome that risk. How can you reverse the risk and build trust? Here are some suggestions:`;
+            }
+          }
+        }
+
+        addChatMessage({
+          sender: 'ai',
+          content: message
+        });
+      } else if (!websiteFindings && !transcriptData) {
+        // Fallback suggestions if no data sources
+        addChatMessage({
+          sender: 'ai',
+          content: `To provide more specific suggestions for your ${fieldDisplayNames[field]}, it would help to have your website URL, a customer call transcript, or more information about your business. In the meantime, could you tell me more about your target audience and what problem your product solves?`
+        });
+      }
+      else if (field === 'onboardingStep') {
         // Generate onboarding step suggestions
         const stepSuggestions = [
           "Complete a quick 2-minute setup wizard",
@@ -280,6 +318,26 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
       coreOfferNucleus.biggestBarrier &&
       coreOfferNucleus.assurance
     );
+  };
+
+  // Function to determine which stage of the R-A-R-A framework we're in
+  const determineRARAStage = (): number => {
+    // Stage 1: Target Audience & Result
+    if (!coreOfferNucleus.targetAudience || !coreOfferNucleus.desiredResult) {
+      return 1;
+    }
+    // Stage 2: Advantage
+    else if (!coreOfferNucleus.keyAdvantage) {
+      return 2;
+    }
+    // Stage 3: Risk & Assurance
+    else if (!coreOfferNucleus.biggestBarrier || !coreOfferNucleus.assurance) {
+      return 3;
+    }
+    // All stages complete
+    else {
+      return 4;
+    }
   };
 
   // Function to handle selecting a suggestion
@@ -375,17 +433,54 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
         }
       }
 
-      // If user is asking for suggestions for a specific field
-      if (requestedField && (
-          lowerInput.includes('suggest') ||
-          lowerInput.includes('recommendation') ||
-          lowerInput.includes('help with') ||
-          lowerInput.includes('ideas for')
-        )) {
-        // Generate suggestions for the requested field
-        await generateContextAwareSuggestions(requestedField);
+      // If we're in the Core Offer Nucleus step and not all fields are complete
+      if (currentStep === 0 && !hasCompleteCoreOffer()) {
+        const raraStage = determineRARAStage();
+
+        // If user is explicitly asking for suggestions for a specific field
+        if (requestedField && (
+            lowerInput.includes('suggest') ||
+            lowerInput.includes('recommendation') ||
+            lowerInput.includes('help with') ||
+            lowerInput.includes('ideas for')
+          )) {
+          // Generate suggestions for the requested field
+          await generateContextAwareSuggestions(requestedField);
+        }
+        // If user is asking about starting or continuing with the RARA framework
+        else if (lowerInput.includes('start') || lowerInput.includes('ready') || lowerInput.includes('next') ||
+                 lowerInput.includes('continue') || lowerInput.includes('yes')) {
+          // Determine which field to suggest based on RARA stage
+          let fieldToSuggest: string;
+
+          if (raraStage === 1) {
+            // Stage 1: Target Audience & Result
+            fieldToSuggest = !coreOfferNucleus.targetAudience ? 'targetAudience' : 'desiredResult';
+          } else if (raraStage === 2) {
+            // Stage 2: Advantage
+            fieldToSuggest = 'keyAdvantage';
+          } else {
+            // Stage 3: Risk & Assurance
+            fieldToSuggest = !coreOfferNucleus.biggestBarrier ? 'biggestBarrier' : 'assurance';
+          }
+
+          await generateContextAwareSuggestions(fieldToSuggest);
+        } else {
+          // Generate a general response
+          const response = await generateChatResponse(
+            useOfferStore.getState().contextChat.messages,
+            useOfferStore.getState().initialContext,
+            currentFindings,
+            useOfferStore.getState().transcriptData
+          );
+
+          addChatMessage({
+            sender: 'ai',
+            content: response
+          });
+        }
       } else {
-        // Generate a general response
+        // For other steps or when core offer is complete, generate a general response
         const response = await generateChatResponse(
           useOfferStore.getState().contextChat.messages,
           useOfferStore.getState().initialContext,
