@@ -213,6 +213,9 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
       // Get current RARA stage if we're in the Core Offer Nucleus step
       const raraStage = currentStep === 0 ? determineRARAStage() : undefined;
 
+      // Ensure websiteFindings is properly defined
+      const currentWebsiteFindings = websiteScraping.status === 'completed' ? websiteFindings : null;
+
       if (field === 'targetAudience' ||
           field === 'desiredResult' ||
           field === 'keyAdvantage' ||
@@ -220,14 +223,14 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
           field === 'assurance') {
 
         // Get data sources for context
-        const hasWebsiteData = websiteFindings !== null;
+        const hasWebsiteData = currentWebsiteFindings !== null;
         const hasTranscriptData = transcriptData !== null;
 
         // Generate suggestions using available data
         const fieldSuggestions = await generateSuggestions(
           field as any,
           initialContext,
-          websiteFindings,
+          currentWebsiteFindings,
           transcriptData,
           raraStage
         );
@@ -274,7 +277,7 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
           sender: 'ai',
           content: message
         });
-      } else if (!websiteFindings && !transcriptData) {
+      } else if (!currentWebsiteFindings && !transcriptData) {
         // Fallback suggestions if no data sources
         addChatMessage({
           sender: 'ai',
@@ -493,8 +496,21 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
     setIsProcessing(true);
 
     try {
-      // Get current website findings
-      const currentFindings = websiteScraping.status === 'completed' ? websiteFindings : null;
+      // Get current website findings with proper null/undefined handling
+      const currentFindings = websiteScraping.status === 'completed' ? {
+        coreOffer: websiteScraping.coreOffer || '',
+        targetAudience: websiteScraping.targetAudience || '',
+        problemSolved: websiteScraping.keyProblem || '',
+        keyBenefits: Array.isArray(websiteScraping.keyFeatures)
+          ? websiteScraping.keyFeatures.map(feature =>
+              typeof feature === 'string' ? feature : (feature?.benefit || '')
+            ).filter(Boolean)
+          : [],
+        valueProposition: websiteScraping.valueProposition || '',
+        cta: null,
+        tone: null,
+        missingInfo: null
+      } : null;
 
       // Check for specific field requests in the user input
       const lowerInput = userInput.toLowerCase();
