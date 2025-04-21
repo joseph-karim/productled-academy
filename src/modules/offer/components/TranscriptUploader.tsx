@@ -157,19 +157,19 @@ export function TranscriptUploader({ onUploadComplete }: TranscriptUploaderProps
         Add a customer call transcript to get AI-powered insights for your offer
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+      <Tabs defaultValue="upload" value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid grid-cols-2 mb-4 bg-[#1C1C1C]">
-          <TabsTrigger value="upload" className="flex items-center">
+          <TabsTrigger value="upload" className="flex items-center data-[state=active]:bg-[#333333] data-[state=active]:text-white">
             <Upload className="w-4 h-4 mr-2" />
             Upload File
           </TabsTrigger>
-          <TabsTrigger value="paste" className="flex items-center">
+          <TabsTrigger value="paste" className="flex items-center data-[state=active]:bg-[#333333] data-[state=active]:text-white">
             <Clipboard className="w-4 h-4 mr-2" />
             Paste Text
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="upload">
+        <TabsContent value="upload" className="block">
           <div
             className={`border-2 border-dashed rounded-lg p-6 transition-colors ${
               error && activeTab === 'upload' ? 'border-red-400 bg-red-400/10' :
@@ -253,7 +253,7 @@ export function TranscriptUploader({ onUploadComplete }: TranscriptUploaderProps
           )}
         </TabsContent>
 
-        <TabsContent value="paste">
+        <TabsContent value="paste" className="block">
           <div className={`border rounded-lg p-4 transition-colors ${
             error && activeTab === 'paste' ? 'border-red-400 bg-red-400/10' :
             uploadSuccess ? 'border-green-500 bg-green-500/10' :

@@ -23,23 +23,45 @@ export function WebsiteContextInput({ readOnly = false }: WebsiteContextInputPro
   const [isValidUrl, setIsValidUrl] = useState(false);
 
   const handleUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const url = e.target.value;
+    const url = e.target.value.trim();
     setWebsiteUrl(url);
+
+    // Normalize URL by adding https:// if missing
     let normalizedUrl = url;
     if (url.length > 0 && !url.match(/^(http|https):\/\//i)) {
       normalizedUrl = `https://${url}`;
     }
+
+    // Validate URL format
     const isValid = normalizedUrl.match(/^(http|https):\/\/[a-zA-Z0-9-_.]+\.[a-zA-Z]{2,}(\/.*)?$/) !== null;
     setIsValidUrl(isValid);
+
+    // Log for debugging
+    console.log('URL validation:', { url, normalizedUrl, isValid });
   };
 
   const handleStartScraping = async () => {
+    // Normalize URL by adding https:// if missing
     let urlToScrape = websiteUrl;
     if (websiteUrl.length > 0 && !websiteUrl.match(/^(http|https):\/\//i)) {
       urlToScrape = `https://${websiteUrl}`;
     }
+
+    // Validate URL and start scraping
     if (isValidUrl && urlToScrape) {
+      console.log('Starting website scraping for:', urlToScrape);
       await startWebsiteScraping(urlToScrape);
+
+      // Dispatch event to launch AI chat with website data
+      window.dispatchEvent(new CustomEvent('launch-ai-chat', {
+        detail: {
+          websiteUrl: urlToScrape,
+          scrapingStatus: 'processing',
+          hasFindings: false
+        }
+      }));
+    } else {
+      console.error('Invalid URL:', urlToScrape);
     }
   };
 
@@ -59,19 +81,19 @@ export function WebsiteContextInput({ readOnly = false }: WebsiteContextInputPro
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid grid-cols-2 mb-4">
-            <TabsTrigger value="website" className="flex items-center">
+        <Tabs defaultValue="website" value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid grid-cols-2 mb-4 bg-[#1C1C1C]">
+            <TabsTrigger value="website" className="flex items-center data-[state=active]:bg-[#333333] data-[state=active]:text-white">
               <Globe className="w-4 h-4 mr-2" />
               Website Analysis
             </TabsTrigger>
-            <TabsTrigger value="transcript" className="flex items-center">
+            <TabsTrigger value="transcript" className="flex items-center data-[state=active]:bg-[#333333] data-[state=active]:text-white">
               <FileText className="w-4 h-4 mr-2" />
               Customer Transcripts
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="website" className="space-y-4">
+          <TabsContent value="website" className="space-y-4 block">
             <div className="space-y-2">
               <div className="flex justify-between items-center">
                 <div>
@@ -140,7 +162,7 @@ export function WebsiteContextInput({ readOnly = false }: WebsiteContextInputPro
             </div>
           </TabsContent>
 
-          <TabsContent value="transcript" className="space-y-4">
+          <TabsContent value="transcript" className="space-y-4 block">
             <TranscriptUploader onUploadComplete={handleTranscriptUploadComplete} />
 
             {transcriptUploaded && (
