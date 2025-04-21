@@ -5,7 +5,6 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Loader2, Globe, FileText } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TranscriptUploader } from './TranscriptUploader';
 
 interface WebsiteContextInputProps {
@@ -81,97 +80,114 @@ export function WebsiteContextInput({ readOnly = false }: WebsiteContextInputPro
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <Tabs defaultValue="website" value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid grid-cols-2 mb-4 bg-[#1C1C1C]">
-            <TabsTrigger value="website" className="flex items-center data-[state=active]:bg-[#333333] data-[state=active]:text-white">
+        {/* Custom Tabs Implementation */}
+        <div className="w-full">
+          {/* Tab Headers */}
+          <div className="grid grid-cols-2 mb-4 bg-[#1C1C1C] rounded-lg p-1">
+            <button
+              onClick={() => setActiveTab('website')}
+              className={`flex items-center justify-center py-2 px-4 rounded-md transition-colors ${activeTab === 'website' ? 'bg-[#333333] text-white' : 'text-gray-400 hover:text-white'}`}
+            >
               <Globe className="w-4 h-4 mr-2" />
               Website Analysis
-            </TabsTrigger>
-            <TabsTrigger value="transcript" className="flex items-center data-[state=active]:bg-[#333333] data-[state=active]:text-white">
+            </button>
+            <button
+              onClick={() => setActiveTab('transcript')}
+              className={`flex items-center justify-center py-2 px-4 rounded-md transition-colors ${activeTab === 'transcript' ? 'bg-[#333333] text-white' : 'text-gray-400 hover:text-white'}`}
+            >
               <FileText className="w-4 h-4 mr-2" />
               Customer Transcripts
-            </TabsTrigger>
-          </TabsList>
+            </button>
+          </div>
 
-          <TabsContent value="website" className="space-y-4 block">
-            <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                <div>
-                  <Label htmlFor="websiteUrlInput" className="text-gray-300 text-sm">Analyze Website (Optional)</Label>
-                  <p className="text-xs text-gray-400 mt-1">Enter your website URL to extract offer details, target audience, and key benefits</p>
-                </div>
-                {!readOnly && websiteScraping.status !== 'processing' && websiteScraping.status !== 'completed' && (
-                  <Button
-                    onClick={() => {
-                      // Dispatch event with website data
-                      window.dispatchEvent(new CustomEvent('launch-ai-chat', {
-                        detail: {
-                          websiteUrl: '',
-                          scrapingStatus: 'idle',
-                          hasFindings: false
+          {/* Tab Content */}
+          <div className="mt-4">
+            {/* Website Analysis Tab */}
+            {activeTab === 'website' && (
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <Label htmlFor="websiteUrlInput" className="text-gray-300 text-sm">Analyze Website (Optional)</Label>
+                      <p className="text-xs text-gray-400 mt-1">Enter your website URL to extract offer details, target audience, and key benefits</p>
+                    </div>
+                    {!readOnly && websiteScraping.status !== 'processing' && websiteScraping.status !== 'completed' && (
+                      <Button
+                        onClick={() => {
+                          // Dispatch event with website data
+                          window.dispatchEvent(new CustomEvent('launch-ai-chat', {
+                            detail: {
+                              websiteUrl: '',
+                              scrapingStatus: 'idle',
+                              hasFindings: false
+                            }
+                          }));
+                        }}
+                        className="px-4 py-2 text-sm bg-[#FFD23F] text-black font-medium rounded-lg hover:bg-opacity-90"
+                        size="sm"
+                      >
+                        Skip & Use AI Chat
+                      </Button>
+                    )}
+                  </div>
+                  <div className="flex space-x-2">
+                    <Input
+                      id="websiteUrlInput"
+                      type="url"
+                      value={websiteUrl}
+                      onChange={handleUrlChange}
+                      placeholder="https://example.com"
+                      className="flex-1 p-2 bg-[#1C1C1C] border-[#333333] text-white rounded-lg placeholder-gray-500 text-sm focus:border-[#FFD23F] focus:outline-none"
+                      disabled={readOnly || websiteScraping.status === 'processing'}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter' && isValidUrl) {
+                          e.preventDefault();
+                          handleStartScraping();
                         }
-                      }));
-                    }}
-                    className="px-4 py-2 text-sm bg-[#FFD23F] text-black font-medium rounded-lg hover:bg-opacity-90"
-                    size="sm"
-                  >
-                    Skip & Use AI Chat
-                  </Button>
-                )}
-              </div>
-              <div className="flex space-x-2">
-                <Input
-                  id="websiteUrlInput"
-                  type="url"
-                  value={websiteUrl}
-                  onChange={handleUrlChange}
-                  placeholder="https://example.com"
-                  className="flex-1 p-2 bg-[#1C1C1C] border-[#333333] text-white rounded-lg placeholder-gray-500 text-sm focus:border-[#FFD23F] focus:outline-none"
-                  disabled={readOnly || websiteScraping.status === 'processing'}
-                  onKeyPress={(e) => {
-                    if (e.key === 'Enter' && isValidUrl) {
-                      e.preventDefault();
-                      handleStartScraping();
-                    }
-                  }}
-                />
-                <Button
-                  onClick={handleStartScraping}
-                  disabled={!isValidUrl || websiteScraping.status === 'processing' || readOnly}
-                  className="px-4 py-2 text-sm bg-[#333333] text-white rounded-lg hover:bg-[#444444] disabled:opacity-50"
-                  size="sm"
-                >
-                  {websiteScraping.status === 'processing' ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : ( 'Analyze' )}
-                </Button>
-              </div>
-              {websiteScraping.status === 'processing' && (
-                <p className="text-xs text-[#FFD23F]">Analyzing...</p>
-              )}
-              {websiteScraping.status === 'completed' && (
-                <div className="flex items-center justify-between">
-                  <p className="text-xs text-green-500">Analysis complete.</p>
+                      }}
+                    />
+                    <Button
+                      onClick={handleStartScraping}
+                      disabled={!isValidUrl || websiteScraping.status === 'processing' || readOnly}
+                      className="px-4 py-2 text-sm bg-[#333333] text-white rounded-lg hover:bg-[#444444] disabled:opacity-50"
+                      size="sm"
+                    >
+                      {websiteScraping.status === 'processing' ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : ( 'Analyze' )}
+                    </Button>
+                  </div>
+                  {websiteScraping.status === 'processing' && (
+                    <p className="text-xs text-[#FFD23F]">Analyzing...</p>
+                  )}
+                  {websiteScraping.status === 'completed' && (
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs text-green-500">Analysis complete.</p>
+                    </div>
+                  )}
+                  {websiteScraping.status === 'failed' && (
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs text-red-500">Analysis failed: {websiteScraping.error || 'Unknown error'}</p>
+                    </div>
+                  )}
                 </div>
-              )}
-              {websiteScraping.status === 'failed' && (
-                <div className="flex items-center justify-between">
-                  <p className="text-xs text-red-500">Analysis failed: {websiteScraping.error || 'Unknown error'}</p>
-                </div>
-              )}
-            </div>
-          </TabsContent>
-
-          <TabsContent value="transcript" className="space-y-4 block">
-            <TranscriptUploader onUploadComplete={handleTranscriptUploadComplete} />
-
-            {transcriptUploaded && (
-              <div className="mt-4 p-3 bg-green-500 bg-opacity-20 border border-green-500 rounded-md text-green-300">
-                <p className="text-sm">Transcript processed successfully! The AI assistant will now use insights from your customer calls.</p>
               </div>
             )}
-          </TabsContent>
-        </Tabs>
+
+            {/* Transcript Upload Tab */}
+            {activeTab === 'transcript' && (
+              <div className="space-y-4">
+                <TranscriptUploader onUploadComplete={handleTranscriptUploadComplete} />
+
+                {transcriptUploaded && (
+                  <div className="mt-4 p-3 bg-green-500 bg-opacity-20 border border-green-500 rounded-md text-green-300">
+                    <p className="text-sm">Transcript processed successfully! The AI assistant will now use insights from your customer calls.</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
       </CardContent>
     </Card>
   );
