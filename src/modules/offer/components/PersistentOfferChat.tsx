@@ -110,6 +110,35 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
     if (isInitialLoad) {
       generateInitialWelcomeMessage();
       setIsInitialLoad(false);
+
+      // If we're in the Core Offer step and have website data or transcript data,
+      // automatically start the RARA process by generating suggestions for the first field
+      if (currentStep === 0) {
+        const hasWebsiteData = websiteScraping.status === 'completed' && websiteFindings !== null;
+        const hasTranscriptData = transcriptData !== null;
+        const hasCompletedCoreOffer = coreOfferNucleus.targetAudience &&
+                                     coreOfferNucleus.desiredResult &&
+                                     coreOfferNucleus.keyAdvantage &&
+                                     coreOfferNucleus.biggestBarrier &&
+                                     coreOfferNucleus.assurance;
+
+        if ((hasWebsiteData || hasTranscriptData) && !hasCompletedCoreOffer) {
+          // Wait a bit for the welcome message to be displayed
+          setTimeout(() => {
+            // Determine which field to suggest based on what's missing
+            let fieldToSuggest = 'targetAudience';
+            if (coreOfferNucleus.targetAudience) {
+              if (!coreOfferNucleus.desiredResult) fieldToSuggest = 'desiredResult';
+              else if (!coreOfferNucleus.keyAdvantage) fieldToSuggest = 'keyAdvantage';
+              else if (!coreOfferNucleus.biggestBarrier) fieldToSuggest = 'biggestBarrier';
+              else if (!coreOfferNucleus.assurance) fieldToSuggest = 'assurance';
+            }
+
+            // Generate suggestions for the first missing field
+            generateContextAwareSuggestions(fieldToSuggest);
+          }, 1000);
+        }
+      }
     }
   }, [currentStep, isInitialLoad]);
 
@@ -382,11 +411,48 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
         [suggestion.field]: suggestion.text
       });
 
-      // Provide feedback
-      addChatMessage({
-        sender: 'ai',
-        content: `Great choice! I've updated your ${fieldDisplayNames[suggestion.field]}.`
-      });
+      // Provide feedback and move to the next field in the RARA framework
+      const raraStage = determineRARAStage();
+      let nextField: string | null = null;
+
+      // Determine the next field based on the current field
+      if (suggestion.field === 'targetAudience') {
+        nextField = 'desiredResult';
+        addChatMessage({
+          sender: 'ai',
+          content: `Great choice! I've updated your ${fieldDisplayNames[suggestion.field]}. Now let's define the primary Result your target audience achieves.`
+        });
+      } else if (suggestion.field === 'desiredResult') {
+        nextField = 'keyAdvantage';
+        addChatMessage({
+          sender: 'ai',
+          content: `Excellent! I've updated your ${fieldDisplayNames[suggestion.field]}. Now let's identify your key Advantage - what makes your solution better than alternatives?`
+        });
+      } else if (suggestion.field === 'keyAdvantage') {
+        nextField = 'biggestBarrier';
+        addChatMessage({
+          sender: 'ai',
+          content: `Perfect! I've updated your ${fieldDisplayNames[suggestion.field]}. Now let's address the biggest Risk or objection that might stop someone from signing up.`
+        });
+      } else if (suggestion.field === 'biggestBarrier') {
+        nextField = 'assurance';
+        addChatMessage({
+          sender: 'ai',
+          content: `Good insight! I've updated your ${fieldDisplayNames[suggestion.field]}. Finally, let's provide an Assurance to overcome that risk and build trust.`
+        });
+      } else if (suggestion.field === 'assurance') {
+        addChatMessage({
+          sender: 'ai',
+          content: `Excellent! I've updated your ${fieldDisplayNames[suggestion.field]}. You've now completed your core offer nucleus using the R-A-R-A framework. Would you like me to review it or help you with anything else?`
+        });
+      }
+
+      // Generate suggestions for the next field after a short delay
+      if (nextField) {
+        setTimeout(() => {
+          generateContextAwareSuggestions(nextField);
+        }, 1000);
+      }
     }
     // Handle other field types as needed
     else if (suggestion.field === 'onboardingStep') {
@@ -456,47 +522,122 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
       if (currentStep === 0 && !hasCompleteCoreOffer()) {
         const raraStage = determineRARAStage();
 
-        // If user is explicitly asking for suggestions for a specific field
-        if (requestedField && (
-            lowerInput.includes('suggest') ||
-            lowerInput.includes('recommendation') ||
-            lowerInput.includes('help with') ||
-            lowerInput.includes('ideas for')
-          )) {
-          // Generate suggestions for the requested field
-          await generateContextAwareSuggestions(requestedField);
-        }
-        // If user is asking about starting or continuing with the RARA framework
-        else if (lowerInput.includes('start') || lowerInput.includes('ready') || lowerInput.includes('next') ||
-                 lowerInput.includes('continue') || lowerInput.includes('yes')) {
-          // Determine which field to suggest based on RARA stage
-          let fieldToSuggest: string;
+        // Check if the user is providing a direct answer for a field in the RARA framework
+        // This could be in response to our previous question
+        let updatedField = false;
 
-          if (raraStage === 1) {
-            // Stage 1: Target Audience & Result
-            fieldToSuggest = !coreOfferNucleus.targetAudience ? 'targetAudience' : 'desiredResult';
-          } else if (raraStage === 2) {
-            // Stage 2: Advantage
-            fieldToSuggest = 'keyAdvantage';
-          } else {
-            // Stage 3: Risk & Assurance
-            fieldToSuggest = !coreOfferNucleus.biggestBarrier ? 'biggestBarrier' : 'assurance';
+        // Determine which field we're currently working on based on RARA stage
+        let currentRARAField: string;
+        if (raraStage === 1) {
+          currentRARAField = !coreOfferNucleus.targetAudience ? 'targetAudience' : 'desiredResult';
+        } else if (raraStage === 2) {
+          currentRARAField = 'keyAdvantage';
+        } else {
+          currentRARAField = !coreOfferNucleus.biggestBarrier ? 'biggestBarrier' : 'assurance';
+        }
+
+        // If the user's message is likely a direct answer to our current field question
+        // and not a question or command, update that field
+        if (!lowerInput.includes('?') &&
+            !lowerInput.includes('suggest') &&
+            !lowerInput.includes('help') &&
+            !lowerInput.includes('show') &&
+            userInput.length > 5) {
+
+          // Update the current field with the user's input
+          setCoreOfferNucleus({
+            ...coreOfferNucleus,
+            [currentRARAField]: userInput
+          });
+
+          // Provide feedback and move to the next field
+          let nextField: string | null = null;
+
+          if (currentRARAField === 'targetAudience') {
+            nextField = 'desiredResult';
+            addChatMessage({
+              sender: 'ai',
+              content: `Thanks! I've updated your ${fieldDisplayNames[currentRARAField]}. Now let's define the primary Result your target audience achieves.`
+            });
+          } else if (currentRARAField === 'desiredResult') {
+            nextField = 'keyAdvantage';
+            addChatMessage({
+              sender: 'ai',
+              content: `Great! I've updated your ${fieldDisplayNames[currentRARAField]}. Now let's identify your key Advantage - what makes your solution better than alternatives?`
+            });
+          } else if (currentRARAField === 'keyAdvantage') {
+            nextField = 'biggestBarrier';
+            addChatMessage({
+              sender: 'ai',
+              content: `Perfect! I've updated your ${fieldDisplayNames[currentRARAField]}. Now let's address the biggest Risk or objection that might stop someone from signing up.`
+            });
+          } else if (currentRARAField === 'biggestBarrier') {
+            nextField = 'assurance';
+            addChatMessage({
+              sender: 'ai',
+              content: `Good insight! I've updated your ${fieldDisplayNames[currentRARAField]}. Finally, let's provide an Assurance to overcome that risk and build trust.`
+            });
+          } else if (currentRARAField === 'assurance') {
+            addChatMessage({
+              sender: 'ai',
+              content: `Excellent! I've updated your ${fieldDisplayNames[currentRARAField]}. You've now completed your core offer nucleus using the R-A-R-A framework. Would you like me to review it or help you with anything else?`
+            });
           }
 
-          await generateContextAwareSuggestions(fieldToSuggest);
-        } else {
-          // Generate a general response
-          const response = await generateChatResponse(
-            useOfferStore.getState().contextChat.messages,
-            useOfferStore.getState().initialContext,
-            currentFindings,
-            useOfferStore.getState().transcriptData
-          );
+          // Generate suggestions for the next field after a short delay
+          if (nextField) {
+            setTimeout(() => {
+              generateContextAwareSuggestions(nextField);
+            }, 1000);
+          }
 
-          addChatMessage({
-            sender: 'ai',
-            content: response
-          });
+          updatedField = true;
+        }
+
+        // If we didn't update a field based on the user's input, handle other cases
+        if (!updatedField) {
+          // If user is explicitly asking for suggestions for a specific field
+          if (requestedField && (
+              lowerInput.includes('suggest') ||
+              lowerInput.includes('recommendation') ||
+              lowerInput.includes('help with') ||
+              lowerInput.includes('ideas for')
+            )) {
+            // Generate suggestions for the requested field
+            await generateContextAwareSuggestions(requestedField);
+          }
+          // If user is asking about starting or continuing with the RARA framework
+          else if (lowerInput.includes('start') || lowerInput.includes('ready') || lowerInput.includes('next') ||
+                   lowerInput.includes('continue') || lowerInput.includes('yes')) {
+            // Determine which field to suggest based on RARA stage
+            let fieldToSuggest: string;
+
+            if (raraStage === 1) {
+              // Stage 1: Target Audience & Result
+              fieldToSuggest = !coreOfferNucleus.targetAudience ? 'targetAudience' : 'desiredResult';
+            } else if (raraStage === 2) {
+              // Stage 2: Advantage
+              fieldToSuggest = 'keyAdvantage';
+            } else {
+              // Stage 3: Risk & Assurance
+              fieldToSuggest = !coreOfferNucleus.biggestBarrier ? 'biggestBarrier' : 'assurance';
+            }
+
+            await generateContextAwareSuggestions(fieldToSuggest);
+          } else {
+            // Generate a general response
+            const response = await generateChatResponse(
+              useOfferStore.getState().contextChat.messages,
+              useOfferStore.getState().initialContext,
+              currentFindings,
+              useOfferStore.getState().transcriptData
+            );
+
+            addChatMessage({
+              sender: 'ai',
+              content: response
+            });
+          }
         }
       } else {
         // For other steps or when core offer is complete, generate a general response
