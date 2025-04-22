@@ -126,30 +126,8 @@ export function SetupSteps({ readOnly = false }: SetupStepsProps) {
   // Get the initial website findings
   const websiteFindings = createWebsiteFindings(websiteScraping);
 
-  // Use onboarding steps from website scraping if available and no steps have been added yet
-  useEffect(() => {
-    if (
-      websiteFindings &&
-      websiteFindings.onboardingSteps &&
-      websiteFindings.onboardingSteps.length > 0 &&
-      onboardingSteps.length === 0 &&
-      !onboardingStepsConfirmed &&
-      !readOnly
-    ) {
-      // Convert the scraped onboarding steps to the format expected by the store
-      const formattedSteps = websiteFindings.onboardingSteps.map(step => ({
-        id: crypto.randomUUID(),
-        description: step.description,
-        timeEstimate: step.timeEstimate || 'N/A'
-      }));
-
-      // Update the store with the scraped onboarding steps
-      updateOnboardingStep(formattedSteps);
-
-      // Show a notification or message that steps were imported from the website
-      console.log('Imported onboarding steps from website analysis');
-    }
-  }, [websiteFindings, onboardingSteps.length, onboardingStepsConfirmed, readOnly, updateOnboardingStep]);
+  // We're removing the auto-import of onboarding steps from website scraping
+  // to allow the user to select steps one by one from suggestions
 
   return (
     <div className="space-y-8">
@@ -157,8 +135,8 @@ export function SetupSteps({ readOnly = false }: SetupStepsProps) {
 
       <Card className="bg-[#2A2A2A] border-[#333333] text-white">
         <CardHeader>
-          <CardTitle>Our Signature Approach</CardTitle>
-          <CardDescription className="text-gray-400">The 3-5 steps to get the full value of your offer.</CardDescription>
+          <CardTitle>Our signature approach: the 3-5 steps to get the full value of your offer</CardTitle>
+          <CardDescription className="text-gray-400">Define the key steps users need to take to get value from your offer.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Onboarding Steps Section */}

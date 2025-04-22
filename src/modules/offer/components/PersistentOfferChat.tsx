@@ -654,54 +654,47 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
         const hasWebsiteData = currentWebsiteFindings !== null;
         const hasTranscriptData = transcriptData !== null;
 
-        // Check if we have pre-extracted onboarding steps from the website analysis
+        // Generate only one suggestion at a time for better interaction
         let formattedSuggestions: Array<{text: string, reasoning?: string, field: string}> = [];
 
-        if (currentWebsiteFindings?.onboardingSteps?.length > 0) {
-          console.log('Using pre-extracted onboarding steps:', currentWebsiteFindings.onboardingSteps);
-          formattedSuggestions = currentWebsiteFindings.onboardingSteps.map(step => ({
-            text: `${step.description} (${step.timeEstimate})`,
-            reasoning: 'Extracted from website analysis',
+        try {
+          // Use the core offer nucleus to generate relevant onboarding steps
+          const suggestionsWithReasoning = await generateSuggestions(
+            'onboardingStep',
+            initialContext,
+            currentWebsiteFindings,
+            transcriptData
+          );
+
+          // Format suggestions for the UI, keeping the reasoning
+          // Only take the first suggestion to show one at a time
+          if (suggestionsWithReasoning.length > 0) {
+            formattedSuggestions = [{
+              text: suggestionsWithReasoning[0].text,
+              reasoning: suggestionsWithReasoning[0].reasoning,
+              field: 'onboardingStep'
+            }];
+          }
+        } catch (error) {
+          console.error('Error generating onboarding step suggestions:', error);
+        }
+
+        // If AI generation fails, use a fallback suggestion
+        if (formattedSuggestions.length === 0) {
+          const stepSuggestions = [
+            "Complete a quick 2-minute setup wizard (5 minutes)",
+            "Watch the 5-minute getting started video (5 minutes)",
+            "Import your existing data (10 minutes)",
+            "Set up your first automation (15 minutes)",
+            "Connect with your team members (5 minutes)"
+          ];
+
+          // Only show one suggestion at a time
+          const randomIndex = Math.floor(Math.random() * stepSuggestions.length);
+          formattedSuggestions = [{
+            text: stepSuggestions[randomIndex],
             field: 'onboardingStep'
-          }));
-        } else {
-          // If no pre-extracted steps, generate them using the AI
-          console.log('No pre-extracted onboarding steps found, generating with AI');
-
-          try {
-            // Use the core offer nucleus to generate relevant onboarding steps
-            const suggestionsWithReasoning = await generateSuggestions(
-              'onboardingStep',
-              initialContext,
-              currentWebsiteFindings,
-              transcriptData
-            );
-
-            // Format suggestions for the UI, keeping the reasoning
-            formattedSuggestions = suggestionsWithReasoning.map(suggestion => ({
-              text: suggestion.text,
-              reasoning: suggestion.reasoning,
-              field: 'onboardingStep'
-            }));
-          } catch (error) {
-            console.error('Error generating onboarding step suggestions:', error);
-          }
-
-          // If AI generation fails, use fallback suggestions
-          if (formattedSuggestions.length === 0) {
-            const stepSuggestions = [
-              "Complete a quick 2-minute setup wizard",
-              "Watch the 5-minute getting started video",
-              "Import your existing data (10 minutes)",
-              "Set up your first automation (15 minutes)",
-              "Connect with your team members (5 minutes)"
-            ];
-
-            formattedSuggestions = stepSuggestions.map(text => ({
-              text,
-              field: 'onboardingStep'
-            }));
-          }
+          }];
         }
 
         setSuggestions(formattedSuggestions);
@@ -710,13 +703,13 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
         // Create a context-aware message
         let message = '';
         if (hasWebsiteData && hasTranscriptData) {
-          message = 'Based on your website and customer transcript analysis, here are some suggested onboarding steps for your signature approach:';
+          message = 'Based on your website and customer transcript analysis, here is a suggested onboarding step for your signature approach:';
         } else if (hasWebsiteData) {
-          message = 'Based on your website analysis, here are some suggested onboarding steps for your signature approach:';
+          message = 'Based on your website analysis, here is a suggested onboarding step for your signature approach:';
         } else if (hasTranscriptData) {
-          message = 'Based on your customer transcript analysis, here are some suggested onboarding steps for your signature approach:';
+          message = 'Based on your customer transcript analysis, here is a suggested onboarding step for your signature approach:';
         } else {
-          message = 'Here are some suggested onboarding steps for your signature approach. These steps should guide users to get the full value from your offer:';
+          message = 'Here is a suggested onboarding step for your signature approach. This step should help users get value from your offer:';
         }
 
         addChatMessage({
@@ -1146,16 +1139,22 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
         content: `Great choice! I've added "${description}" as an onboarding step with a time estimate of ${timeEstimate}.`
       });
 
-      // Generate another suggestion if we have fewer than 3 steps
-      if (onboardingSteps.length < 2) { // We just added one, so check if we had fewer than 2 before
-        setTimeout(() => {
+      // Always generate another suggestion after selecting one
+      setTimeout(() => {
+        // If we have 5 steps, suggest finalizing
+        if (onboardingSteps.length >= 5) {
           addChatMessage({
             sender: 'ai',
-            content: `Would you like another onboarding step? Here are some more suggestions:`
+            content: `You now have ${onboardingSteps.length} steps in your signature approach. You can continue adding more steps or click "Confirm Setup Steps" when you're satisfied with your list.`
+          });
+        } else {
+          addChatMessage({
+            sender: 'ai',
+            content: `Let's add another step to your signature approach. Here's another suggestion:`
           });
           generateContextAwareSuggestions('onboardingStep');
-        }, 1000);
-      }
+        }
+      }, 1000);
     }
     else if (suggestion.field === 'bonus') {
       // Add the bonus to the store
