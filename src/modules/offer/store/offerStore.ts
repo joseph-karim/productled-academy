@@ -368,14 +368,27 @@ export const useOfferStore = create<OfferState>()(
                 // Event for general scraping completion
                 window.dispatchEvent(new CustomEvent('scraping-completed', { detail: { scrapingId } }));
 
-                // Also dispatch launch-ai-chat event to automatically start the chat
-                window.dispatchEvent(new CustomEvent('launch-ai-chat', {
-                  detail: {
-                    websiteUrl: useOfferStore.getState().websiteUrl,
-                    scrapingStatus: 'completed',
-                    hasFindings: true
-                  }
-                }));
+                // Wait a short time to ensure the store is updated
+                setTimeout(() => {
+                  // Get the latest state
+                  const currentState = useOfferStore.getState();
+                  const hasFindings = currentState.websiteScraping.analysis_result?.findings !== undefined;
+
+                  console.log('Auto-launching AI chat after scraping completion');
+                  console.log('Current scraping state:', currentState.websiteScraping);
+                  console.log('Has findings:', hasFindings);
+
+                  // Also dispatch launch-ai-chat event to automatically start the chat
+                  window.dispatchEvent(new CustomEvent('launch-ai-chat', {
+                    detail: {
+                      websiteUrl: currentState.websiteUrl,
+                      scrapingStatus: 'completed',
+                      hasFindings: true,
+                      scrapingId: scrapingId,
+                      timestamp: new Date().getTime() // Add timestamp to ensure uniqueness
+                    }
+                  }));
+                }, 500);
               }
             } else if (result.status === 'failed') {
               set((state) => ({ websiteScraping: { ...state.websiteScraping, status: 'failed', error: result.error || 'Scraping failed' }}));

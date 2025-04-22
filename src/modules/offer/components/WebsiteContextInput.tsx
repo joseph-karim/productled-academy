@@ -165,13 +165,23 @@ export function WebsiteContextInput({ readOnly = false }: WebsiteContextInputPro
                       <p className="text-xs text-green-500">Analysis complete.</p>
                       <Button
                         onClick={() => {
+                          // Force a check for the latest scraping results
+                          const latestScrapingData = useOfferStore.getState().websiteScraping;
+                          console.log('Latest scraping data before launching chat:', latestScrapingData);
+
                           // Dispatch event to launch AI chat with completed website data
                           window.dispatchEvent(new CustomEvent('launch-ai-chat', {
                             detail: {
                               websiteUrl: websiteUrl,
                               scrapingStatus: 'completed',
-                              hasFindings: true
+                              hasFindings: true,
+                              scrapingId: latestScrapingData.scrapingId
                             }
+                          }));
+
+                          // Also dispatch the scraping-completed event as a backup
+                          window.dispatchEvent(new CustomEvent('scraping-completed', {
+                            detail: { scrapingId: latestScrapingData.scrapingId }
                           }));
                         }}
                         className="px-4 py-2 text-xs bg-[#FFD23F] text-black font-medium rounded-lg hover:bg-opacity-90"
