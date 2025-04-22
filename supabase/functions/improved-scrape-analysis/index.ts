@@ -175,23 +175,31 @@ serve(async (req) => {
           messages: [
             {
               role: 'system',
-              content: `You are an expert marketing analyst specializing in extracting core offer components from websites. Your task is to analyze website content and extract the key elements of the R-A-R-A framework (Result-Advantage-Risk-Assurance) along with other important marketing data. Be thorough and specific in your analysis.`
+              content: `You are an expert Marketing Analyst specializing in deconstructing marketing copy to identify core value propositions based on the ProductLed R-A-R-A framework (Result, Advantage, Risk, Assurance). Your task is to meticulously analyze the provided text and extract the key elements defining the offer's core components. Focus *only* on information present or strongly implied within the text.`
             },
             {
               role: 'user',
-              content: `Analyze this website content and extract the core offer components using the R-A-R-A framework:
+              content: `Analyze the following marketing text and extract suggestions for the Core Offer Nucleus components: Target Audience, Desired Result, Key Advantage, Primary Risk/Objection, and Core Assurance/Risk Reversal.
 
+Marketing Text to Analyze:
+---
 Title: ${title}
 Meta Description: ${metaDescription}
 Content: ${contentToAnalyze}
+---
 
-Extract the following information in JSON format:
+Extraction Guidelines:
+Based *only* on the text provided above:
 
-1. Target Audience (Who): Who is the ideal customer? Be specific about demographics, roles, industries, or company types.
-2. Desired Result (What): What specific outcome or transformation does the customer want to achieve?
-3. Key Advantage (Why): What makes this solution uniquely better than alternatives? Focus on their 5-10x advantage.
-4. Biggest Risk/Barrier (Risk): What objection or concern might prevent customers from buying?
-5. Assurance (How): How does the offer overcome the risk or provide guarantees?
+1. **Target Audience:** Who is the ideal user explicitly mentioned or strongly implied? (Look for roles, industries, company types, specific problems they face). Provide 2-3 suggestions.
+
+2. **Desired Result:** What is the single most important outcome, transformation, or benefit the user achieves according to the text? (What primary problem is solved?). Provide 2-3 suggestions.
+
+3. **Key Advantage:** What makes this offer unique, different, or significantly better (e.g., 5-10x) than alternatives, according to the text? (Look for comparisons, unique features, claims of speed, ease, or effectiveness). Provide 2-3 suggestions.
+
+4. **Primary Risk/Objection:** What key pain point does the text emphasize solving (implying the risk of inaction)? OR, what potential reason for customer hesitation is addressed or implied? Provide 2-3 suggestions.
+
+5. **Core Assurance/Risk Reversal:** How does the text build trust or reduce perceived risk? (Look for guarantees, pricing models like performance-based, trial offers, demos, claims of easy setup/integration, specific proof points mentioned). Provide 2-3 suggestions.
 
 Also extract:
 - Core Offer: The main product/service being offered
@@ -201,9 +209,18 @@ Also extract:
 - Onboarding Steps: 3-5 steps in their implementation process with time estimates
 
 Format your response as a valid JSON object with these exact keys:
-"coreOffer", "targetAudience", "desiredResult", "keyAdvantage", "biggestBarrier", "assurance", "valueProposition", "keyBenefits" (array), "competitiveAdvantages" (array), "onboardingSteps" (array of objects with "description" and "timeEstimate").
+"coreOffer",
+"targetAudience" (array of 2-3 suggestions),
+"desiredResult" (array of 2-3 suggestions),
+"keyAdvantage" (array of 2-3 suggestions),
+"biggestBarrier" (array of 2-3 suggestions),
+"assurance" (array of 2-3 suggestions),
+"valueProposition",
+"keyBenefits" (array),
+"competitiveAdvantages" (array),
+"onboardingSteps" (array of objects with "description" and "timeEstimate").
 
-If you can't find specific information, provide your best educated guess based on the industry and context rather than returning "Not found".`
+Be concise and use phrasing derived directly from the text where possible. If you can't find specific information, provide your best educated guess based on the industry and context rather than returning "Not found".`
             }
           ],
           response_format: { type: 'json_object' }

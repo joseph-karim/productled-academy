@@ -1,7 +1,19 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+// For local development, use the local Supabase instance
+// For production, use the environment variables
+const isLocalDevelopment = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+const supabaseUrl = isLocalDevelopment
+  ? 'http://127.0.0.1:54321'
+  : import.meta.env.VITE_SUPABASE_URL;
+
+const supabaseAnonKey = isLocalDevelopment
+  ? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0'
+  : import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+console.log(`Using Supabase URL: ${supabaseUrl}`);
+console.log(`Using ${isLocalDevelopment ? 'local development' : 'production'} environment`);
 
 if (!supabaseUrl || !supabaseAnonKey) {
   console.error('Missing Supabase environment variables:', {
@@ -44,7 +56,7 @@ export async function sendPasswordResetEmail(email: string) {
 export async function checkConnection(): Promise<boolean> {
   try {
     const { data: { session } } = await supabase.auth.getSession();
-    
+
     if (session) {
       const { error: refreshError } = await supabase.auth.refreshSession();
       if (refreshError) {
@@ -57,20 +69,20 @@ export async function checkConnection(): Promise<boolean> {
       .select('count')
       .limit(1)
       .single();
-    
+
     if (error?.code === 'PGRST116') {
       return true;
     }
-    
+
     if (error?.code === 'PGRST301') {
       return true;
     }
-    
+
     if (error) {
       console.error('Supabase connection check failed:', error);
       return false;
     }
-    
+
     return true;
   } catch (error) {
     console.error('Supabase connection error:', error);

@@ -67,24 +67,61 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
       // Check if we have the improved analysis format (with RARA framework fields)
       if (findings.desiredResult || findings.keyAdvantage || findings.biggestBarrier || findings.assurance) {
         console.log('Using improved analysis format');
-        return {
-          coreOffer: findings.coreOffer || '',
-          targetAudience: findings.targetAudience || '',
-          problemSolved: findings.biggestBarrier || findings.problemSolved || '',
-          keyBenefits: Array.isArray(findings.keyBenefits)
-            ? findings.keyBenefits.map(benefit =>
-                typeof benefit === 'string' ? benefit : (benefit?.benefit || '')
-              ).filter(Boolean)
-            : [],
-          valueProposition: findings.valueProposition || '',
-          desiredResult: findings.desiredResult || '',
-          keyAdvantage: findings.keyAdvantage || '',
-          biggestBarrier: findings.biggestBarrier || '',
-          assurance: findings.assurance || '',
-          cta: null,
-          tone: null,
-          missingInfo: null
-        };
+
+        // Check if we have the new array format for suggestions
+        const isArrayFormat = Array.isArray(findings.targetAudience) ||
+                             Array.isArray(findings.desiredResult) ||
+                             Array.isArray(findings.keyAdvantage) ||
+                             Array.isArray(findings.biggestBarrier) ||
+                             Array.isArray(findings.assurance);
+
+        if (isArrayFormat) {
+          console.log('Using new array format for suggestions');
+          return {
+            coreOffer: findings.coreOffer || '',
+            targetAudience: Array.isArray(findings.targetAudience) ? findings.targetAudience[0] || '' : findings.targetAudience || '',
+            problemSolved: Array.isArray(findings.biggestBarrier) ? findings.biggestBarrier[0] || '' : (findings.biggestBarrier || findings.problemSolved || ''),
+            keyBenefits: Array.isArray(findings.keyBenefits)
+              ? findings.keyBenefits.map(benefit =>
+                  typeof benefit === 'string' ? benefit : (benefit?.benefit || '')
+                ).filter(Boolean)
+              : [],
+            valueProposition: findings.valueProposition || '',
+            desiredResult: Array.isArray(findings.desiredResult) ? findings.desiredResult[0] || '' : findings.desiredResult || '',
+            keyAdvantage: Array.isArray(findings.keyAdvantage) ? findings.keyAdvantage[0] || '' : findings.keyAdvantage || '',
+            biggestBarrier: Array.isArray(findings.biggestBarrier) ? findings.biggestBarrier[0] || '' : findings.biggestBarrier || '',
+            assurance: Array.isArray(findings.assurance) ? findings.assurance[0] || '' : findings.assurance || '',
+            // Store all suggestions for later use
+            targetAudienceSuggestions: Array.isArray(findings.targetAudience) ? findings.targetAudience : [findings.targetAudience].filter(Boolean),
+            desiredResultSuggestions: Array.isArray(findings.desiredResult) ? findings.desiredResult : [findings.desiredResult].filter(Boolean),
+            keyAdvantageSuggestions: Array.isArray(findings.keyAdvantage) ? findings.keyAdvantage : [findings.keyAdvantage].filter(Boolean),
+            biggestBarrierSuggestions: Array.isArray(findings.biggestBarrier) ? findings.biggestBarrier : [findings.biggestBarrier].filter(Boolean),
+            assuranceSuggestions: Array.isArray(findings.assurance) ? findings.assurance : [findings.assurance].filter(Boolean),
+            cta: null,
+            tone: null,
+            missingInfo: null
+          };
+        } else {
+          // Original improved format (non-array)
+          return {
+            coreOffer: findings.coreOffer || '',
+            targetAudience: findings.targetAudience || '',
+            problemSolved: findings.biggestBarrier || findings.problemSolved || '',
+            keyBenefits: Array.isArray(findings.keyBenefits)
+              ? findings.keyBenefits.map(benefit =>
+                  typeof benefit === 'string' ? benefit : (benefit?.benefit || '')
+                ).filter(Boolean)
+              : [],
+            valueProposition: findings.valueProposition || '',
+            desiredResult: findings.desiredResult || '',
+            keyAdvantage: findings.keyAdvantage || '',
+            biggestBarrier: findings.biggestBarrier || '',
+            assurance: findings.assurance || '',
+            cta: null,
+            tone: null,
+            missingInfo: null
+          };
+        }
       }
 
       // Fall back to the original format
@@ -308,7 +345,18 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
       } else if (hasWebsiteData && !hasTranscriptData && !hasCompletedCoreOffer) {
         if (hasImprovedAnalysis) {
           // Use the improved analysis results in the welcome message
-          welcomeMessage = `Thanks for providing your website information! I've analyzed your site and extracted key insights to help you define your core offer nucleus using the R-A-R-A framework.\n\nBased on my analysis, here's what I found:\n\n- Target Audience: ${currentWebsiteFindings.targetAudience || 'Not clearly identified'}\n- Desired Result: ${currentWebsiteFindings.desiredResult || currentWebsiteFindings.valueProposition || 'Not clearly identified'}\n- Key Advantage: ${currentWebsiteFindings.keyAdvantage || (currentWebsiteFindings.keyBenefits && currentWebsiteFindings.keyBenefits.length > 0 ? currentWebsiteFindings.keyBenefits[0] : 'Not clearly identified')}\n- Biggest Barrier: ${currentWebsiteFindings.biggestBarrier || currentWebsiteFindings.problemSolved || 'Not clearly identified'}\n- Assurance: ${currentWebsiteFindings.assurance || 'Not clearly identified'}\n\nLet's refine these insights together. I'll help you define each component of your core offer nucleus in order.\n\nLet's start with your Target Audience. I'll generate some suggestions based on the analysis.`;
+          // Check if we have the new array format for suggestions
+          const hasArraySuggestions = currentWebsiteFindings.targetAudienceSuggestions ||
+                                    currentWebsiteFindings.desiredResultSuggestions ||
+                                    currentWebsiteFindings.keyAdvantageSuggestions ||
+                                    currentWebsiteFindings.biggestBarrierSuggestions ||
+                                    currentWebsiteFindings.assuranceSuggestions;
+
+          if (hasArraySuggestions) {
+            welcomeMessage = `Thanks for providing your website information! I've analyzed your site and extracted key insights to help you define your core offer nucleus using the R-A-R-A framework.\n\nBased on my analysis, here's what I found:\n\n- Target Audience: I've identified ${currentWebsiteFindings.targetAudienceSuggestions?.length || 0} potential target audiences\n- Desired Result: I've identified ${currentWebsiteFindings.desiredResultSuggestions?.length || 0} potential desired results\n- Key Advantage: I've identified ${currentWebsiteFindings.keyAdvantageSuggestions?.length || 0} potential key advantages\n- Biggest Barrier: I've identified ${currentWebsiteFindings.biggestBarrierSuggestions?.length || 0} potential barriers/risks\n- Assurance: I've identified ${currentWebsiteFindings.assuranceSuggestions?.length || 0} potential assurances\n\nLet's refine these insights together. I'll help you define each component of your core offer nucleus in order.\n\nLet's start with your Target Audience. I'll present the suggestions I found based on the analysis.`;
+          } else {
+            welcomeMessage = `Thanks for providing your website information! I've analyzed your site and extracted key insights to help you define your core offer nucleus using the R-A-R-A framework.\n\nBased on my analysis, here's what I found:\n\n- Target Audience: ${currentWebsiteFindings.targetAudience || 'Not clearly identified'}\n- Desired Result: ${currentWebsiteFindings.desiredResult || currentWebsiteFindings.valueProposition || 'Not clearly identified'}\n- Key Advantage: ${currentWebsiteFindings.keyAdvantage || (currentWebsiteFindings.keyBenefits && currentWebsiteFindings.keyBenefits.length > 0 ? currentWebsiteFindings.keyBenefits[0] : 'Not clearly identified')}\n- Biggest Barrier: ${currentWebsiteFindings.biggestBarrier || currentWebsiteFindings.problemSolved || 'Not clearly identified'}\n- Assurance: ${currentWebsiteFindings.assurance || 'Not clearly identified'}\n\nLet's refine these insights together. I'll help you define each component of your core offer nucleus in order.\n\nLet's start with your Target Audience. I'll generate some suggestions based on the analysis.`;
+          }
         } else {
           welcomeMessage = "Thanks for providing your website information! I've analyzed your site and can help you define your core offer nucleus using the R-A-R-A framework.\n\nLet's work through this step-by-step:\n\n1. First, we'll identify your ideal Target Audience - who benefits most from your solution?\n2. Then we'll clarify the primary Result they achieve\n3. Next, we'll define your unique Advantage over alternatives\n4. Finally, we'll address the biggest Risk and your Assurance to overcome it\n\nLet's start with your Target Audience. I'll generate some suggestions based on the analysis.";
         }
@@ -317,7 +365,18 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
       } else if (hasWebsiteData && hasTranscriptData && !hasCompletedCoreOffer) {
         if (hasImprovedAnalysis) {
           // Use the improved analysis results in the welcome message
-          welcomeMessage = `Great! I have both your website analysis and customer call transcript. This gives me a comprehensive understanding of your offer.\n\nBased on my analysis, here's what I found:\n\n- Target Audience: ${currentWebsiteFindings.targetAudience || 'Not clearly identified'}\n- Desired Result: ${currentWebsiteFindings.desiredResult || currentWebsiteFindings.valueProposition || 'Not clearly identified'}\n- Key Advantage: ${currentWebsiteFindings.keyAdvantage || (currentWebsiteFindings.keyBenefits && currentWebsiteFindings.keyBenefits.length > 0 ? currentWebsiteFindings.keyBenefits[0] : 'Not clearly identified')}\n- Biggest Barrier: ${currentWebsiteFindings.biggestBarrier || currentWebsiteFindings.problemSolved || 'Not clearly identified'}\n- Assurance: ${currentWebsiteFindings.assurance || 'Not clearly identified'}\n\nLet's refine these insights together. I'll help you define each component of your core offer nucleus in order.\n\nLet's start with your Target Audience. I'll generate some suggestions based on the combined analysis.`;
+          // Check if we have the new array format for suggestions
+          const hasArraySuggestions = currentWebsiteFindings.targetAudienceSuggestions ||
+                                    currentWebsiteFindings.desiredResultSuggestions ||
+                                    currentWebsiteFindings.keyAdvantageSuggestions ||
+                                    currentWebsiteFindings.biggestBarrierSuggestions ||
+                                    currentWebsiteFindings.assuranceSuggestions;
+
+          if (hasArraySuggestions) {
+            welcomeMessage = `Great! I have both your website analysis and customer call transcript. This gives me a comprehensive understanding of your offer.\n\nBased on my analysis, here's what I found:\n\n- Target Audience: I've identified ${currentWebsiteFindings.targetAudienceSuggestions?.length || 0} potential target audiences\n- Desired Result: I've identified ${currentWebsiteFindings.desiredResultSuggestions?.length || 0} potential desired results\n- Key Advantage: I've identified ${currentWebsiteFindings.keyAdvantageSuggestions?.length || 0} potential key advantages\n- Biggest Barrier: I've identified ${currentWebsiteFindings.biggestBarrierSuggestions?.length || 0} potential barriers/risks\n- Assurance: I've identified ${currentWebsiteFindings.assuranceSuggestions?.length || 0} potential assurances\n\nLet's refine these insights together. I'll help you define each component of your core offer nucleus in order.\n\nLet's start with your Target Audience. I'll present the suggestions I found based on the combined analysis.`;
+          } else {
+            welcomeMessage = `Great! I have both your website analysis and customer call transcript. This gives me a comprehensive understanding of your offer.\n\nBased on my analysis, here's what I found:\n\n- Target Audience: ${currentWebsiteFindings.targetAudience || 'Not clearly identified'}\n- Desired Result: ${currentWebsiteFindings.desiredResult || currentWebsiteFindings.valueProposition || 'Not clearly identified'}\n- Key Advantage: ${currentWebsiteFindings.keyAdvantage || (currentWebsiteFindings.keyBenefits && currentWebsiteFindings.keyBenefits.length > 0 ? currentWebsiteFindings.keyBenefits[0] : 'Not clearly identified')}\n- Biggest Barrier: ${currentWebsiteFindings.biggestBarrier || currentWebsiteFindings.problemSolved || 'Not clearly identified'}\n- Assurance: ${currentWebsiteFindings.assurance || 'Not clearly identified'}\n\nLet's refine these insights together. I'll help you define each component of your core offer nucleus in order.\n\nLet's start with your Target Audience. I'll generate some suggestions based on the combined analysis.`;
+          }
         } else {
           welcomeMessage = "Great! I have both your website analysis and customer call transcript. This gives me a comprehensive understanding of your offer.\n\nLet's define your core offer nucleus using the R-A-R-A framework:\n\n1. First, we'll identify your ideal Target Audience - who benefits most from your solution?\n2. Then we'll clarify the primary Result they achieve\n3. Next, we'll define your unique Advantage over alternatives\n4. Finally, we'll address the biggest Risk and your Assurance to overcome it\n\nLet's start with your Target Audience. I'll generate some suggestions based on the combined analysis.";
         }
@@ -381,21 +440,67 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
         const hasWebsiteData = currentWebsiteFindings !== null;
         const hasTranscriptData = transcriptData !== null;
 
-        // Generate suggestions with reasoning using available data
-        const suggestionsWithReasoning = await generateSuggestions(
-          field as any,
-          initialContext,
-          currentWebsiteFindings,
-          transcriptData,
-          raraStage
-        );
+        // Check if we have pre-extracted suggestions from the website analysis
+        let formattedSuggestions: Array<{text: string, reasoning?: string, field: string}> = [];
 
-        // Format suggestions for the UI, keeping the reasoning
-        const formattedSuggestions = suggestionsWithReasoning.map(suggestion => ({
-          text: suggestion.text,
-          reasoning: suggestion.reasoning,
-          field
-        }));
+        if (field === 'targetAudience' && currentWebsiteFindings?.targetAudienceSuggestions?.length > 0) {
+          console.log('Using pre-extracted target audience suggestions:', currentWebsiteFindings.targetAudienceSuggestions);
+          formattedSuggestions = currentWebsiteFindings.targetAudienceSuggestions.map(suggestion => ({
+            text: suggestion,
+            reasoning: 'Extracted from website analysis',
+            field
+          }));
+        }
+        else if (field === 'desiredResult' && currentWebsiteFindings?.desiredResultSuggestions?.length > 0) {
+          console.log('Using pre-extracted desired result suggestions:', currentWebsiteFindings.desiredResultSuggestions);
+          formattedSuggestions = currentWebsiteFindings.desiredResultSuggestions.map(suggestion => ({
+            text: suggestion,
+            reasoning: 'Extracted from website analysis',
+            field
+          }));
+        }
+        else if (field === 'keyAdvantage' && currentWebsiteFindings?.keyAdvantageSuggestions?.length > 0) {
+          console.log('Using pre-extracted key advantage suggestions:', currentWebsiteFindings.keyAdvantageSuggestions);
+          formattedSuggestions = currentWebsiteFindings.keyAdvantageSuggestions.map(suggestion => ({
+            text: suggestion,
+            reasoning: 'Extracted from website analysis',
+            field
+          }));
+        }
+        else if (field === 'biggestBarrier' && currentWebsiteFindings?.biggestBarrierSuggestions?.length > 0) {
+          console.log('Using pre-extracted biggest barrier suggestions:', currentWebsiteFindings.biggestBarrierSuggestions);
+          formattedSuggestions = currentWebsiteFindings.biggestBarrierSuggestions.map(suggestion => ({
+            text: suggestion,
+            reasoning: 'Extracted from website analysis',
+            field
+          }));
+        }
+        else if (field === 'assurance' && currentWebsiteFindings?.assuranceSuggestions?.length > 0) {
+          console.log('Using pre-extracted assurance suggestions:', currentWebsiteFindings.assuranceSuggestions);
+          formattedSuggestions = currentWebsiteFindings.assuranceSuggestions.map(suggestion => ({
+            text: suggestion,
+            reasoning: 'Extracted from website analysis',
+            field
+          }));
+        }
+        else {
+          // If no pre-extracted suggestions, generate them using the AI
+          console.log('No pre-extracted suggestions found, generating with AI');
+          const suggestionsWithReasoning = await generateSuggestions(
+            field as any,
+            initialContext,
+            currentWebsiteFindings,
+            transcriptData,
+            raraStage
+          );
+
+          // Format suggestions for the UI, keeping the reasoning
+          formattedSuggestions = suggestionsWithReasoning.map(suggestion => ({
+            text: suggestion.text,
+            reasoning: suggestion.reasoning,
+            field
+          }));
+        }
 
         setSuggestions(formattedSuggestions);
         setShowSuggestions(true);

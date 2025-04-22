@@ -1,0 +1,11 @@
+// Initialize insight state with default values
+const initialInsightState: InsightState = {
+  results: {
+    customer: null,
+    result: null,
+    better: null,
+    risk: null
+  },
+  currentCategory: 'customer',
+  isComplete: false
+};

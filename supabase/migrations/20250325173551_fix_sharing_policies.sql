@@ -17,14 +17,14 @@ DROP POLICY IF EXISTS "Anyone can read public analyses" ON analyses;
 DROP POLICY IF EXISTS "Allow reading anonymous analyses" ON analyses;
 
 -- Create separate policy for public shared analyses
-CREATE POLICY "Anyone can read public analyses" 
+CREATE POLICY "Anyone can read public analyses"
 ON analyses
 FOR SELECT
 TO public
 USING (is_public = true);
 
 -- Create separate policy for anonymous users
-CREATE POLICY "Anonymous users can access their own analyses" 
+CREATE POLICY "Anonymous users can access their own analyses"
 ON analyses
 FOR SELECT
 TO public
@@ -32,11 +32,10 @@ USING (user_id = '00000000-0000-0000-0000-000000000000');
 
 -- Add debug policy to help trace issues (can be removed after debugging)
 CREATE POLICY "Debug check for analyses access"
-ON analyses 
+ON analyses
 FOR SELECT
 TO public
-USING (true)
-WITH CHECK (false);
+USING (true);
 
 -- Make sure indexes exist
 CREATE INDEX IF NOT EXISTS idx_analyses_public ON analyses(is_public) WHERE is_public = true;
