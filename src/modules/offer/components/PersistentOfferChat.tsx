@@ -471,12 +471,12 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
       const currentWebsiteFindings = getWebsiteFindings();
       console.log('generateContextAwareSuggestions - currentWebsiteFindings:', currentWebsiteFindings);
 
+      // Core Offer Nucleus fields (Step 0)
       if (field === 'targetAudience' ||
           field === 'desiredResult' ||
           field === 'keyAdvantage' ||
           field === 'biggestBarrier' ||
-          field === 'assurance' ||
-          field === 'onboardingStep') {
+          field === 'assurance') {
 
         // Get data sources for context
         const hasWebsiteData = currentWebsiteFindings !== null;
@@ -619,60 +619,338 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
           content: `To provide more specific suggestions for your ${fieldDisplayNames[field]}, it would help to have your website URL, a customer call transcript, or more information about your business. In the meantime, could you tell me more about your target audience and what problem your product solves?`
         });
       }
+      // Signature Approach / Onboarding Steps (Step 1)
       else if (field === 'onboardingStep') {
-        // Generate onboarding step suggestions
-        const stepSuggestions = [
-          "Complete a quick 2-minute setup wizard",
-          "Watch the 5-minute getting started video",
-          "Import your existing data (10 minutes)",
-          "Set up your first automation (15 minutes)",
-          "Connect with your team members (5 minutes)"
-        ];
+        // Get data sources for context
+        const hasWebsiteData = currentWebsiteFindings !== null;
+        const hasTranscriptData = transcriptData !== null;
 
-        const formattedSuggestions = stepSuggestions.map(text => ({
-          text,
-          field: 'onboardingStep'
-        }));
+        // Check if we have pre-extracted onboarding steps from the website analysis
+        let formattedSuggestions: Array<{text: string, reasoning?: string, field: string}> = [];
+
+        if (currentWebsiteFindings?.onboardingSteps?.length > 0) {
+          console.log('Using pre-extracted onboarding steps:', currentWebsiteFindings.onboardingSteps);
+          formattedSuggestions = currentWebsiteFindings.onboardingSteps.map(step => ({
+            text: `${step.description} (${step.timeEstimate})`,
+            reasoning: 'Extracted from website analysis',
+            field: 'onboardingStep'
+          }));
+        } else {
+          // If no pre-extracted steps, generate them using the AI
+          console.log('No pre-extracted onboarding steps found, generating with AI');
+
+          // Use the core offer nucleus to generate relevant onboarding steps
+          const suggestionsWithReasoning = await generateSuggestions(
+            'onboardingStep',
+            initialContext,
+            currentWebsiteFindings,
+            transcriptData
+          );
+
+          // Format suggestions for the UI, keeping the reasoning
+          formattedSuggestions = suggestionsWithReasoning.map(suggestion => ({
+            text: suggestion.text,
+            reasoning: suggestion.reasoning,
+            field: 'onboardingStep'
+          }));
+
+          // If AI generation fails, use fallback suggestions
+          if (formattedSuggestions.length === 0) {
+            const stepSuggestions = [
+              "Complete a quick 2-minute setup wizard",
+              "Watch the 5-minute getting started video",
+              "Import your existing data (10 minutes)",
+              "Set up your first automation (15 minutes)",
+              "Connect with your team members (5 minutes)"
+            ];
+
+            formattedSuggestions = stepSuggestions.map(text => ({
+              text,
+              field: 'onboardingStep'
+            }));
+          }
+        }
 
         setSuggestions(formattedSuggestions);
         setShowSuggestions(true);
 
+        // Create a context-aware message
+        let message = '';
+        if (hasWebsiteData && hasTranscriptData) {
+          message = 'Based on your website and customer transcript analysis, here are some suggested onboarding steps for your signature approach:';
+        } else if (hasWebsiteData) {
+          message = 'Based on your website analysis, here are some suggested onboarding steps for your signature approach:';
+        } else if (hasTranscriptData) {
+          message = 'Based on your customer transcript analysis, here are some suggested onboarding steps for your signature approach:';
+        } else {
+          message = 'Here are some suggested onboarding steps for your signature approach. These steps should guide users to get the full value from your offer:';
+        }
+
         addChatMessage({
           sender: 'ai',
-          content: `Here are some suggestions for onboarding steps. You can select one or type your own.`
+          content: message
         });
       } else if (field === 'bonus') {
-        // Generate bonus suggestions
-        const bonusSuggestions = [
-          "Free 30-minute strategy call",
-          "Exclusive PDF guide with advanced tips",
-          "Access to private community",
-          "Monthly live Q&A sessions",
-          "Template library worth $197"
+        // Get data sources for context
+        const hasWebsiteData = currentWebsiteFindings !== null;
+        const hasTranscriptData = transcriptData !== null;
+
+        // Generate bonus suggestions based on the core offer nucleus
+        console.log('Generating bonus suggestions based on core offer nucleus');
+
+        // Use the AI to generate contextually relevant bonus suggestions
+        let formattedSuggestions: Array<{text: string, reasoning?: string, field: string}> = [];
+
+        try {
+          // Generate bonus suggestions using the core offer nucleus
+          const suggestionsWithReasoning = await generateSuggestions(
+            'onboardingStep', // Reuse the onboardingStep type for now
+            initialContext,
+            currentWebsiteFindings,
+            transcriptData
+          );
+
+          // Format suggestions for the UI, keeping the reasoning
+          formattedSuggestions = suggestionsWithReasoning.map(suggestion => ({
+            text: suggestion.text,
+            reasoning: suggestion.reasoning,
+            field: 'bonus'
+          }));
+        } catch (error) {
+          console.error('Error generating bonus suggestions:', error);
+        }
+
+        // If AI generation fails, use fallback suggestions
+        if (formattedSuggestions.length === 0) {
+          const bonusSuggestions = [
+            "Free 30-minute strategy call",
+            "Exclusive PDF guide with advanced tips",
+            "Access to private community",
+            "Monthly live Q&A sessions",
+            "Template library worth $197"
+          ];
+
+          formattedSuggestions = bonusSuggestions.map(text => ({
+            text,
+            field: 'bonus'
+          }));
+        }
+
+        setSuggestions(formattedSuggestions);
+        setShowSuggestions(true);
+
+        // Create a context-aware message
+        let message = '';
+        if (hasWebsiteData && hasTranscriptData) {
+          message = 'Based on your core offer and analysis, here are some suggested bonuses that would enhance your offer:';
+        } else if (hasWebsiteData) {
+          message = 'Based on your website analysis and core offer, here are some suggested bonuses that would enhance your offer:';
+        } else if (hasTranscriptData) {
+          message = 'Based on your customer transcript analysis and core offer, here are some suggested bonuses that would enhance your offer:';
+        } else {
+          message = 'Here are some suggested bonuses that would enhance your offer. These bonuses should increase the perceived value and make your offer more compelling:';
+        }
+
+        addChatMessage({
+          sender: 'ai',
+          content: message
+        });
+      } else if (field === 'scarcity') {
+        // Get data sources for context
+        const hasWebsiteData = currentWebsiteFindings !== null;
+        const hasTranscriptData = transcriptData !== null;
+
+        // Generate scarcity suggestions based on the core offer nucleus
+        console.log('Generating scarcity suggestions based on core offer nucleus');
+
+        // Use the AI to generate contextually relevant scarcity suggestions
+        let formattedSuggestions: Array<{text: string, reasoning?: string, field: string}> = [];
+
+        // Generate scarcity suggestions
+        const scarcitySuggestions = [
+          `Limited to 50 spots because we provide personalized onboarding to each customer`,
+          `Early bird pricing ends in 7 days to ensure we can process all orders before launch`,
+          `Only accepting 20 clients this month to maintain our high quality of service`,
+          `Founding member pricing available only for the first 100 customers`,
+          `Limited availability due to our hands-on approach with each client`
         ];
 
-        const formattedSuggestions = bonusSuggestions.map(text => ({
+        formattedSuggestions = scarcitySuggestions.map(text => ({
           text,
-          field: 'bonus'
+          reasoning: 'Effective scarcity creates urgency while maintaining authenticity',
+          field: 'scarcity'
         }));
 
         setSuggestions(formattedSuggestions);
         setShowSuggestions(true);
 
+        // Create a context-aware message
+        let message = 'Here are some suggested scarcity elements for your offer. Remember that scarcity should always be authentic - only use these if they genuinely apply to your situation:';
+
         addChatMessage({
           sender: 'ai',
-          content: `Here are some suggestions for bonuses. You can select one or type your own.`
+          content: message
+        });
+      } else if (field === 'problemSection') {
+        // Get data sources for context
+        const hasWebsiteData = currentWebsiteFindings !== null;
+        const hasTranscriptData = transcriptData !== null;
+
+        // Generate problem section suggestions based on the core offer nucleus
+        console.log('Generating problem section suggestions based on core offer nucleus');
+
+        // Use the AI to generate contextually relevant problem section suggestions
+        let formattedSuggestions: Array<{text: string, reasoning?: string, field: string}> = [];
+
+        // Generate problem section suggestions
+        const problemSuggestions = [
+          `Most ${coreOfferNucleus.targetAudience} struggle with ${coreOfferNucleus.biggestBarrier}, wasting time and resources on solutions that don't work.`,
+          `Traditional approaches to ${coreOfferNucleus.desiredResult} are ineffective because they ignore ${coreOfferNucleus.biggestBarrier}.`,
+          `${coreOfferNucleus.targetAudience} often face three major challenges: [1] ${coreOfferNucleus.biggestBarrier}, [2] lack of clear guidance, and [3] inconsistent results.`
+        ];
+
+        formattedSuggestions = problemSuggestions.map(text => ({
+          text,
+          reasoning: 'Effective problem statements create resonance with your audience by articulating their pain points',
+          field: 'problemSection'
+        }));
+
+        setSuggestions(formattedSuggestions);
+        setShowSuggestions(true);
+
+        // Create a context-aware message
+        let message = 'Here are some suggested problem statements for your landing page. These statements articulate the pain points your target audience experiences:';
+
+        addChatMessage({
+          sender: 'ai',
+          content: message
+        });
+      } else if (field === 'solutionSection') {
+        // Get data sources for context
+        const hasWebsiteData = currentWebsiteFindings !== null;
+        const hasTranscriptData = transcriptData !== null;
+
+        // Generate solution section suggestions based on the core offer nucleus and onboarding steps
+        console.log('Generating solution section suggestions based on core offer nucleus and onboarding steps');
+
+        // Use the AI to generate contextually relevant solution section suggestions
+        let formattedSuggestions: Array<{text: string, reasoning?: string, field: string}> = [];
+
+        // Get onboarding steps to incorporate into the solution
+        const steps = onboardingSteps.map(step => step.description).slice(0, 3);
+        const stepsText = steps.length > 0 ?
+          `Our proven approach: ${steps.join(' → ')}` :
+          `Our ${coreOfferNucleus.keyAdvantage} approach`;
+
+        // Generate solution section suggestions
+        const solutionSuggestions = [
+          `Introducing our ${coreOfferNucleus.keyAdvantage} solution designed specifically for ${coreOfferNucleus.targetAudience}. ${stepsText}`,
+          `Our unique approach combines ${coreOfferNucleus.keyAdvantage} with proven strategies to help you achieve ${coreOfferNucleus.desiredResult} without ${coreOfferNucleus.biggestBarrier}.`,
+          `We've developed a streamlined system that leverages ${coreOfferNucleus.keyAdvantage} to deliver ${coreOfferNucleus.desiredResult} for ${coreOfferNucleus.targetAudience}.`
+        ];
+
+        formattedSuggestions = solutionSuggestions.map(text => ({
+          text,
+          reasoning: 'Effective solution statements highlight your unique approach and connect it to the desired outcome',
+          field: 'solutionSection'
+        }));
+
+        setSuggestions(formattedSuggestions);
+        setShowSuggestions(true);
+
+        // Create a context-aware message
+        let message = 'Here are some suggested solution statements for your landing page. These statements highlight your unique approach and how it delivers results:';
+
+        addChatMessage({
+          sender: 'ai',
+          content: message
+        });
+      } else if (field === 'riskReversal') {
+        // Get data sources for context
+        const hasWebsiteData = currentWebsiteFindings !== null;
+        const hasTranscriptData = transcriptData !== null;
+
+        // Generate risk reversal suggestions based on the core offer nucleus
+        console.log('Generating risk reversal suggestions based on core offer nucleus');
+
+        // Use the AI to generate contextually relevant risk reversal suggestions
+        let formattedSuggestions: Array<{text: string, reasoning?: string, field: string}> = [];
+
+        // Generate risk reversal suggestions
+        const riskReversalSuggestions = [
+          `${coreOfferNucleus.assurance} - We're so confident in our approach that we offer a 30-day money-back guarantee if you don't see results.`,
+          `Worried about ${coreOfferNucleus.biggestBarrier}? Our ${coreOfferNucleus.assurance} ensures you can try our solution risk-free.`,
+          `No more ${coreOfferNucleus.biggestBarrier} - With our ${coreOfferNucleus.assurance}, you can be confident in your decision.`
+        ];
+
+        formattedSuggestions = riskReversalSuggestions.map(text => ({
+          text,
+          reasoning: 'Effective risk reversals address the main objection and provide reassurance',
+          field: 'riskReversal'
+        }));
+
+        setSuggestions(formattedSuggestions);
+        setShowSuggestions(true);
+
+        // Create a context-aware message
+        let message = 'Here are some suggested risk reversal statements for your landing page. These statements address objections and provide reassurance:';
+
+        addChatMessage({
+          sender: 'ai',
+          content: message
+        });
+      } else if (field === 'ctaSection') {
+        // Get data sources for context
+        const hasWebsiteData = currentWebsiteFindings !== null;
+        const hasTranscriptData = transcriptData !== null;
+
+        // Generate CTA suggestions based on the core offer nucleus
+        console.log('Generating CTA suggestions based on core offer nucleus');
+
+        // Use the AI to generate contextually relevant CTA suggestions
+        let formattedSuggestions: Array<{text: string, reasoning?: string, field: string}> = [];
+
+        // Generate CTA suggestions
+        const ctaSuggestions = [
+          `Get Started Now and Achieve ${coreOfferNucleus.desiredResult}`,
+          `Claim Your ${coreOfferNucleus.keyAdvantage} Solution Today`,
+          `Start Your Journey to ${coreOfferNucleus.desiredResult}`,
+          `Join ${coreOfferNucleus.targetAudience} Who Are Already Succeeding`,
+          `Overcome ${coreOfferNucleus.biggestBarrier} Today`
+        ];
+
+        formattedSuggestions = ctaSuggestions.map(text => ({
+          text,
+          reasoning: 'Effective CTAs create urgency and connect to the desired outcome',
+          field: 'ctaSection'
+        }));
+
+        setSuggestions(formattedSuggestions);
+        setShowSuggestions(true);
+
+        // Create a context-aware message
+        let message = 'Here are some suggested call-to-action statements for your landing page. These CTAs create urgency and connect to the desired outcome:';
+
+        addChatMessage({
+          sender: 'ai',
+          content: message
         });
       } else if (field === 'heroSection' && hasCompleteCoreOffer()) {
-        // Generate hero section suggestions
+        // Generate hero section suggestions based on the core offer nucleus
+        console.log('Generating hero section suggestions based on core offer nucleus');
+
+        // Create variations of hero headlines based on the RARA framework
         const heroSuggestions = [
           `Get ${coreOfferNucleus.desiredResult} Without ${coreOfferNucleus.biggestBarrier}`,
           `The Only ${coreOfferNucleus.keyAdvantage} Solution for ${coreOfferNucleus.targetAudience}`,
-          `Transform Your Results: ${coreOfferNucleus.desiredResult} in Just Days`
+          `Transform Your Results: ${coreOfferNucleus.desiredResult} in Just Days`,
+          `${coreOfferNucleus.targetAudience}: Achieve ${coreOfferNucleus.desiredResult} With Our Proven System`,
+          `Stop Struggling With ${coreOfferNucleus.biggestBarrier} - Start Enjoying ${coreOfferNucleus.desiredResult}`
         ];
 
         const formattedSuggestions = heroSuggestions.map(text => ({
           text,
+          reasoning: 'Based on your core offer nucleus using the RARA framework',
           field: 'heroSection'
         }));
 
@@ -681,7 +959,7 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
 
         addChatMessage({
           sender: 'ai',
-          content: `Here are some headline suggestions for your hero section. You can select one or type your own.`
+          content: `Here are some headline suggestions for your hero section based on your core offer. You can select one or type your own.`
         });
       }
     } catch (error) {

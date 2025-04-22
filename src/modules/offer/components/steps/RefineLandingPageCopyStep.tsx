@@ -2,28 +2,35 @@ import React, { useState, useEffect } from 'react';
 import { useOfferStore } from '../../store/offerStore';
 import { Loader2 } from 'lucide-react';
 // We need new AI generator functions
-// import { 
-//   generateHeroCopyDraft, 
-//   generateProblemCopyDraft, 
-//   generateSolutionCopyDraft, 
+// import {
+//   generateHeroCopyDraft,
+//   generateProblemCopyDraft,
+//   generateSolutionCopyDraft,
 //   // ... etc
 // } from '../../services/ai/generators';
 
 // Define the sections and their expected copy points
 const landingPageSections = {
-  hero: { 
+  hero: {
     title: 'Hero Section',
-    fields: ['headline', 'subheadline', 'cta'] 
+    fields: ['headline', 'subheadline', 'cta']
   },
-  problem: { 
+  problem: {
     title: 'Problem/Agitation',
     fields: ['headline', 'body']
   },
-  solution: { 
+  solution: {
     title: 'Solution/Value',
-    fields: ['headline', 'body']
+    fields: ['headline', 'body', 'socialProof']
   },
-  // Add other sections like RiskReversal, SocialProof, FinalCTA etc.
+  riskReversal: {
+    title: 'Risk Reversal',
+    fields: ['headline', 'body', 'socialProof']
+  },
+  cta: {
+    title: 'Call to Action',
+    fields: ['headline', 'body', 'buttonText']
+  }
 };
 
 type SectionKey = keyof typeof landingPageSections;
@@ -41,7 +48,7 @@ const generateDraft = async (sectionKey: SectionKey, context: any): Promise<Reco
 };
 
 export function RefineLandingPageCopyStep({ readOnly = false }: { readOnly?: boolean }) {
-  const { 
+  const {
     initialContext,
     coreResult,
     keyAdvantage,
@@ -49,8 +56,8 @@ export function RefineLandingPageCopyStep({ readOnly = false }: { readOnly?: boo
     primaryAssurance,
     exclusivity,
     bonuses,
-    landingPageCopy, 
-    updateLandingPageCopySection 
+    landingPageCopy,
+    updateLandingPageCopySection
   } = useOfferStore((state) => ({
     initialContext: state.initialContext,
     coreResult: state.coreResult,
@@ -94,7 +101,7 @@ export function RefineLandingPageCopyStep({ readOnly = false }: { readOnly?: boo
         .then(draft => {
           setSectionDraft(draft);
           // Pre-fill editor with draft if no edits exist
-          setEditedCopy(draft); 
+          setEditedCopy(draft);
         })
         .catch(err => console.error("Error generating draft:", err))
         .finally(() => setIsGenerating(false));
@@ -116,7 +123,7 @@ export function RefineLandingPageCopyStep({ readOnly = false }: { readOnly?: boo
     if (readOnly) return;
     updateLandingPageCopySection(selectedSection, editedCopy);
     // Optionally provide feedback to user (e.g., toast notification)
-    alert(`${landingPageSections[selectedSection].title} saved!`); 
+    alert(`${landingPageSections[selectedSection].title} saved!`);
   };
 
   return (
@@ -144,7 +151,7 @@ export function RefineLandingPageCopyStep({ readOnly = false }: { readOnly?: boo
       {/* Editor for Selected Section - Use basic textarea */}
       <div className="bg-[#222222] p-6 rounded-lg space-y-6 border border-[#444]">
         <h3 className="text-xl font-semibold text-white mb-4">Editing: {landingPageSections[selectedSection].title}</h3>
-        
+
         {isGenerating && (
           <div className="flex items-center text-gray-400">
             <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -162,7 +169,7 @@ export function RefineLandingPageCopyStep({ readOnly = false }: { readOnly?: boo
                 {/* Use basic textarea */}
                 <textarea
                   id={`${selectedSection}-${field}`}
-                  value={editedCopy[field] || ''} 
+                  value={editedCopy[field] || ''}
                   onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => handleEditChange(field, e.target.value)}
                   disabled={readOnly}
                   placeholder={`Enter copy for ${field}...`}
@@ -187,4 +194,4 @@ export function RefineLandingPageCopyStep({ readOnly = false }: { readOnly?: boo
        {readOnly && <p className="text-yellow-500 mt-4 text-center">This view is read-only</p>}
     </div>
   );
-} 
+}
