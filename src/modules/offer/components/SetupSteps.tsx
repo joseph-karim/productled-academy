@@ -69,30 +69,41 @@ export function SetupSteps({ readOnly = false }: SetupStepsProps) {
   // Get website findings from the store
   const websiteUrl = useOfferStore((state) => state.websiteUrl);
   const scrapingStatus = useOfferStore((state) => state.websiteScraping.status);
-  const websiteFindings = useOfferStore((state) => {
-    if (state.websiteScraping.status === 'completed') {
+
+  // Helper function to create website findings object with proper null/undefined handling
+  const createWebsiteFindings = (scrapingData: typeof useOfferStore.getState().websiteScraping) => {
+    if (scrapingData.status !== 'completed') {
       return {
-        coreOffer: state.websiteScraping.coreOffer || '',
-        targetAudience: state.websiteScraping.targetAudience || '',
-        problemSolved: state.websiteScraping.keyProblem || '',
-        valueProposition: state.websiteScraping.valueProposition || '',
-        keyBenefits: Array.isArray(state.websiteScraping.keyFeatures) ? state.websiteScraping.keyFeatures : [],
-        keyPhrases: Array.isArray(state.websiteScraping.keyPhrases) ? state.websiteScraping.keyPhrases : [],
-        onboardingSteps: Array.isArray(state.websiteScraping.onboardingSteps) ? state.websiteScraping.onboardingSteps : [],
-        missingInfo: []
+        coreOffer: '',
+        targetAudience: '',
+        problemSolved: '',
+        valueProposition: '',
+        keyBenefits: [],
+        keyPhrases: [],
+        onboardingSteps: [],
+        missingInfo: ['No website analysis available']
       };
     }
+
     return {
-      coreOffer: '',
-      targetAudience: '',
-      problemSolved: '',
-      valueProposition: '',
-      keyBenefits: [],
-      keyPhrases: [],
-      onboardingSteps: [],
-      missingInfo: ['No website analysis available']
+      coreOffer: scrapingData.coreOffer || '',
+      targetAudience: scrapingData.targetAudience || '',
+      problemSolved: scrapingData.keyProblem || '',
+      valueProposition: scrapingData.valueProposition || '',
+      keyBenefits: Array.isArray(scrapingData.keyFeatures) ? scrapingData.keyFeatures : [],
+      keyPhrases: Array.isArray(scrapingData.keyPhrases) ? scrapingData.keyPhrases : [],
+      onboardingSteps: Array.isArray(scrapingData.onboardingSteps) ? scrapingData.onboardingSteps : [],
+      missingInfo: []
     };
-  });
+  };
+
+  // Use the helper function to get the current website findings
+  const getWebsiteFindings = () => {
+    return createWebsiteFindings(useOfferStore.getState().websiteScraping);
+  };
+
+  // Get the initial website findings
+  const websiteFindings = createWebsiteFindings(websiteScraping);
 
   // Use onboarding steps from website scraping if available and no steps have been added yet
   useEffect(() => {
@@ -152,7 +163,7 @@ export function SetupSteps({ readOnly = false }: SetupStepsProps) {
             websiteUrl={websiteUrl}
             initialContext={initialContext}
             websiteScrapingStatus={scrapingStatus}
-            websiteFindings={websiteFindings}
+            websiteFindings={getWebsiteFindings()}
           />
         </div>
       )}

@@ -27,6 +27,31 @@ export function DefineCoreOffer({ readOnly = false }: DefineCoreOfferProps) {
   const websiteUrl = useOfferStore((state) => state.websiteUrl);
   const scrapingStatus = useOfferStore((state) => state.websiteScraping.status);
 
+  // Helper function to create website findings object with proper null/undefined handling
+  const createWebsiteFindings = (scrapingData: typeof useOfferStore.getState().websiteScraping) => {
+    if (scrapingData.status !== 'completed') return null;
+
+    return {
+      coreOffer: scrapingData.coreOffer || '',
+      targetAudience: scrapingData.targetAudience || '',
+      problemSolved: scrapingData.keyProblem || '',
+      keyBenefits: Array.isArray(scrapingData.keyFeatures)
+        ? scrapingData.keyFeatures.map(feature =>
+            typeof feature === 'string' ? feature : (feature?.benefit || '')
+          ).filter(Boolean)
+        : [],
+      valueProposition: scrapingData.valueProposition || '',
+      cta: null,
+      tone: null,
+      missingInfo: null
+    };
+  };
+
+  // Use the helper function to get the current website findings
+  const getWebsiteFindings = () => {
+    return createWebsiteFindings(useOfferStore.getState().websiteScraping);
+  };
+
   const handleInputChange = (field: keyof typeof coreOfferNucleus, value: string) => {
     if (readOnly) return;
     setCoreOfferNucleus({ ...coreOfferNucleus, [field]: value });
@@ -182,16 +207,16 @@ export function DefineCoreOffer({ readOnly = false }: DefineCoreOfferProps) {
 
               {/* Right column: Insights from website analysis */}
               <div className="space-y-4">
-                {websiteFindings && websiteFindings.coreOffer ? (
+                {getWebsiteFindings() && getWebsiteFindings()?.coreOffer ? (
                   <>
                     <h3 className="text-lg font-semibold text-white">Offer Insights</h3>
                     <OfferInsights
                       currentOffer={coreOfferNucleus}
                       websiteOffer={{
-                        targetAudience: websiteFindings.targetAudience || '',
-                        desiredResult: websiteFindings.valueProposition || '',
-                        keyAdvantage: websiteFindings.keyBenefits?.length > 0 ? websiteFindings.keyBenefits[0] : '',
-                        biggestBarrier: websiteFindings.problemSolved || '',
+                        targetAudience: getWebsiteFindings()?.targetAudience || '',
+                        desiredResult: getWebsiteFindings()?.valueProposition || '',
+                        keyAdvantage: getWebsiteFindings()?.keyBenefits?.length > 0 ? getWebsiteFindings()?.keyBenefits[0] : '',
+                        biggestBarrier: getWebsiteFindings()?.problemSolved || '',
                         assurance: ''
                       }}
                     />

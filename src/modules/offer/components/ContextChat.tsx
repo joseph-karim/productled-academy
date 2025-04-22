@@ -14,29 +14,38 @@ export function ContextChat() {
     websiteScraping,
   } = useOfferStore();
 
-  // Create website findings object with better null/undefined handling
-  const websiteFindings: WebsiteFindings | null =
-    websiteScraping.status === 'completed'
-    ? {
-        coreOffer: websiteScraping.coreOffer || '',
-        targetAudience: websiteScraping.targetAudience || '',
-        problemSolved: websiteScraping.keyProblem || '',
-        keyBenefits: Array.isArray(websiteScraping.keyFeatures)
-          ? websiteScraping.keyFeatures.map(feature =>
-              typeof feature === 'string' ? feature : (feature?.benefit || '')
-            ).filter(Boolean)
-          : [],
-        valueProposition: websiteScraping.valueProposition || '',
-        cta: null,
-        tone: null,
-        missingInfo: null
-      }
-    : null;
+  // Helper function to create website findings object with proper null/undefined handling
+  const createWebsiteFindings = (scrapingData: typeof websiteScraping): WebsiteFindings | null => {
+    if (scrapingData.status !== 'completed') return null;
+
+    return {
+      coreOffer: scrapingData.coreOffer || '',
+      targetAudience: scrapingData.targetAudience || '',
+      problemSolved: scrapingData.keyProblem || '',
+      keyBenefits: Array.isArray(scrapingData.keyFeatures)
+        ? scrapingData.keyFeatures.map(feature =>
+            typeof feature === 'string' ? feature : (feature?.benefit || '')
+          ).filter(Boolean)
+        : [],
+      valueProposition: scrapingData.valueProposition || '',
+      cta: null,
+      tone: null,
+      missingInfo: null
+    };
+  };
+
+  // Use the helper function to get the current website findings
+  const getWebsiteFindings = (): WebsiteFindings | null => {
+    return createWebsiteFindings(useOfferStore.getState().websiteScraping);
+  };
+
+  // Get the initial website findings
+  const websiteFindings = createWebsiteFindings(websiteScraping);
 
   // Log website findings for debugging
   useEffect(() => {
     console.log('ContextChat - websiteScraping status:', websiteScraping.status);
-    console.log('ContextChat - websiteFindings:', websiteFindings);
+    console.log('ContextChat - websiteFindings:', getWebsiteFindings());
   }, [websiteScraping.status]);
 
   const [currentInput, setCurrentInput] = useState('');
@@ -58,17 +67,18 @@ export function ContextChat() {
       let summaryLines: string[] = [];
       let analysisPerformed = false;
 
-      if (websiteScraping.status === 'completed' && websiteFindings?.coreOffer) {
+      const currentWebsiteFindings = getWebsiteFindings();
+      if (websiteScraping.status === 'completed' && currentWebsiteFindings?.coreOffer) {
         analysisPerformed = true;
         summaryLines.push(`Hello! I've reviewed your website (${websiteUrl}) and the initial context. Let's refine your offer based on this:`);
         summaryLines.push("");
         summaryLines.push("Website Analysis Findings:");
-        summaryLines.push(`  Core Offer: ${websiteFindings.coreOffer || 'Not clearly identified'}`);
-        summaryLines.push(`  Target Audience: ${websiteFindings.targetAudience || 'Not clearly identified'}`);
-        summaryLines.push(`  Problem Solved: ${websiteFindings.problemSolved || 'Not clearly identified'}`);
-        summaryLines.push(`  Value Proposition: ${websiteFindings.valueProposition || 'Not clearly identified'}`);
-        if (websiteFindings.keyBenefits && websiteFindings.keyBenefits.length > 0) {
-           summaryLines.push(`  Key Benefits: ${websiteFindings.keyBenefits.slice(0, 3).join(', ')}...`);
+        summaryLines.push(`  Core Offer: ${currentWebsiteFindings.coreOffer || 'Not clearly identified'}`);
+        summaryLines.push(`  Target Audience: ${currentWebsiteFindings.targetAudience || 'Not clearly identified'}`);
+        summaryLines.push(`  Problem Solved: ${currentWebsiteFindings.problemSolved || 'Not clearly identified'}`);
+        summaryLines.push(`  Value Proposition: ${currentWebsiteFindings.valueProposition || 'Not clearly identified'}`);
+        if (currentWebsiteFindings.keyBenefits && currentWebsiteFindings.keyBenefits.length > 0) {
+           summaryLines.push(`  Key Benefits: ${currentWebsiteFindings.keyBenefits.slice(0, 3).join(', ')}...`);
         }
         summaryLines.push("");
       } else {
@@ -98,7 +108,7 @@ export function ContextChat() {
 
       try {
         console.log('[ContextChat] Generating initial question...');
-        const questionsText = await generateClarifyingQuestions(initialContext, websiteFindings);
+        const questionsText = await generateClarifyingQuestions(initialContext, getWebsiteFindings());
         const parsedQuestions = parseQuestionsFromText(questionsText);
         console.log(`[ContextChat] Generated ${parsedQuestions.length} questions.`);
 
@@ -168,22 +178,8 @@ export function ContextChat() {
       // Get current store state
       const store = useOfferStore.getState();
 
-      // Create website findings with better null/undefined handling
-      const currentFindings =
-         store.websiteScraping.status === 'completed'
-         ? {
-             coreOffer: store.websiteScraping.coreOffer || '',
-             targetAudience: store.websiteScraping.targetAudience || '',
-             problemSolved: store.websiteScraping.keyProblem || '',
-             keyBenefits: Array.isArray(store.websiteScraping.keyFeatures)
-               ? store.websiteScraping.keyFeatures.map(feature =>
-                   typeof feature === 'string' ? feature : (feature?.benefit || '')
-                 ).filter(Boolean)
-               : [],
-             valueProposition: store.websiteScraping.valueProposition || '',
-             cta: null, tone: null, missingInfo: null
-           }
-         : null;
+      // Get the latest website findings using our helper function
+      const currentFindings = getWebsiteFindings();
 
       // Log for debugging
       console.log('handleSendMessage - currentFindings:', currentFindings);
