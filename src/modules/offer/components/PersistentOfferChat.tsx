@@ -76,7 +76,12 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
     keyAdvantage: 'Key Advantage',
     biggestBarrier: 'Biggest Barrier',
     assurance: 'Assurance',
-    onboardingStep: 'Onboarding Step',
+    onboardingStep: 'Signature Approach Step',
+    setupStep: 'Setup/Migration Step',
+    advantageStep: 'Key Advantage Step',
+    uniqueStep: 'Unique Capability Step',
+    fasterStep: 'Time-Saving Step',
+    analyticsStep: 'Analytics/Results Step',
     exclusivity: 'Exclusivity',
     bonus: 'Bonus',
     heroSection: 'Hero Section',
@@ -202,9 +207,12 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
         welcomeMessage = "I see you've already defined your core offer nucleus. Is there anything specific you'd like help with or would you like me to review what you've entered so far using the R-A-R-A framework?";
       }
     }
-    // Step 1: Setup Onboarding Steps
+    // Step 1: Setup Onboarding Steps / Signature Approach
     else if (currentStep === 1) {
-      welcomeMessage = "Now let's define the onboarding steps for your offer. These are the key steps users need to take to get value from your product. What would you like help with?";
+      // Get the core offer nucleus data
+      const nucleus = useOfferStore.getState().coreOfferNucleus;
+
+      welcomeMessage = `Now let's define your 5-step Signature Approach based on your core offer. This is how you'll deliver value to ${nucleus.targetAudience || 'your audience'} in a way that showcases your unique process.\n\nBased on your core offer:\n\n- Target Audience: ${nucleus.targetAudience || 'Not defined yet'}\n- Desired Result: ${nucleus.desiredResult || 'Not defined yet'}\n- Key Advantage: ${nucleus.keyAdvantage || 'Not defined yet'}\n- Risk: ${nucleus.biggestBarrier || 'Not defined yet'}\n- Assurance: ${nucleus.assurance || 'Not defined yet'}\n\nI can help you create a compelling 5-step process that shows how you deliver value. Would you like suggestions for each of these steps?\n\n1. Setup/Migration: How users get started quickly\n2. One thing you're better at: Your key advantage in action\n3. One thing impossible before: A unique capability you unlock\n4. One thing that's 10X faster: Major time/effort savings\n5. Analytics/Performance: How users see results`;
     }
     // Step 2: Add Enhancers
     else if (currentStep === 2) {
@@ -248,7 +256,8 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
           field === 'desiredResult' ||
           field === 'keyAdvantage' ||
           field === 'biggestBarrier' ||
-          field === 'assurance') {
+          field === 'assurance' ||
+          field === 'onboardingStep') {
 
         // Get data sources for context
         const hasWebsiteData = currentWebsiteFindings !== null;
@@ -304,8 +313,31 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
         else if (field === 'assurance') {
           message = `Finally, let's provide an Assurance to overcome the identified risk.\n\n${dataSourceContext}, how can you reverse the risk and build trust? Consider guarantees, easy onboarding promises, or clear proof points.\n\nHere are some suggestions for your Assurance:`;
         }
-        else if (field === 'onboardingStep') {
-          message = `Let's define clear onboarding steps for your users.\n\n${dataSourceContext}, what are the key steps users need to take to get value from your product? Include realistic time estimates.\n\nHere are some suggestions for Onboarding Steps:`;
+        else if (field === 'onboardingStep' || field === 'setupStep' || field === 'advantageStep' ||
+                 field === 'uniqueStep' || field === 'fasterStep' || field === 'analyticsStep') {
+
+          // Get step number and description based on the field
+          let stepNumber = '1';
+          let stepDescription = 'how users get started quickly and easily';
+
+          if (field === 'setupStep' || field === 'onboardingStep') {
+            stepNumber = '1';
+            stepDescription = 'how users get started quickly and easily';
+          } else if (field === 'advantageStep') {
+            stepNumber = '2';
+            stepDescription = 'your key advantage in action';
+          } else if (field === 'uniqueStep') {
+            stepNumber = '3';
+            stepDescription = 'a unique capability you unlock';
+          } else if (field === 'fasterStep') {
+            stepNumber = '4';
+            stepDescription = 'a major time or effort saving';
+          } else if (field === 'analyticsStep') {
+            stepNumber = '5';
+            stepDescription = 'how users see results and performance';
+          }
+
+          message = `Let's define Step ${stepNumber} of your Signature Approach: ${stepDescription}.\n\n${dataSourceContext}, what specific action or process happens in this step? Include a realistic time estimate.\n\nHere are some suggestions for Step ${stepNumber}:`;
         }
         else {
           message = `${dataSourceContext}, here are some suggestions for ${fieldDisplayNames[field]}:`;

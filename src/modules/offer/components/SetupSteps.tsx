@@ -35,6 +35,18 @@ export function SetupSteps({ readOnly = false }: SetupStepsProps) {
   const [currentStepTimeEstimate, setCurrentStepTimeEstimate] = useState('');
   const [showChat, setShowChat] = useState(false);
 
+  // Auto-show chat when component mounts
+  useEffect(() => {
+    if (!readOnly && !onboardingStepsConfirmed) {
+      // Short delay to ensure component is fully mounted
+      const timer = setTimeout(() => {
+        setShowChat(true);
+      }, 500);
+
+      return () => clearTimeout(timer);
+    }
+  }, [readOnly, onboardingStepsConfirmed]);
+
   const handleAddStep = () => {
     if (readOnly || !currentStepDescription.trim()) return;
 
@@ -132,24 +144,13 @@ export function SetupSteps({ readOnly = false }: SetupStepsProps) {
 
   return (
     <div className="space-y-8">
-      {/* Chat Button - Always visible when chat is not shown */}
-      {!showChat && !readOnly && (
-        <div className="mb-6">
-          <Button
-            onClick={() => setShowChat(true)}
-            className="w-full py-3 bg-[#FFD23F] text-black font-medium rounded-lg hover:bg-opacity-90 flex items-center justify-center"
-          >
-            <MessageSquare className="w-5 h-5 mr-2" />
-            <span className="text-lg">Get AI Help with Your Setup Steps</span>
-          </Button>
-        </div>
-      )}
+      {/* Chat button removed as we now have persistent chat */}
 
       {/* AI Chat Assistant */}
       {showChat && !readOnly && (
         <div className="mb-6 bg-[#222222] p-6 rounded-lg space-y-4">
           <div className="flex justify-between items-center mb-3">
-            <h3 className="text-xl font-semibold text-white">AI Setup Assistant</h3>
+            <h3 className="text-xl font-semibold text-white">AI Signature Approach Assistant</h3>
             <Button
               onClick={() => setShowChat(false)}
               variant="ghost"
@@ -170,13 +171,12 @@ export function SetupSteps({ readOnly = false }: SetupStepsProps) {
 
       <Card className="bg-[#2A2A2A] border-[#333333] text-white">
         <CardHeader>
-          <CardTitle>Setup: Onboarding Steps</CardTitle>
-          <CardDescription className="text-gray-400">Define the top 3-5 steps users need to take to get value from your offer.</CardDescription>
+          <CardTitle>Our Signature Approach</CardTitle>
+          <CardDescription className="text-gray-400">The 3-5 steps to get the full value of your offer.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Onboarding Steps Section */}
           <div className="space-y-4 p-4 border border-[#444444] rounded-md bg-[#1C1C1C]">
-            <h3 className="font-semibold text-gray-200">Value Path</h3>
             <p className="text-gray-400 text-sm">What are the key steps your users need to take to get value from your offer? These will become your onboarding process.</p>
 
             {onboardingSteps.map((step, index) => (
