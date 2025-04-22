@@ -51,7 +51,34 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
 
   // Helper function to create website findings object with proper null/undefined handling
   const createWebsiteFindings = (scrapingData: typeof websiteScraping): WebsiteFindings | null => {
-    if (scrapingData.status !== 'completed') return null;
+    if (scrapingData.status !== 'completed') {
+      console.log('Scraping data status is not completed:', scrapingData.status);
+      return null;
+    }
+
+    // Log the scraping data to debug
+    console.log('Creating website findings from scraping data:', scrapingData);
+
+    // Check if we have any meaningful data
+    const hasData = !!scrapingData.coreOffer || !!scrapingData.targetAudience ||
+                   !!scrapingData.keyProblem || !!scrapingData.valueProposition ||
+                   (Array.isArray(scrapingData.keyFeatures) && scrapingData.keyFeatures.length > 0);
+
+    if (!hasData) {
+      console.log('Scraping data has no meaningful content');
+      // Force a refresh from the store to ensure we have the latest data
+      const storeData = useOfferStore.getState().websiteScraping;
+      if (storeData.status === 'completed' &&
+          (!!storeData.coreOffer || !!storeData.targetAudience ||
+           !!storeData.keyProblem || !!storeData.valueProposition ||
+           (Array.isArray(storeData.keyFeatures) && storeData.keyFeatures.length > 0))) {
+        console.log('Found data in store, using that instead');
+        scrapingData = storeData;
+      } else {
+        console.log('No meaningful data in store either');
+        return null;
+      }
+    }
 
     return {
       coreOffer: scrapingData.coreOffer || '',
@@ -71,7 +98,10 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
 
   // Use the helper function to create the initial websiteFindings
   const getWebsiteFindings = (): WebsiteFindings | null => {
-    return createWebsiteFindings(websiteScraping);
+    // Always get the latest data from the store to ensure we have the most up-to-date information
+    const latestScrapingData = useOfferStore.getState().websiteScraping;
+    console.log('Getting latest website findings from store:', latestScrapingData);
+    return createWebsiteFindings(latestScrapingData);
   };
 
   // Field display names for better UX
@@ -114,18 +144,38 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
     const handleScrapingCompleted = (event: Event) => {
       console.log('PersistentOfferChat: Received scraping-completed event');
 
-      // Force refresh the websiteFindings object using our helper function
-      const updatedWebsiteFindings = getWebsiteFindings();
-      console.log('PersistentOfferChat: Updated websiteFindings:', updatedWebsiteFindings);
-
-      // Reset initial load to trigger welcome message with website data
-      setIsInitialLoad(true);
-
-      // Generate welcome message with a slight delay to ensure store is updated
+      // Give the store time to update with the scraping results
       setTimeout(() => {
-        // Use the updated websiteFindings for the welcome message
-        generateInitialWelcomeMessage();
-      }, 1500); // Increased delay to ensure store is fully updated
+        // Force refresh the websiteFindings object using our helper function
+        const updatedWebsiteFindings = getWebsiteFindings();
+        console.log('PersistentOfferChat: Updated websiteFindings after delay:', updatedWebsiteFindings);
+
+        if (updatedWebsiteFindings) {
+          // Reset initial load to trigger welcome message with website data
+          setIsInitialLoad(true);
+
+          // Generate welcome message
+          generateInitialWelcomeMessage();
+        } else {
+          console.log('PersistentOfferChat: No website findings available after scraping completed');
+          // Try one more time with a longer delay
+          setTimeout(() => {
+            const finalAttemptFindings = getWebsiteFindings();
+            console.log('PersistentOfferChat: Final attempt websiteFindings:', finalAttemptFindings);
+
+            if (finalAttemptFindings) {
+              setIsInitialLoad(true);
+              generateInitialWelcomeMessage();
+            } else {
+              // Add a fallback message if we still can't get the findings
+              addChatMessage({
+                sender: 'ai',
+                content: "I've analyzed your website, but I'm having trouble processing the results. Let me know if you'd like to try again or if you'd prefer to tell me about your offer directly."
+              });
+            }
+          }, 2000);
+        }
+      }, 1000); // Delay to ensure store is updated
     };
 
     window.addEventListener('scraping-completed', handleScrapingCompleted);
@@ -190,7 +240,13 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
     console.log('generateInitialWelcomeMessage - currentWebsiteFindings:', currentWebsiteFindings);
 
     // Check if we have website data or transcript data
-    const hasWebsiteData = currentState.websiteScraping.status === 'completed' && currentWebsiteFindings !== null;
+    // First check if the scraping status is completed
+    const isScrapingCompleted = currentState.websiteScraping.status === 'completed';
+    console.log('Scraping status:', currentState.websiteScraping.status);
+
+    // Then check if we have actual findings data
+    const hasWebsiteData = isScrapingCompleted && currentWebsiteFindings !== null;
+    console.log('Has website data:', hasWebsiteData, 'Scraping completed:', isScrapingCompleted, 'Has findings:', currentWebsiteFindings !== null);
     const hasTranscriptData = currentState.transcriptData !== null;
     const hasCompletedCoreOffer = currentState.coreOfferNucleus.targetAudience &&
                                  currentState.coreOfferNucleus.desiredResult &&
