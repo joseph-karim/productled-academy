@@ -724,7 +724,7 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
         // Generate bonus suggestions based on the core offer nucleus
         console.log('Generating bonus suggestions based on core offer nucleus');
 
-        // Use the AI to generate contextually relevant bonus suggestions
+        // Generate only one suggestion at a time for better interaction
         let formattedSuggestions: Array<{text: string, reasoning?: string, field: string}> = [];
 
         try {
@@ -737,16 +737,19 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
           );
 
           // Format suggestions for the UI, keeping the reasoning
-          formattedSuggestions = suggestionsWithReasoning.map(suggestion => ({
-            text: suggestion.text,
-            reasoning: suggestion.reasoning,
-            field: 'bonus'
-          }));
+          // Only take the first suggestion to show one at a time
+          if (suggestionsWithReasoning.length > 0) {
+            formattedSuggestions = [{
+              text: suggestionsWithReasoning[0].text,
+              reasoning: suggestionsWithReasoning[0].reasoning,
+              field: 'bonus'
+            }];
+          }
         } catch (error) {
           console.error('Error generating bonus suggestions:', error);
         }
 
-        // If AI generation fails, use fallback suggestions
+        // If AI generation fails, use a fallback suggestion
         if (formattedSuggestions.length === 0) {
           const bonusSuggestions = [
             "Free 30-minute strategy call",
@@ -756,10 +759,12 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
             "Template library worth $197"
           ];
 
-          formattedSuggestions = bonusSuggestions.map(text => ({
-            text,
+          // Only show one suggestion at a time
+          const randomIndex = Math.floor(Math.random() * bonusSuggestions.length);
+          formattedSuggestions = [{
+            text: bonusSuggestions[randomIndex],
             field: 'bonus'
-          }));
+          }];
         }
 
         setSuggestions(formattedSuggestions);
@@ -768,13 +773,13 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
         // Create a context-aware message
         let message = '';
         if (hasWebsiteData && hasTranscriptData) {
-          message = 'Based on your core offer and analysis, here are some suggested bonuses that would enhance your offer:';
+          message = 'Based on your core offer and analysis, here is a suggested bonus that would enhance your offer:';
         } else if (hasWebsiteData) {
-          message = 'Based on your website analysis and core offer, here are some suggested bonuses that would enhance your offer:';
+          message = 'Based on your website analysis and core offer, here is a suggested bonus that would enhance your offer:';
         } else if (hasTranscriptData) {
-          message = 'Based on your customer transcript analysis and core offer, here are some suggested bonuses that would enhance your offer:';
+          message = 'Based on your customer transcript analysis and core offer, here is a suggested bonus that would enhance your offer:';
         } else {
-          message = 'Here are some suggested bonuses that would enhance your offer. These bonuses should increase the perceived value and make your offer more compelling:';
+          message = 'Here is a suggested bonus that would enhance your offer. This bonus should increase the perceived value and make your offer more compelling:';
         }
 
         addChatMessage({
@@ -789,7 +794,7 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
         // Generate scarcity suggestions based on the core offer nucleus
         console.log('Generating scarcity suggestions based on core offer nucleus');
 
-        // Use the AI to generate contextually relevant scarcity suggestions
+        // Generate only one suggestion at a time for better interaction
         let formattedSuggestions: Array<{text: string, reasoning?: string, field: string}> = [];
 
         // Generate scarcity suggestions
@@ -801,17 +806,19 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
           `Limited availability due to our hands-on approach with each client`
         ];
 
-        formattedSuggestions = scarcitySuggestions.map(text => ({
-          text,
+        // Only show one suggestion at a time
+        const randomIndex = Math.floor(Math.random() * scarcitySuggestions.length);
+        formattedSuggestions = [{
+          text: scarcitySuggestions[randomIndex],
           reasoning: 'Effective scarcity creates urgency while maintaining authenticity',
           field: 'scarcity'
-        }));
+        }];
 
         setSuggestions(formattedSuggestions);
         setShowSuggestions(true);
 
         // Create a context-aware message
-        let message = 'Here are some suggested scarcity elements for your offer. Remember that scarcity should always be authentic - only use these if they genuinely apply to your situation:';
+        let message = 'Here is a suggested scarcity element for your offer. Remember that scarcity should always be authentic - only use this if it genuinely applies to your situation:';
 
         addChatMessage({
           sender: 'ai',
@@ -1169,28 +1176,44 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
         content: `Excellent bonus! I've added "${suggestion.text}" to your enhancers.`
       });
 
-      // Generate another suggestion if we have fewer than 3 bonuses
-      if (bonuses.length < 2) { // We just added one, so check if we had fewer than 2 before
-        setTimeout(() => {
+      // Always generate another suggestion after selecting one
+      setTimeout(() => {
+        // If we have 3 bonuses, suggest finalizing
+        if (bonuses.length >= 3) {
           addChatMessage({
             sender: 'ai',
-            content: `Would you like another bonus? Here are some more suggestions:`
+            content: `You now have ${bonuses.length} bonuses in your offer. You can continue adding more or click "Confirm Enhancers & Continue" when you're satisfied with your list.`
+          });
+        } else {
+          addChatMessage({
+            sender: 'ai',
+            content: `Let's add another bonus to your offer. Here's another suggestion:`
           });
           generateContextAwareSuggestions('bonus');
-        }, 1000);
-      }
+        }
+      }, 1000);
     }
     else if (suggestion.field === 'scarcity') {
       // Update the exclusivity in the store
       setExclusivity({
         hasLimit: true,
-        validReason: suggestion.text
+        validReason: suggestion.text,
+        capacityLimit: exclusivity.capacityLimit || '50' // Default capacity if not set
       });
 
       addChatMessage({
         sender: 'ai',
         content: `Great choice! I've added this scarcity element to your offer.`
       });
+
+      // Generate another suggestion
+      setTimeout(() => {
+        addChatMessage({
+          sender: 'ai',
+          content: `Would you like to try a different scarcity approach? Here's another suggestion:`
+        });
+        generateContextAwareSuggestions('scarcity');
+      }, 1000);
     }
     else if (suggestion.field === 'heroSection') {
       // Logic for hero section
