@@ -140,8 +140,9 @@ serve(async (req) => {
 
           // Use AbortController for timeout control
           const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+          const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout (increased)
 
+          console.log('Making request to Crawl4AI service...');
           const response = await fetch(`${crawlServiceUrl}/api/v1/scrape`, {
             method: 'POST',
             headers: {
@@ -154,30 +155,46 @@ serve(async (req) => {
               url: url,
               javascript_enabled: true,
               wait_for_selector: 'body',
-              timeout: 15000, // Reduced timeout
-              max_retries: 1,  // Reduced retries
-              // Only get essential content
-              extract_rules: {
-                title: 'title',
-                headings: 'h1, h2',
-                meta: 'meta[name="description"], meta[name="keywords"]',
-                main_content: 'main, article, .content, #content, .main'
+              timeout: 25000, // Increased timeout
+              max_retries: 2,  // Increased retries
+              // Updated configuration based on Crawl4AI documentation
+              browser_config: {
+                stealth_mode: true,
+                ignore_https_errors: true
+              },
+              crawler_config: {
+                follow_links: false,
+                max_depth: 0,
+                extract_rules: {
+                  title: 'title',
+                  headings: 'h1, h2, h3',
+                  meta: 'meta[name="description"], meta[name="keywords"], meta[property="og:description"]',
+                  main_content: 'main, article, .content, #content, .main, .hero, .features, .pricing, .about'
+                },
+                content_selection: {
+                  include_selectors: ['main', 'article', '.content', '#content', '.main', '.hero', '.features', '.pricing', '.about'],
+                  exclude_selectors: ['nav', 'footer', '.footer', '#footer', '.navigation', '#navigation', '.menu', '.cookie-banner']
+                }
               }
             }),
             signal: controller.signal
           });
 
           clearTimeout(timeoutId);
+          console.log('Crawl4AI response status:', response.status);
 
           if (!response.ok) {
             const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+            console.error('Crawl4AI error:', errorData);
             throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
           }
 
           const result = await response.json();
+          console.log('Crawl4AI response received, has HTML:', !!result.html);
 
           if (!result.html) {
-            throw new Error('No HTML content returned from crawl4ai');
+            console.error('No HTML content returned from Crawl4AI, full response:', result);
+            throw new Error('No HTML content returned from Crawl4AI');
           }
 
           return result.html;
@@ -193,11 +210,11 @@ serve(async (req) => {
     }
 
     async function fetchWithRetry(url: string, maxRetries = 2) {
-      // Optimized fetch function with faster fallback strategy
+      // Optimized fetch function with improved fallback strategy
       let lastError;
 
-      // Use a more aggressive timeout to fail faster
-      const timeoutMs = 20000; // 20 seconds timeout
+      // Use a more balanced timeout
+      const timeoutMs = 25000; // 25 seconds timeout
 
       // Try direct fetch first with fewer retries
       for (let attempt = 0; attempt <= 1; attempt++) {
@@ -219,6 +236,7 @@ serve(async (req) => {
           });
 
           clearTimeout(timeoutId);
+          console.log(`Direct fetch response status: ${response.status}`);
 
           if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -226,28 +244,29 @@ serve(async (req) => {
 
           const html = await response.text();
           if (!html || html.trim().length < 100) {
-            throw new Error('Empty or too small HTML response');
+            console.warn('Direct fetch returned empty or very small HTML content');
+            throw new Error('Empty or insufficient HTML content');
           }
 
-          console.log(`Successfully fetched ${url} with ${html.length} bytes`);
+          console.log(`Successfully fetched ${url} with ${html.length} bytes of HTML content`);
           return html;
         } catch (error) {
           console.error(`Direct fetch attempt ${attempt + 1} failed:`, error);
           lastError = error;
           if (attempt < 1) {
-            // Short delay before retry
-            await new Promise(resolve => setTimeout(resolve, 500));
+            console.log('Waiting before retry...');
+            await new Promise(resolve => setTimeout(resolve, 1000)); // Increased wait time
           }
         }
       }
 
-      // If direct fetch failed, immediately try crawl4ai
+      // If direct fetch failed, try Crawl4AI with more retries
       try {
-        console.log('Direct fetch failed, trying crawl4ai as fallback');
-        return await scrapeWebsiteWithCrawl4ai(url, 1); // Only 1 retry for crawl4ai
+        console.log('Direct fetch failed, trying Crawl4AI as fallback');
+        return await scrapeWebsiteWithCrawl4ai(url, 2); // Increased retries for Crawl4AI
       } catch (crawlError) {
-        console.error('Both direct fetch and crawl4ai failed:', crawlError);
-        throw lastError || crawlError;
+        console.error('Both direct fetch and Crawl4AI failed:', crawlError);
+        throw new Error(`Failed to fetch content from ${url}: ${lastError?.message || crawlError?.message || 'Unknown error'}`);
       }
     }
 
