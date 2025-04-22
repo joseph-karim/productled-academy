@@ -40,9 +40,12 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [currentField, setCurrentField] = useState<string | null>(null);
-  // Get the initial load state from the store instead of local state
+  // Get the initial load state from the store
   const isInitialLoad = useOfferStore((state) => state.contextChatInitialLoad);
-  const setIsInitialLoad = useOfferStore((state) => state.setContextChatInitialLoad);
+  // Create a function to update the initial load state
+  const setIsInitialLoad = (value: boolean) => {
+    useOfferStore.getState().setContextChatInitialLoad(value);
+  };
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -68,7 +71,7 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
 
   // Use the helper function to create the initial websiteFindings
   const getWebsiteFindings = (): WebsiteFindings | null => {
-    return createWebsiteFindings(useOfferStore.getState().websiteScraping);
+    return createWebsiteFindings(websiteScraping);
   };
 
   // Field display names for better UX
