@@ -133,7 +133,7 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
       // If we're in the Core Offer step and have website data or transcript data,
       // automatically start the RARA process by generating suggestions for the first field
       if (currentStep === 0) {
-        const hasWebsiteData = websiteScraping.status === 'completed' && websiteFindings !== null;
+        const hasWebsiteData = websiteScraping.status === 'completed' && getWebsiteFindings() !== null;
         const hasTranscriptData = transcriptData !== null;
         const hasCompletedCoreOffer = coreOfferNucleus.targetAudience &&
                                      coreOfferNucleus.desiredResult &&
