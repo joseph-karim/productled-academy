@@ -43,24 +43,30 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Create website findings object with better null/undefined handling
-  const websiteFindings: WebsiteFindings | null =
-    websiteScraping.status === 'completed'
-    ? {
-        coreOffer: websiteScraping.coreOffer || '',
-        targetAudience: websiteScraping.targetAudience || '',
-        problemSolved: websiteScraping.keyProblem || '',
-        keyBenefits: Array.isArray(websiteScraping.keyFeatures)
-          ? websiteScraping.keyFeatures.map(feature =>
-              typeof feature === 'string' ? feature : (feature?.benefit || '')
-            ).filter(Boolean)
-          : [],
-        valueProposition: websiteScraping.valueProposition || '',
-        cta: null,
-        tone: null,
-        missingInfo: null
-      }
-    : null;
+  // Helper function to create website findings object with proper null/undefined handling
+  const createWebsiteFindings = (scrapingData: typeof websiteScraping): WebsiteFindings | null => {
+    if (scrapingData.status !== 'completed') return null;
+
+    return {
+      coreOffer: scrapingData.coreOffer || '',
+      targetAudience: scrapingData.targetAudience || '',
+      problemSolved: scrapingData.keyProblem || '',
+      keyBenefits: Array.isArray(scrapingData.keyFeatures)
+        ? scrapingData.keyFeatures.map(feature =>
+            typeof feature === 'string' ? feature : (feature?.benefit || '')
+          ).filter(Boolean)
+        : [],
+      valueProposition: scrapingData.valueProposition || '',
+      cta: null,
+      tone: null,
+      missingInfo: null
+    };
+  };
+
+  // Use the helper function to create the initial websiteFindings
+  const getWebsiteFindings = (): WebsiteFindings | null => {
+    return createWebsiteFindings(useOfferStore.getState().websiteScraping);
+  };
 
   // Field display names for better UX
   const fieldDisplayNames: Record<string, string> = {
@@ -79,37 +85,26 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
     ctaSection: 'CTA Section'
   };
 
-  // Auto-scroll to bottom when messages change
+  // Auto-scroll to bottom only when user sends a message or when AI is responding
   useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    // Only auto-scroll if the last message is from the user or AI
+    const lastMessage = contextChat.messages[contextChat.messages.length - 1];
+    if (messagesEndRef.current && lastMessage && (lastMessage.sender === 'user' || isProcessing)) {
+      // Use a more controlled scroll that doesn't affect the whole page
+      const chatContainer = messagesEndRef.current.parentElement;
+      if (chatContainer) {
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+      }
     }
-  }, [contextChat.messages]);
+  }, [contextChat.messages, isProcessing]);
 
   // Listen for scraping completion event
   useEffect(() => {
     const handleScrapingCompleted = (event: Event) => {
       console.log('PersistentOfferChat: Received scraping-completed event');
 
-      // Force refresh the websiteFindings object
-      const updatedWebsiteFindings: WebsiteFindings | null =
-        useOfferStore.getState().websiteScraping.status === 'completed'
-        ? {
-            coreOffer: useOfferStore.getState().websiteScraping.coreOffer || '',
-            targetAudience: useOfferStore.getState().websiteScraping.targetAudience || '',
-            problemSolved: useOfferStore.getState().websiteScraping.keyProblem || '',
-            keyBenefits: Array.isArray(useOfferStore.getState().websiteScraping.keyFeatures)
-              ? useOfferStore.getState().websiteScraping.keyFeatures.map(feature =>
-                  typeof feature === 'string' ? feature : (feature?.benefit || '')
-                ).filter(Boolean)
-              : [],
-            valueProposition: useOfferStore.getState().websiteScraping.valueProposition || '',
-            cta: null,
-            tone: null,
-            missingInfo: null
-          }
-        : null;
-
+      // Force refresh the websiteFindings object using our helper function
+      const updatedWebsiteFindings = getWebsiteFindings();
       console.log('PersistentOfferChat: Updated websiteFindings:', updatedWebsiteFindings);
 
       // Reset initial load to trigger welcome message with website data
@@ -119,7 +114,7 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
       setTimeout(() => {
         // Use the updated websiteFindings for the welcome message
         generateInitialWelcomeMessage();
-      }, 1000); // Increased delay to ensure store is fully updated
+      }, 1500); // Increased delay to ensure store is fully updated
     };
 
     window.addEventListener('scraping-completed', handleScrapingCompleted);
@@ -179,24 +174,9 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
     // Get the latest state directly from the store
     const currentState = useOfferStore.getState();
 
-    // Create a fresh websiteFindings object to ensure it's up-to-date
-    const currentWebsiteFindings: WebsiteFindings | null =
-      currentState.websiteScraping.status === 'completed'
-      ? {
-          coreOffer: currentState.websiteScraping.coreOffer || '',
-          targetAudience: currentState.websiteScraping.targetAudience || '',
-          problemSolved: currentState.websiteScraping.keyProblem || '',
-          keyBenefits: Array.isArray(currentState.websiteScraping.keyFeatures)
-            ? currentState.websiteScraping.keyFeatures.map(feature =>
-                typeof feature === 'string' ? feature : (feature?.benefit || '')
-              ).filter(Boolean)
-            : [],
-          valueProposition: currentState.websiteScraping.valueProposition || '',
-          cta: null,
-          tone: null,
-          missingInfo: null
-        }
-      : null;
+    // Get a fresh websiteFindings object using our helper function
+    const currentWebsiteFindings = getWebsiteFindings();
+    console.log('generateInitialWelcomeMessage - currentWebsiteFindings:', currentWebsiteFindings);
 
     // Check if we have website data or transcript data
     const hasWebsiteData = currentState.websiteScraping.status === 'completed' && currentWebsiteFindings !== null;
@@ -259,8 +239,9 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
       // Get current RARA stage if we're in the Core Offer Nucleus step
       const raraStage = currentStep === 0 ? determineRARAStage() : undefined;
 
-      // Ensure websiteFindings is properly defined
-      const currentWebsiteFindings = websiteScraping.status === 'completed' ? websiteFindings : null;
+      // Get a fresh websiteFindings object using our helper function
+      const currentWebsiteFindings = getWebsiteFindings();
+      console.log('generateContextAwareSuggestions - currentWebsiteFindings:', currentWebsiteFindings);
 
       if (field === 'targetAudience' ||
           field === 'desiredResult' ||
@@ -542,21 +523,9 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
     setIsProcessing(true);
 
     try {
-      // Get current website findings with proper null/undefined handling
-      const currentFindings = websiteScraping.status === 'completed' ? {
-        coreOffer: websiteScraping.coreOffer || '',
-        targetAudience: websiteScraping.targetAudience || '',
-        problemSolved: websiteScraping.keyProblem || '',
-        keyBenefits: Array.isArray(websiteScraping.keyFeatures)
-          ? websiteScraping.keyFeatures.map(feature =>
-              typeof feature === 'string' ? feature : (feature?.benefit || '')
-            ).filter(Boolean)
-          : [],
-        valueProposition: websiteScraping.valueProposition || '',
-        cta: null,
-        tone: null,
-        missingInfo: null
-      } : null;
+      // Get a fresh websiteFindings object using our helper function
+      const currentFindings = getWebsiteFindings();
+      console.log('handleSendMessage - currentFindings:', currentFindings);
 
       // Check for specific field requests in the user input
       const lowerInput = userInput.toLowerCase();

@@ -63,24 +63,26 @@ export function DefineCoreOffer({ readOnly = false }: DefineCoreOfferProps) {
         <CardContent className="space-y-6">
           <div>
             <Label htmlFor="targetAudience" className="text-gray-300">Target Audience</Label>
-            <Input
+            <Textarea
               id="targetAudience"
               value={coreOfferNucleus.targetAudience}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleInputChange('targetAudience', e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => handleInputChange('targetAudience', e.target.value)}
               placeholder="Who do you specifically help?"
               disabled={readOnly || coreOfferConfirmed}
               className="mt-1 bg-[#1C1C1C] border-[#333333] text-white placeholder:text-gray-500"
+              rows={2}
             />
           </div>
           <div>
             <Label htmlFor="desiredResult" className="text-gray-300">Desired Result (#1 Result)</Label>
-            <Input
+            <Textarea
               id="desiredResult"
               value={coreOfferNucleus.desiredResult}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleInputChange('desiredResult', e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => handleInputChange('desiredResult', e.target.value)}
               placeholder="What's the #1 Result they achieve? (Inc. 'Aha moment')"
               disabled={readOnly || coreOfferConfirmed}
               className="mt-1 bg-[#1C1C1C] border-[#333333] text-white placeholder:text-gray-500"
+              rows={2}
             />
           </div>
           <div>
@@ -97,13 +99,14 @@ export function DefineCoreOffer({ readOnly = false }: DefineCoreOfferProps) {
           </div>
           <div>
             <Label htmlFor="biggestBarrier" className="text-gray-300">Biggest Barrier (#1 Risk/Objection)</Label>
-            <Input
+            <Textarea
               id="biggestBarrier"
               value={coreOfferNucleus.biggestBarrier}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleInputChange('biggestBarrier', e.target.value)}
+              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => handleInputChange('biggestBarrier', e.target.value)}
               placeholder="What's the #1 Risk/Objection?"
               disabled={readOnly || coreOfferConfirmed}
               className="mt-1 bg-[#1C1C1C] border-[#333333] text-white placeholder:text-gray-500"
+              rows={2}
             />
           </div>
           <div>
