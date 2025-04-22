@@ -108,6 +108,23 @@ Please explain the strategic thinking behind each variation and what specific hy
   // Simulate API call with a timeout
   return new Promise((resolve) => {
     setTimeout(() => {
+      // Ensure the original variation has a valid visual style guide
+      const visualStyleGuide = originalVariation.visualStyleGuide || {
+        colorPalette: {
+          primary: '#4C6FFF',
+          secondary: '#1C1C1C',
+          accent: '#FFD23F',
+          background: '#FFFFFF',
+          text: '#333333'
+        },
+        typography: {
+          headings: 'Sans-serif (e.g., Inter, Helvetica) with bold weight',
+          body: 'Sans-serif (e.g., Inter, Helvetica) with regular weight'
+        },
+        spacing: 'Consistent spacing with 16px/24px/32px increments',
+        imagery: 'Clean, minimal illustrations or screenshots that demonstrate the product in action'
+      };
+
       // Create three variations
       const variations: LandingPageVariation[] = [
         {
@@ -140,7 +157,7 @@ Please explain the strategic thinking behind each variation and what specific hy
             description: `Only 50 spots remaining at this price point. Don't miss this opportunity to transform your results.`,
             buttonText: `Claim Your Spot Now`
           },
-          visualStyleGuide: originalVariation.visualStyleGuide,
+          visualStyleGuide: visualStyleGuide,
           detailedStructure: 'FOMO-driven landing page structure with countdown elements and scarcity indicators'
         },
         {
@@ -173,7 +190,7 @@ Please explain the strategic thinking behind each variation and what specific hy
             description: `"This solution increased our results by 42% in just 3 weeks" - Jane D., CEO`,
             buttonText: `Get These Results Now`
           },
-          visualStyleGuide: originalVariation.visualStyleGuide,
+          visualStyleGuide: visualStyleGuide,
           detailedStructure: 'Results-focused landing page with prominent testimonials and data points throughout'
         },
         {
@@ -206,7 +223,7 @@ Please explain the strategic thinking behind each variation and what specific hy
             description: `No credit card required. No complicated setup. Just immediate results.`,
             buttonText: `Start Simply Now`
           },
-          visualStyleGuide: originalVariation.visualStyleGuide,
+          visualStyleGuide: visualStyleGuide,
           detailedStructure: 'Simplified landing page structure with emphasis on ease of use and quick implementation'
         }
       ];

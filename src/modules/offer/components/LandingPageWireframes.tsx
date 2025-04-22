@@ -512,59 +512,65 @@ The mockup should be comprehensive enough that a designer could implement it exa
               )}
             </TabsList>
 
-            {variations.length > 0 && variations.map(variation => (
-              <TabsContent key={variation.id} value={variation.id} className="mt-0">
-                <div className="space-y-6">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h3 className="text-xl font-semibold text-white">{variation.name}</h3>
-                      <p className="text-gray-400">{variation.description}</p>
+            {variations.length > 0 && variations.map(variation => {
+              console.log('Rendering variation:', variation.id, variation);
+              return (
+                <TabsContent key={variation.id} value={variation.id} className="mt-0">
+                  <div className="space-y-6">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h3 className="text-xl font-semibold text-white">{variation.name}</h3>
+                        <p className="text-gray-400">{variation.description}</p>
+                      </div>
+                      <div className="flex space-x-2">
+                        <Button
+                          onClick={() => handleRefineCopy(variation.id)}
+                          disabled={isRefining || readOnly}
+                          variant="outline"
+                          size="sm"
+                        >
+                          <RefreshCw className="w-4 h-4 mr-2" />
+                          Refine Copy
+                        </Button>
+                        <Button
+                          onClick={() => handleCopyPrompt(variation.id)}
+                          variant="outline"
+                          size="sm"
+                        >
+                          {copySuccess === variation.id ? (
+                            <>
+                              <CheckCircle className="w-4 h-4 mr-2 text-green-500" />
+                              Copied!
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-4 h-4 mr-2" />
+                              Copy Prompt
+                            </>
+                          )}
+                        </Button>
+                        <Button
+                          onClick={() => handleExportPDF(variation.id)}
+                          variant="outline"
+                          size="sm"
+                        >
+                          <Download className="w-4 h-4 mr-2" />
+                          Export PDF
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex space-x-2">
-                      <Button
-                        onClick={() => handleRefineCopy(variation.id)}
-                        disabled={isRefining || readOnly}
-                        variant="outline"
-                        size="sm"
-                      >
-                        <RefreshCw className="w-4 h-4 mr-2" />
-                        Refine Copy
-                      </Button>
-                      <Button
-                        onClick={() => handleCopyPrompt(variation.id)}
-                        variant="outline"
-                        size="sm"
-                      >
-                        {copySuccess === variation.id ? (
-                          <>
-                            <CheckCircle className="w-4 h-4 mr-2 text-green-500" />
-                            Copied!
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="w-4 h-4 mr-2" />
-                            Copy Prompt
-                          </>
-                        )}
-                      </Button>
-                      <Button
-                        onClick={() => handleExportPDF(variation.id)}
-                        variant="outline"
-                        size="sm"
-                      >
-                        <Download className="w-4 h-4 mr-2" />
-                        Export PDF
-                      </Button>
-                    </div>
-                  </div>
 
-                  {/* Visual Preview */}
-                  <div className="bg-[#222222] p-4 rounded-lg border border-[#444444] overflow-hidden">
-                    <h4 className="text-lg font-medium text-[#FFD23F] mb-4">Visual Preview</h4>
-                    <div className="bg-white rounded-lg overflow-hidden" style={{ maxHeight: '600px', overflowY: 'auto' }}>
-                      <LandingPageVisualPreview variation={variation} />
+                    {/* Visual Preview */}
+                    <div className="bg-[#222222] p-4 rounded-lg border border-[#444444] overflow-hidden">
+                      <h4 className="text-lg font-medium text-[#FFD23F] mb-4">Visual Preview</h4>
+                      <div className="bg-white rounded-lg overflow-hidden" style={{ maxHeight: '600px', overflowY: 'auto' }}>
+                        {variation && variation.visualStyleGuide && variation.visualStyleGuide.colorPalette ? (
+                          <LandingPageVisualPreview variation={variation} />
+                        ) : (
+                          <div className="p-4 text-center text-gray-500">Loading visual preview...</div>
+                        )}
+                      </div>
                     </div>
-                  </div>
 
                   <Tabs defaultValue="content">
                     <TabsList className="bg-[#333333] mb-4">
@@ -727,7 +733,8 @@ The mockup should be comprehensive enough that a designer could implement it exa
                   </Tabs>
                 </div>
               </TabsContent>
-            ))}
+            );
+            })}
           </Tabs>
 
           {!finalReviewCompleted && (
