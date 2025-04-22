@@ -7,6 +7,7 @@ import { InitialContext } from '../services/ai/types';
 
 interface Suggestion {
   text: string;
+  reasoning?: string;
   field: string;
 }
 
@@ -253,8 +254,8 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
         const hasWebsiteData = currentWebsiteFindings !== null;
         const hasTranscriptData = transcriptData !== null;
 
-        // Generate suggestions using available data
-        const fieldSuggestions = await generateSuggestions(
+        // Generate suggestions with reasoning using available data
+        const suggestionsWithReasoning = await generateSuggestions(
           field as any,
           initialContext,
           currentWebsiteFindings,
@@ -262,42 +263,52 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
           raraStage
         );
 
-        const formattedSuggestions = fieldSuggestions.map(text => ({
-          text,
+        // Format suggestions for the UI, keeping the reasoning
+        const formattedSuggestions = suggestionsWithReasoning.map(suggestion => ({
+          text: suggestion.text,
+          reasoning: suggestion.reasoning,
           field
         }));
 
         setSuggestions(formattedSuggestions);
         setShowSuggestions(true);
 
-        // Create a context-aware message based on RARA stage
-        let message = `Here are some suggestions for ${fieldDisplayNames[field]}. You can select one or type your own.`;
+        // Create a context-aware message based on the field and RARA stage
+        let message = '';
 
+        // Determine data source context
+        let dataSourceContext = '';
         if (hasWebsiteData && hasTranscriptData) {
-          message = `Based on your website and customer transcript analysis, here are some suggestions for ${fieldDisplayNames[field]}. You can select one or type your own.`;
+          dataSourceContext = 'Based on your website and customer transcript analysis';
         } else if (hasWebsiteData) {
-          message = `Based on your website analysis, here are some suggestions for ${fieldDisplayNames[field]}. You can select one or type your own.`;
+          dataSourceContext = 'Based on your website analysis';
         } else if (hasTranscriptData) {
-          message = `Based on your customer transcript analysis, here are some suggestions for ${fieldDisplayNames[field]}. You can select one or type your own.`;
+          dataSourceContext = 'Based on your customer transcript analysis';
+        } else {
+          dataSourceContext = 'Based on the information you provided';
         }
 
-        // Add RARA framework guidance if we're in the Core Offer step
-        if (currentStep === 0 && raraStage) {
-          if (raraStage === 1) {
-            if (field === 'targetAudience') {
-              message = `Let's start with your Target Audience. Who experiences the most significant transformation with your product? Here are some suggestions:`;
-            } else if (field === 'desiredResult') {
-              message = `Great! Now let's define the primary Result your target audience achieves. What's the single most desirable outcome they get? Here are some suggestions:`;
-            }
-          } else if (raraStage === 2) {
-            message = `Now let's identify your key Advantage. What makes your solution 5-10x better than alternatives? Here are some suggestions:`;
-          } else if (raraStage === 3) {
-            if (field === 'biggestBarrier') {
-              message = `Let's address potential concerns. What's the #1 perceived Risk that might stop someone from signing up? Here are some suggestions:`;
-            } else if (field === 'assurance') {
-              message = `Finally, let's provide an Assurance to overcome that risk. How can you reverse the risk and build trust? Here are some suggestions:`;
-            }
-          }
+        // Create field-specific messages with better context
+        if (field === 'targetAudience') {
+          message = `${dataSourceContext}, let's clarify who your offer is truly for.\n\nYour ideal target audience should be specific and focused on who would gain the most significant value from your solution.\n\nHere are some suggestions for your Target Audience:`;
+        }
+        else if (field === 'desiredResult') {
+          message = `Great! Now that we've identified your target audience, let's define the primary Result they achieve.\n\n${dataSourceContext}, what is the single most desirable outcome your audience gets? Focus on the transformation or ultimate benefit.\n\nHere are some suggestions for your Desired Result:`;
+        }
+        else if (field === 'keyAdvantage') {
+          message = `Now let's identify your key Advantage - what makes your solution 5-10x better than alternatives?\n\n${dataSourceContext}, what unique mechanism or approach sets you apart? This could be speed, ease, cost savings, unique methodology, or better support.\n\nHere are some suggestions for your Key Advantage:`;
+        }
+        else if (field === 'biggestBarrier') {
+          message = `Let's address potential concerns. What's the #1 perceived Risk that might stop someone from signing up?\n\n${dataSourceContext}, what would make your ideal customer hesitate? This could be setup complexity, cost concerns, or doubts about achieving the promised result.\n\nHere are some suggestions for the Biggest Barrier:`;
+        }
+        else if (field === 'assurance') {
+          message = `Finally, let's provide an Assurance to overcome the identified risk.\n\n${dataSourceContext}, how can you reverse the risk and build trust? Consider guarantees, easy onboarding promises, or clear proof points.\n\nHere are some suggestions for your Assurance:`;
+        }
+        else if (field === 'onboardingStep') {
+          message = `Let's define clear onboarding steps for your users.\n\n${dataSourceContext}, what are the key steps users need to take to get value from your product? Include realistic time estimates.\n\nHere are some suggestions for Onboarding Steps:`;
+        }
+        else {
+          message = `${dataSourceContext}, here are some suggestions for ${fieldDisplayNames[field]}:`;
         }
 
         addChatMessage({
@@ -764,10 +775,15 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
                   <button
                     key={index}
                     onClick={() => handleSelectSuggestion(suggestion)}
-                    className="w-full justify-start text-left text-sm py-3 px-4 bg-[#333333] hover:bg-[#444444] text-white rounded-md flex items-start group h-auto"
+                    className="w-full justify-start text-left text-sm py-3 px-4 bg-[#333333] hover:bg-[#444444] text-white rounded-md flex flex-col items-start group h-auto"
                   >
-                    <div className="flex-1 mr-2">
-                      <div className="whitespace-normal break-words">{suggestion.text}</div>
+                    <div className="flex-1 w-full">
+                      <div className="whitespace-normal break-words font-medium">{suggestion.text}</div>
+                      {suggestion.reasoning && (
+                        <div className="mt-2 text-xs text-gray-400 whitespace-normal break-words border-t border-[#444444] pt-2">
+                          <span className="text-[#FFD23F]">Why this works:</span> {suggestion.reasoning}
+                        </div>
+                      )}
                     </div>
                   </button>
                 ))}

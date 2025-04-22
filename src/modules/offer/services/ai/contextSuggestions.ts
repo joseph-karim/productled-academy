@@ -175,84 +175,192 @@ export async function generateTopResultsSuggestions(
   }
 }
 
+export interface SuggestionWithReasoning {
+  text: string;
+  reasoning: string;
+}
+
 export async function generateSuggestions(
   field: 'targetAudience' | 'desiredResult' | 'keyAdvantage' | 'biggestBarrier' | 'assurance' | 'onboardingStep',
   initialContext: InitialContext,
   websiteFindings: WebsiteAnalysisContext | null,
   transcriptData?: any | null,
   raraStage?: number
-): Promise<string[]> {
+): Promise<SuggestionWithReasoning[]> {
   try {
+    // Determine which previous fields we have data for
+    const hasTargetAudience = initialContext.targetAudience ||
+                             (websiteFindings?.targetAudience) ||
+                             (transcriptData?.targetAudience);
+
+    const hasDesiredResult = field !== 'targetAudience' && (
+                            initialContext.currentOffer ||
+                            (websiteFindings?.valueProposition) ||
+                            (transcriptData?.desiredResult));
+
+    const hasKeyAdvantage = field !== 'targetAudience' &&
+                          field !== 'desiredResult' &&
+                          (websiteFindings?.keyBenefits?.length > 0 ||
+                           transcriptData?.keyAdvantage);
+
+    const hasBiggestBarrier = field !== 'targetAudience' &&
+                            field !== 'desiredResult' &&
+                            field !== 'keyAdvantage' &&
+                            (websiteFindings?.problemSolved ||
+                             transcriptData?.biggestBarrier);
+
+    // Build a context-aware system prompt based on the field and available data
+    let systemPrompt = "You are an expert ProductLed Offer Strategist. ";
+
+    if (field === 'targetAudience') {
+      systemPrompt += "Your role is to help users define their ideal Target Audience based on ProductLed principles. ";
+      systemPrompt += "Act as a brainstorming partner to identify who would gain the most significant value or solve their biggest pain point with this product. ";
+      systemPrompt += "Focus on roles, primary goals, or the 'job' they are trying to get done, not just demographics.";
+    }
+    else if (field === 'desiredResult') {
+      systemPrompt += "Your role is to help users define the core Result their target audience achieves based on ProductLed principles. ";
+      systemPrompt += "Focus on the single most desirable outcome or transformation they experience. ";
+      systemPrompt += "The Result should be clear, compelling, and focused on what the user truly wants.";
+    }
+    else if (field === 'keyAdvantage') {
+      systemPrompt += "Your role is to help users define their key Advantage based on ProductLed principles. ";
+      systemPrompt += "Focus on what makes their solution 5-10x better than alternatives. ";
+      systemPrompt += "Consider speed, ease, cost savings, unique technology/methodology, better support, or elimination of specific pains.";
+    }
+    else if (field === 'biggestBarrier') {
+      systemPrompt += "Your role is to help users identify the biggest perceived Risk or objection that might stop their target audience from signing up. ";
+      systemPrompt += "Focus on the #1 barrier - what would make someone hesitate? ";
+      systemPrompt += "Consider setup complexity, cost concerns, integration worries, trust issues, or doubts about achieving the promised result.";
+    }
+    else if (field === 'assurance') {
+      systemPrompt += "Your role is to help users create a compelling Assurance that directly counters their identified risk. ";
+      systemPrompt += "Focus on how they can reverse the risk and build trust. ";
+      systemPrompt += "Consider guarantees, easy onboarding promises, clear proof points, trial conditions, or success metrics.";
+    }
+    else if (field === 'onboardingStep') {
+      systemPrompt += "Your role is to help users define clear onboarding steps that users need to take to get value from the product. ";
+      systemPrompt += "Focus on actionable steps with realistic time estimates. ";
+      systemPrompt += "Steps should be clear, sequential, and focused on getting the user to their first success moment.";
+    }
+
+    systemPrompt += "\n\nBased on the context provided, generate 2-3 distinct and specific suggestions for the requested component. ";
+    systemPrompt += "For each suggestion, include a brief explanation of why it would be effective.";
+
+    // Build a context-aware user prompt based on the field and available data
+    let userPrompt = `Based on this context:\n\n`;
+
+    // Add basic context
+    userPrompt += `Current Offer: ${initialContext.currentOffer || 'Not specified'}\n`;
+    userPrompt += `Target Audience: ${initialContext.targetAudience || 'Not specified'}\n`;
+    userPrompt += `Problem Solved: ${initialContext.problemSolved || 'Not specified'}\n`;
+
+    // Add website findings if available
+    if (websiteFindings) {
+      userPrompt += `\nWebsite Analysis:\n`;
+      userPrompt += `Core Offer: ${websiteFindings.coreOffer || 'Not found'}\n`;
+      userPrompt += `Target Audience: ${websiteFindings.targetAudience || 'Not found'}\n`;
+      userPrompt += `Problem Solved: ${websiteFindings.problemSolved || 'Not found'}\n`;
+      userPrompt += `Value Proposition: ${websiteFindings.valueProposition || 'Not found'}\n`;
+
+      if (websiteFindings.onboardingSteps && websiteFindings.onboardingSteps.length > 0) {
+        userPrompt += `\nOnboarding Steps:\n`;
+        userPrompt += websiteFindings.onboardingSteps.map((step, index) =>
+          `${index + 1}. ${step.description} (${step.timeEstimate})`).join('\n');
+      }
+    }
+
+    // Add transcript data if available
+    if (transcriptData) {
+      userPrompt += `\nCustomer Call Transcript Analysis:\n`;
+      userPrompt += `Target Audience: ${transcriptData.targetAudience || 'Not identified'}\n`;
+      userPrompt += `Problem Solved: ${transcriptData.problemSolved || 'Not identified'}\n`;
+      userPrompt += `Desired Result: ${transcriptData.desiredResult || 'Not identified'}\n`;
+      userPrompt += `Key Advantage: ${transcriptData.keyAdvantage || 'Not identified'}\n`;
+      userPrompt += `Biggest Barrier: ${transcriptData.biggestBarrier || 'Not identified'}\n`;
+      userPrompt += `Assurance: ${transcriptData.assurance || 'Not identified'}\n`;
+
+      if (transcriptData.keyPhrases && transcriptData.keyPhrases.length > 0) {
+        userPrompt += `\nKey Customer Phrases:\n`;
+        userPrompt += transcriptData.keyPhrases.map((phrase, index) =>
+          `${index + 1}. "${phrase}"`).join('\n');
+      }
+
+      if (transcriptData.customerQuotes && transcriptData.customerQuotes.length > 0) {
+        userPrompt += `\nNotable Customer Quotes:\n`;
+        userPrompt += transcriptData.customerQuotes.map((quote, index) =>
+          `${index + 1}. "${quote}"`).join('\n');
+      }
+    }
+
+    // Add field-specific instructions
+    if (field === 'targetAudience') {
+      userPrompt += `\nBased on the product description, let's clarify who this is truly for. `;
+      userPrompt += `Suggest 2-3 specific Ideal User profiles who would gain the most significant value or solve their biggest pain point. `;
+      userPrompt += `Focus on their role, primary goal, or the 'job' they are trying to get done, not just demographics.`;
+    }
+    else if (field === 'desiredResult') {
+      userPrompt += `\nNow, for the Ideal User '${hasTargetAudience || 'we identified'}', what is the single most desirable Result they achieve using this product? `;
+      userPrompt += `Focus on the core transformation or ultimate benefit. `;
+      userPrompt += `Suggest 2-3 distinct ways to frame this core Result statement clearly and compellingly.`;
+    }
+    else if (field === 'keyAdvantage') {
+      userPrompt += `\nConsidering how this product helps '${hasTargetAudience || 'the target audience'}' achieve '${hasDesiredResult || 'their desired result'}', `;
+      userPrompt += `what is the key Advantage or unique mechanism that makes this solution significantly better (5-10x) than alternatives? `;
+      userPrompt += `Suggest 2-3 distinct potential core Advantages.`;
+    }
+    else if (field === 'biggestBarrier') {
+      userPrompt += `\nWhat is the biggest perceived Risk or objection that might stop '${hasTargetAudience || 'the target audience'}' `;
+      userPrompt += `from adopting this solution to get '${hasDesiredResult || 'their desired result'}', `;
+      userPrompt += `even knowing the advantage is '${hasKeyAdvantage || 'significant'}'? `;
+      userPrompt += `Suggest 1-2 primary Risks.`;
+    }
+    else if (field === 'assurance') {
+      userPrompt += `\nTo directly counter the primary risk of '${hasBiggestBarrier || 'customer hesitation'}', `;
+      userPrompt += `how can you best Assure '${hasTargetAudience || 'the target audience'}' and reverse that risk? `;
+      userPrompt += `Suggest 2-3 concrete Assurance strategies or statements.`;
+    }
+    else if (field === 'onboardingStep') {
+      userPrompt += `\nWhat are the key steps users need to take to get value from this product? `;
+      userPrompt += `Suggest 2-3 clear, actionable onboarding steps with realistic time estimates.`;
+    }
+
+    userPrompt += `\n\nFor each suggestion, include a brief explanation of why it would be effective.`;
+
     return handleOpenAIRequest(
       openai.chat.completions.create({
         model: "gpt-4o",
         messages: [
           {
             role: "system",
-            content: `You're an expert ProductLed Offer Strategist helping create a compelling offer using the R-A-R-A framework (Result-Advantage-Risk-Assurance). Generate 3-5 specific, actionable suggestions for the ${field} field that follow ProductLed principles.${raraStage ? `\n\nThe user is currently in Stage ${raraStage} of the R-A-R-A framework.` : ''}`
+            content: systemPrompt
           },
           {
             role: "user",
-            content: `
-            Based on this context:
-
-            Current Offer: ${initialContext.currentOffer || 'Not specified'}
-            Target Audience: ${initialContext.targetAudience || 'Not specified'}
-            Problem Solved: ${initialContext.problemSolved || 'Not specified'}
-            ${websiteFindings ? `
-            Website Analysis:
-            Core Offer: ${websiteFindings.coreOffer || 'Not found'}
-            Target Audience: ${websiteFindings.targetAudience || 'Not found'}
-            Problem Solved: ${websiteFindings.problemSolved || 'Not found'}
-            Value Proposition: ${websiteFindings.valueProposition || 'Not found'}
-            ${websiteFindings.onboardingSteps && websiteFindings.onboardingSteps.length > 0 ? `
-            Onboarding Steps:
-            ${websiteFindings.onboardingSteps.map((step, index) => `${index + 1}. ${step.description} (${step.timeEstimate})`).join('\n')}` : ''}
-            ` : ''}
-            ${transcriptData ? `
-            Customer Call Transcript Analysis:
-            Target Audience: ${transcriptData.targetAudience || 'Not identified'}
-            Problem Solved: ${transcriptData.problemSolved || 'Not identified'}
-            Desired Result: ${transcriptData.desiredResult || 'Not identified'}
-            Key Advantage: ${transcriptData.keyAdvantage || 'Not identified'}
-            Biggest Barrier: ${transcriptData.biggestBarrier || 'Not identified'}
-            Assurance: ${transcriptData.assurance || 'Not identified'}
-            ${transcriptData.keyPhrases && transcriptData.keyPhrases.length > 0 ? `
-            Key Customer Phrases:
-            ${transcriptData.keyPhrases.map((phrase, index) => `${index + 1}. "${phrase}"`).join('\n')}` : ''}
-            ${transcriptData.customerQuotes && transcriptData.customerQuotes.length > 0 ? `
-            Notable Customer Quotes:
-            ${transcriptData.customerQuotes.map((quote, index) => `${index + 1}. "${quote}"`).join('\n')}` : ''}
-            ` : ''}
-
-            Generate 3-5 specific, compelling suggestions for the "${field}" field of my offer following the R-A-R-A framework principles.
-
-            For targetAudience: Focus on who experiences the most significant transformation or solves the biggest pain with this product. Think beyond demographics – what job are they trying to get done? Who is the Ideal User?
-
-            For desiredResult: Focus on the single most desirable Result or outcome they achieve. What transformation or ultimate benefit do they get? Frame this clearly and compellingly.
-
-            For keyAdvantage: Focus on what makes this solution 5-10x better than alternatives. Why are you uniquely positioned to deliver this result? Consider speed, ease, cost, unique tech/method, better support, or eliminating specific pains.
-
-            For biggestBarrier: Focus on the #1 perceived Risk or objection that would stop the target audience from signing up. Why wouldn't they buy? Consider setup complexity, cost concerns, integration worries, trust issues, or doubts about getting the promised result.
-
-            For assurance: Focus on how you can reverse the risk identified in biggestBarrier. Consider guarantees, easy onboarding, clear ROI proof, strong testimonials, free trials, or security certifications.
-
-            For onboardingStep: Focus on clear, actionable steps users need to take to get value from the product, with time estimates.
-
-            Format as a JSON array of strings.`
+            content: userPrompt
           }
         ],
         functions: [
           {
             name: "provide_field_suggestions",
-            description: `Provide suggestions for the ${field} field`,
+            description: `Provide suggestions with reasoning for the ${field} field`,
             parameters: {
               type: "object",
               properties: {
                 suggestions: {
                   type: "array",
                   items: {
-                    type: "string"
+                    type: "object",
+                    properties: {
+                      text: {
+                        type: "string",
+                        description: "The suggestion text that could be directly used in the offer"
+                      },
+                      reasoning: {
+                        type: "string",
+                        description: "Brief explanation of why this suggestion would be effective"
+                      }
+                    },
+                    required: ["text", "reasoning"]
                   }
                 }
               },
