@@ -40,7 +40,9 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [currentField, setCurrentField] = useState<string | null>(null);
-  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  // Get the initial load state from the store instead of local state
+  const isInitialLoad = useOfferStore((state) => state.contextChatInitialLoad);
+  const setIsInitialLoad = useOfferStore((state) => state.setContextChatInitialLoad);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 

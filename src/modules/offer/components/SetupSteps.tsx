@@ -5,8 +5,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Trash2, PlusCircle, CheckCircle, MessageSquare } from 'lucide-react';
-import { ContextChatInline } from './ContextChatInline';
+import { Trash2, PlusCircle, CheckCircle } from 'lucide-react';
+// ContextChatInline import removed as we're using persistent chat only
 
 interface SetupStepsProps {
   modelData?: any;
@@ -33,19 +33,7 @@ export function SetupSteps({ readOnly = false }: SetupStepsProps) {
 
   const [currentStepDescription, setCurrentStepDescription] = useState('');
   const [currentStepTimeEstimate, setCurrentStepTimeEstimate] = useState('');
-  const [showChat, setShowChat] = useState(false);
-
-  // Auto-show chat when component mounts
-  useEffect(() => {
-    if (!readOnly && !onboardingStepsConfirmed) {
-      // Short delay to ensure component is fully mounted
-      const timer = setTimeout(() => {
-        setShowChat(true);
-      }, 500);
-
-      return () => clearTimeout(timer);
-    }
-  }, [readOnly, onboardingStepsConfirmed]);
+  // Removed showChat state and auto-show effect as we're using the persistent chat only
 
   const handleAddStep = () => {
     if (readOnly || !currentStepDescription.trim()) return;
@@ -144,30 +132,7 @@ export function SetupSteps({ readOnly = false }: SetupStepsProps) {
 
   return (
     <div className="space-y-8">
-      {/* Chat button removed as we now have persistent chat */}
-
-      {/* AI Chat Assistant */}
-      {showChat && !readOnly && (
-        <div className="mb-6 bg-[#222222] p-6 rounded-lg space-y-4">
-          <div className="flex justify-between items-center mb-3">
-            <h3 className="text-xl font-semibold text-white">AI Signature Approach Assistant</h3>
-            <Button
-              onClick={() => setShowChat(false)}
-              variant="ghost"
-              size="sm"
-              className="text-gray-400 hover:text-white"
-            >
-              Close
-            </Button>
-          </div>
-          <ContextChatInline
-            websiteUrl={websiteUrl}
-            initialContext={initialContext}
-            websiteScrapingStatus={scrapingStatus}
-            websiteFindings={getWebsiteFindings()}
-          />
-        </div>
-      )}
+      {/* Inline chat removed - using persistent chat only */}
 
       <Card className="bg-[#2A2A2A] border-[#333333] text-white">
         <CardHeader>

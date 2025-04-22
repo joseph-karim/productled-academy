@@ -144,7 +144,13 @@ export function MultiStepForm({ readOnly = false, analysisId: propAnalysisId }: 
     if (currentStep >= steps.length) {
       setCurrentStep(steps.length - 1);
     }
-  }, [currentStep]);
+
+    // Reset the initial load state in the offer store when step changes
+    // This will trigger the welcome message in the persistent chat
+    if (currentStep >= 0 && currentStep < steps.length) {
+      store.setContextChatInitialLoad(true);
+    }
+  }, [currentStep, store]);
 
   const safeCurrentStep = Math.min(currentStep, steps.length - 1);
   const CurrentStepComponent = steps[safeCurrentStep]?.component;

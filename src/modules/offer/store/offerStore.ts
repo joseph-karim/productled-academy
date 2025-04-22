@@ -93,6 +93,7 @@ export interface OfferStateData {
   websiteScraping: WebsiteScrapingData;
   transcriptData: TranscriptData | null;
   contextChat: ContextChat;
+  contextChatInitialLoad: boolean;
 
   coreOfferNucleus: CoreOfferNucleus;
   exclusivity: Exclusivity;
@@ -143,6 +144,7 @@ export interface OfferState extends OfferStateData {
   addChatMessage: (message: Omit<ChatMessage, 'id' | 'timestamp'>) => void;
   clearChatMessages: () => void;
   resetState: () => void;
+  setContextChatInitialLoad: (value: boolean) => void;
 
   setCoreOfferNucleus: (nucleus: CoreOfferNucleus) => void;
   setExclusivity: (exclusivity: Exclusivity) => void;
@@ -226,6 +228,7 @@ const initialState: OfferStateData = {
     messages: [],
     lastUpdated: null
   },
+  contextChatInitialLoad: true,
   coreOfferNucleus: {
     targetAudience: '' as string,
     desiredResult: '' as string,
@@ -388,6 +391,7 @@ export const useOfferStore = create<OfferState>()(
       addChatMessage: (message) => set((state) => ({ contextChat: { ...state.contextChat, messages: [ ...state.contextChat.messages, { id: generateUUID(), timestamp: new Date(), ...message }], lastUpdated: new Date() }})),
       clearChatMessages: () => set({ contextChat: { messages: [], lastUpdated: null } }),
       resetState: () => set(initialState),
+      setContextChatInitialLoad: (value) => set({ contextChatInitialLoad: value }),
 
       setCoreOfferNucleus: (nucleus) => set({ coreOfferNucleus: nucleus }),
       setExclusivity: (exclusivity) => set({ exclusivity: exclusivity }),
