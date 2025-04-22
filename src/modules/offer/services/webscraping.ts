@@ -96,7 +96,49 @@ export async function getScrapingResult(scrapingId: string): Promise<WebsiteScra
     const { data: { user } } = await supabase.auth.getUser();
     console.log(`Current user state:`, user ? `Authenticated as ${user.id}` : 'Not authenticated');
 
-    // Use the get-scraping-result Edge Function
+    // First try the improved analysis function
+    try {
+      console.log('Fetching scraping result from the improved-scrape-analysis Edge Function');
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/improved-scrape-analysis`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+          },
+          body: JSON.stringify({ scrapingId })
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Successfully retrieved improved analysis result:', data);
+
+        return {
+          id: data.id,
+          status: data.status,
+          url: data.url,
+          title: data.title,
+          metaDescription: data.meta_description,
+          analysisResult: data.analysis_result,
+          error: data.error,
+          createdAt: data.created_at,
+          completedAt: data.completed_at
+        };
+      } else {
+        const errorText = await response.text();
+        console.log(`Improved analysis function failed with status ${response.status}:`, errorText);
+
+        // Fall back to the original get-scraping-result function
+        console.log('Falling back to original get-scraping-result Edge Function');
+      }
+    } catch (improvedAnalysisError) {
+      console.log('Improved analysis function error:', improvedAnalysisError);
+      console.log('Falling back to original get-scraping-result Edge Function');
+    }
+
+    // Fall back to the original get-scraping-result Edge Function
     try {
       console.log('Fetching scraping result from the get-scraping-result Edge Function');
       const response = await fetch(

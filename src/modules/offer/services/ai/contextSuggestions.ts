@@ -7,6 +7,12 @@ export interface WebsiteAnalysisContext {
   problemSolved: string;
   keyBenefits: string[];
   valueProposition: string;
+  // RARA framework fields from improved analysis
+  desiredResult?: string | null;
+  keyAdvantage?: string | null;
+  biggestBarrier?: string | null;
+  assurance?: string | null;
+  // Other fields
   keyPhrases?: string[] | null;
   onboardingSteps?: Array<{
     description: string;
@@ -261,6 +267,20 @@ export async function generateSuggestions(
       userPrompt += `Target Audience: ${websiteFindings.targetAudience || 'Not found'}\n`;
       userPrompt += `Problem Solved: ${websiteFindings.problemSolved || 'Not found'}\n`;
       userPrompt += `Value Proposition: ${websiteFindings.valueProposition || 'Not found'}\n`;
+
+      // Add RARA framework fields if available
+      const hasImprovedAnalysis = websiteFindings.desiredResult ||
+                                websiteFindings.keyAdvantage ||
+                                websiteFindings.biggestBarrier ||
+                                websiteFindings.assurance;
+
+      if (hasImprovedAnalysis) {
+        userPrompt += `\nR-A-R-A Framework Analysis:\n`;
+        userPrompt += `Desired Result: ${websiteFindings.desiredResult || 'Not found'}\n`;
+        userPrompt += `Key Advantage: ${websiteFindings.keyAdvantage || 'Not found'}\n`;
+        userPrompt += `Biggest Barrier: ${websiteFindings.biggestBarrier || 'Not found'}\n`;
+        userPrompt += `Assurance: ${websiteFindings.assurance || 'Not found'}\n`;
+      }
 
       if (websiteFindings.onboardingSteps && websiteFindings.onboardingSteps.length > 0) {
         userPrompt += `\nOnboarding Steps:\n`;

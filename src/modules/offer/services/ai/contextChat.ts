@@ -12,6 +12,12 @@ export interface WebsiteFindings {
   problemSolved: string | null;
   keyBenefits: string[] | null;
   valueProposition: string | null;
+  // RARA framework fields from improved analysis
+  desiredResult?: string | null;
+  keyAdvantage?: string | null;
+  biggestBarrier?: string | null;
+  assurance?: string | null;
+  // Other fields
   keyPhrases?: string[] | null;
   onboardingSteps?: Array<{
     description: string;
