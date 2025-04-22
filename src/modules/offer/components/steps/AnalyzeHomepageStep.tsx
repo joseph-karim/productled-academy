@@ -19,32 +19,40 @@ export function AnalyzeHomepageStep({ readOnly = false }: { readOnly?: boolean }
   const scrapingError = useOfferStore((state) => state.websiteScraping.error);
   const initialContext = useOfferStore((state) => state.initialContext);
 
-  // Prepare websiteFindings prop for ContextChat
-  const websiteFindings = useOfferStore((state) => {
-      console.log('Preparing websiteFindings:', state.websiteScraping);
-      if (state.websiteScraping.status === 'completed') {
-          // Direct mapping from store values
-          return {
-              coreOffer: state.websiteScraping.coreOffer || '',
-              targetAudience: state.websiteScraping.targetAudience || '',
-              problemSolved: state.websiteScraping.keyProblem || '',
-              valueProposition: state.websiteScraping.valueProposition || '',
-              keyBenefits: Array.isArray(state.websiteScraping.keyFeatures) ? state.websiteScraping.keyFeatures : [],
-              keyPhrases: Array.isArray(state.websiteScraping.keyPhrases) ? state.websiteScraping.keyPhrases : [],
-              missingInfo: []
-          };
-      }
-      // Return empty findings instead of null so chat can work without scraping
+  // Helper function to create website findings object with proper null/undefined handling
+  const createWebsiteFindings = (scrapingData: typeof useOfferStore.getState().websiteScraping): WebsiteFindings => {
+    console.log('Preparing websiteFindings:', scrapingData);
+    if (scrapingData.status === 'completed') {
+      // Direct mapping from store values
       return {
-          coreOffer: '',
-          targetAudience: '',
-          problemSolved: '',
-          valueProposition: '',
-          keyBenefits: [],
-          keyPhrases: [],
-          missingInfo: ['No website analysis available']
+        coreOffer: scrapingData.coreOffer || '',
+        targetAudience: scrapingData.targetAudience || '',
+        problemSolved: scrapingData.keyProblem || '',
+        valueProposition: scrapingData.valueProposition || '',
+        keyBenefits: Array.isArray(scrapingData.keyFeatures) ? scrapingData.keyFeatures : [],
+        keyPhrases: Array.isArray(scrapingData.keyPhrases) ? scrapingData.keyPhrases : [],
+        missingInfo: []
       };
-  }) as WebsiteFindings;
+    }
+    // Return empty findings instead of null so chat can work without scraping
+    return {
+      coreOffer: '',
+      targetAudience: '',
+      problemSolved: '',
+      valueProposition: '',
+      keyBenefits: [],
+      keyPhrases: [],
+      missingInfo: ['No website analysis available']
+    };
+  };
+
+  // Use the helper function to get the current website findings
+  const getWebsiteFindings = (): WebsiteFindings => {
+    return createWebsiteFindings(useOfferStore.getState().websiteScraping);
+  };
+
+  // Get the initial website findings
+  const websiteFindings = createWebsiteFindings(useOfferStore.getState().websiteScraping);
 
   // Local state for this step
   const [isValidUrl, setIsValidUrl] = useState(false);
@@ -249,14 +257,14 @@ export function AnalyzeHomepageStep({ readOnly = false }: { readOnly?: boolean }
            <div className="text-xs text-gray-400 mb-2">
              <p>Debug: Chat should be visible.</p>
              <p>Status: {scrapingStatus}, ShowChat: {showChat.toString()}, ReadOnly: {readOnly.toString()}</p>
-             <p>Findings available: {websiteFindings ? 'Yes' : 'No'}</p>
+             <p>Findings available: {getWebsiteFindings() ? 'Yes' : 'No'}</p>
              <p>CoreOffer: {coreOffer || 'None'}</p>
            </div>
            <ContextChatInline
              websiteUrl={websiteUrl}
              initialContext={initialContext}
              websiteScrapingStatus={scrapingStatus}
-             websiteFindings={websiteFindings}
+             websiteFindings={getWebsiteFindings()}
            />
         </div>
       )}
