@@ -41,14 +41,20 @@ export function SetupSteps({ readOnly = false }: SetupStepsProps) {
     if (!readOnly && !onboardingStepsConfirmed && onboardingSteps.length === 0) {
       // Add a slight delay to allow the chat to initialize
       setTimeout(() => {
-        // Send a message to the chat to trigger suggestions
+        // Dispatch a custom event to trigger the chat to generate onboarding step suggestions
+        const event = new CustomEvent('launch-ai-chat', {
+          detail: { field: 'onboardingStep' }
+        });
+        window.dispatchEvent(event);
+
+        // Also send a message to the chat to trigger suggestions
         addChatMessage({
           sender: 'user',
           content: 'I need help creating my signature approach steps'
         });
       }, 1000);
     }
-  }, [readOnly, onboardingStepsConfirmed]);
+  }, [readOnly, onboardingStepsConfirmed, addChatMessage]);
 
   const handleAddStep = () => {
     if (readOnly || !currentStepDescription.trim()) return;

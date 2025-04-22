@@ -235,6 +235,12 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
 
           // Generate welcome message
           generateInitialWelcomeMessage();
+
+          // After welcome message, automatically generate suggestions for the first field
+          setTimeout(() => {
+            // Always start with target audience suggestions after welcome message
+            generateContextAwareSuggestions('targetAudience');
+          }, 1500);
         } else {
           console.log('PersistentOfferChat: No website findings available after scraping completed');
           // Try one more time with a longer delay
@@ -245,6 +251,12 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
             if (finalAttemptFindings) {
               setIsInitialLoad(true);
               generateInitialWelcomeMessage();
+
+              // After welcome message, automatically generate suggestions for the first field
+              setTimeout(() => {
+                // Always start with target audience suggestions after welcome message
+                generateContextAwareSuggestions('targetAudience');
+              }, 1500);
             } else {
               // Add a fallback message if we still can't get the findings
               addChatMessage({
@@ -260,6 +272,14 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
     // Listen for the launch-ai-chat event
     const handleLaunchAiChat = (event: CustomEvent) => {
       console.log('PersistentOfferChat: Received launch-ai-chat event', event.detail);
+
+      // Check if a specific field was requested
+      if (event.detail && event.detail.field) {
+        console.log('PersistentOfferChat: Generating suggestions for field:', event.detail.field);
+        // Generate suggestions for the specified field
+        generateContextAwareSuggestions(event.detail.field);
+        return;
+      }
 
       // Check if we have findings
       if (event.detail?.hasFindings) {
@@ -463,6 +483,7 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
 
   // Function to generate context-aware suggestions based on user request
   const generateContextAwareSuggestions = async (field: string) => {
+    console.log('generateContextAwareSuggestions called for field:', field);
     setIsProcessing(true);
 
     try {
@@ -474,6 +495,9 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
       // Get a fresh websiteFindings object using our helper function
       const currentWebsiteFindings = getWebsiteFindings();
       console.log('generateContextAwareSuggestions - currentWebsiteFindings:', currentWebsiteFindings);
+
+      // Get transcript data if available
+      const transcriptData = useOfferStore.getState().transcriptData;
 
       // Core Offer Nucleus fields (Step 0)
       if (field === 'targetAudience' ||
@@ -625,6 +649,7 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
       }
       // Signature Approach / Onboarding Steps (Step 1)
       else if (field === 'onboardingStep') {
+        console.log('Generating onboarding step suggestions');
         // Get data sources for context
         const hasWebsiteData = currentWebsiteFindings !== null;
         const hasTranscriptData = transcriptData !== null;
@@ -643,20 +668,24 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
           // If no pre-extracted steps, generate them using the AI
           console.log('No pre-extracted onboarding steps found, generating with AI');
 
-          // Use the core offer nucleus to generate relevant onboarding steps
-          const suggestionsWithReasoning = await generateSuggestions(
-            'onboardingStep',
-            initialContext,
-            currentWebsiteFindings,
-            transcriptData
-          );
+          try {
+            // Use the core offer nucleus to generate relevant onboarding steps
+            const suggestionsWithReasoning = await generateSuggestions(
+              'onboardingStep',
+              initialContext,
+              currentWebsiteFindings,
+              transcriptData
+            );
 
-          // Format suggestions for the UI, keeping the reasoning
-          formattedSuggestions = suggestionsWithReasoning.map(suggestion => ({
-            text: suggestion.text,
-            reasoning: suggestion.reasoning,
-            field: 'onboardingStep'
-          }));
+            // Format suggestions for the UI, keeping the reasoning
+            formattedSuggestions = suggestionsWithReasoning.map(suggestion => ({
+              text: suggestion.text,
+              reasoning: suggestion.reasoning,
+              field: 'onboardingStep'
+            }));
+          } catch (error) {
+            console.error('Error generating onboarding step suggestions:', error);
+          }
 
           // If AI generation fails, use fallback suggestions
           if (formattedSuggestions.length === 0) {
@@ -972,6 +1001,25 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
         sender: 'ai',
         content: `I encountered an error generating suggestions. Could you try again or provide more information about what you're looking for?`
       });
+
+      // Provide fallback suggestions based on the field
+      if (field === 'onboardingStep') {
+        const stepSuggestions = [
+          "Complete a quick 2-minute setup wizard",
+          "Watch the 5-minute getting started video",
+          "Import your existing data (10 minutes)",
+          "Set up your first automation (15 minutes)",
+          "Connect with your team members (5 minutes)"
+        ];
+
+        const formattedSuggestions = stepSuggestions.map(text => ({
+          text,
+          field: 'onboardingStep'
+        }));
+
+        setSuggestions(formattedSuggestions);
+        setShowSuggestions(true);
+      }
     } finally {
       setIsProcessing(false);
     }
