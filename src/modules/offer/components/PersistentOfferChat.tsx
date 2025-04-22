@@ -90,12 +90,36 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
   useEffect(() => {
     const handleScrapingCompleted = (event: Event) => {
       console.log('PersistentOfferChat: Received scraping-completed event');
+
+      // Force refresh the websiteFindings object
+      const updatedWebsiteFindings: WebsiteFindings | null =
+        useOfferStore.getState().websiteScraping.status === 'completed'
+        ? {
+            coreOffer: useOfferStore.getState().websiteScraping.coreOffer || '',
+            targetAudience: useOfferStore.getState().websiteScraping.targetAudience || '',
+            problemSolved: useOfferStore.getState().websiteScraping.keyProblem || '',
+            keyBenefits: Array.isArray(useOfferStore.getState().websiteScraping.keyFeatures)
+              ? useOfferStore.getState().websiteScraping.keyFeatures.map(feature =>
+                  typeof feature === 'string' ? feature : (feature?.benefit || '')
+                ).filter(Boolean)
+              : [],
+            valueProposition: useOfferStore.getState().websiteScraping.valueProposition || '',
+            cta: null,
+            tone: null,
+            missingInfo: null
+          }
+        : null;
+
+      console.log('PersistentOfferChat: Updated websiteFindings:', updatedWebsiteFindings);
+
       // Reset initial load to trigger welcome message with website data
       setIsInitialLoad(true);
+
       // Generate welcome message with a slight delay to ensure store is updated
       setTimeout(() => {
+        // Use the updated websiteFindings for the welcome message
         generateInitialWelcomeMessage();
-      }, 500);
+      }, 1000); // Increased delay to ensure store is fully updated
     };
 
     window.addEventListener('scraping-completed', handleScrapingCompleted);
@@ -152,14 +176,36 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
     // Add initial welcome message based on the current step
     let welcomeMessage = '';
 
+    // Get the latest state directly from the store
+    const currentState = useOfferStore.getState();
+
+    // Create a fresh websiteFindings object to ensure it's up-to-date
+    const currentWebsiteFindings: WebsiteFindings | null =
+      currentState.websiteScraping.status === 'completed'
+      ? {
+          coreOffer: currentState.websiteScraping.coreOffer || '',
+          targetAudience: currentState.websiteScraping.targetAudience || '',
+          problemSolved: currentState.websiteScraping.keyProblem || '',
+          keyBenefits: Array.isArray(currentState.websiteScraping.keyFeatures)
+            ? currentState.websiteScraping.keyFeatures.map(feature =>
+                typeof feature === 'string' ? feature : (feature?.benefit || '')
+              ).filter(Boolean)
+            : [],
+          valueProposition: currentState.websiteScraping.valueProposition || '',
+          cta: null,
+          tone: null,
+          missingInfo: null
+        }
+      : null;
+
     // Check if we have website data or transcript data
-    const hasWebsiteData = websiteScraping.status === 'completed' && websiteFindings !== null;
-    const hasTranscriptData = transcriptData !== null;
-    const hasCompletedCoreOffer = coreOfferNucleus.targetAudience &&
-                                 coreOfferNucleus.desiredResult &&
-                                 coreOfferNucleus.keyAdvantage &&
-                                 coreOfferNucleus.biggestBarrier &&
-                                 coreOfferNucleus.assurance;
+    const hasWebsiteData = currentState.websiteScraping.status === 'completed' && currentWebsiteFindings !== null;
+    const hasTranscriptData = currentState.transcriptData !== null;
+    const hasCompletedCoreOffer = currentState.coreOfferNucleus.targetAudience &&
+                                 currentState.coreOfferNucleus.desiredResult &&
+                                 currentState.coreOfferNucleus.keyAdvantage &&
+                                 currentState.coreOfferNucleus.biggestBarrier &&
+                                 currentState.coreOfferNucleus.assurance;
 
     // Step 0: Define Core Offer Nucleus
     if (currentStep === 0) {
