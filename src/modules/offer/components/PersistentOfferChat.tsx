@@ -742,17 +742,17 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
 
           {/* Show suggestions if available */}
           {showSuggestions && suggestions.length > 0 && (
-            <div className="mt-3 p-3 bg-[#2A2A2A] rounded-lg border border-[#333333]">
-              <h4 className="text-sm font-medium text-white mb-2">Suggestions for {currentField && fieldDisplayNames[currentField]}:</h4>
-              <div className="space-y-2">
+            <div className="mt-4 p-4 bg-[#2A2A2A] rounded-lg border border-[#333333]">
+              <h4 className="text-sm font-medium text-white mb-3">Suggestions for {currentField && fieldDisplayNames[currentField]}:</h4>
+              <div className="space-y-3">
                 {suggestions.map((suggestion, index) => (
                   <button
                     key={index}
                     onClick={() => handleSelectSuggestion(suggestion)}
-                    className="w-full justify-start text-left text-sm py-2 px-3 bg-[#333333] hover:bg-[#444444] text-white rounded-md flex items-start group h-auto min-h-[2.5rem]"
+                    className="w-full justify-start text-left text-sm py-3 px-4 bg-[#333333] hover:bg-[#444444] text-white rounded-md flex items-start group h-auto"
                   >
-                    <div className="flex-1 overflow-hidden mr-2">
-                      <div className="line-clamp-2 whitespace-normal break-words">{suggestion.text}</div>
+                    <div className="flex-1 mr-2">
+                      <div className="whitespace-normal break-words">{suggestion.text}</div>
                     </div>
                   </button>
                 ))}
