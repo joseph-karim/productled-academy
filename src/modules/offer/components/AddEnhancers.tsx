@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useOfferStore } from '../store/offerStore';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
