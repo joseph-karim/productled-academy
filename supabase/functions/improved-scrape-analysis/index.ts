@@ -68,8 +68,8 @@ serve(async (req) => {
     }
 
     // Check if we already have analysis results
-    if (data.analysis_result?.findings && 
-        data.analysis_result.findings.coreOffer && 
+    if (data.analysis_result?.findings &&
+        data.analysis_result.findings.coreOffer &&
         data.analysis_result.findings.targetAudience) {
       console.log('Analysis results already exist, returning existing data');
       return new Response(
@@ -94,22 +94,68 @@ serve(async (req) => {
     // Extract the content from the scraping result
     const title = data.title || '';
     const metaDescription = data.meta_description || '';
-    const htmlContent = data.html_content || '';
+
+    // Log the available data for debugging
+    console.log('Available data fields:', Object.keys(data));
+    console.log('Analysis result available:', !!data.analysis_result);
+    if (data.analysis_result) {
+      console.log('Analysis result fields:', Object.keys(data.analysis_result));
+      if (data.analysis_result.findings) {
+        console.log('Findings fields:', Object.keys(data.analysis_result.findings));
+      }
+    }
 
     // Prepare the content for analysis
     let contentToAnalyze = '';
-    
+
+    // Try to get content from various possible sources
     if (data.analysis_result?.extracted_text) {
       // Use the extracted text if available
       contentToAnalyze = data.analysis_result.extracted_text;
-    } else if (htmlContent) {
-      // Use the HTML content if available (first 5000 chars)
-      contentToAnalyze = htmlContent.substring(0, 5000);
+      console.log('Using extracted_text for analysis');
+    } else if (data.html_content) {
+      // Use the HTML content if available
+      contentToAnalyze = data.html_content.substring(0, 5000);
+      console.log('Using html_content for analysis');
+    } else if (data.analysis_result?.findings) {
+      // If we have findings but no raw content, use the findings as a base
+      const findings = data.analysis_result.findings;
+      contentToAnalyze = `
+        Core Offer: ${findings.coreOffer || ''}
+
+
+        Target Audience: ${findings.targetAudience || ''}
+
+
+        Problem Solved: ${findings.problemSolved || ''}
+
+
+        Value Proposition: ${findings.valueProposition || ''}
+
+
+        Key Benefits: ${Array.isArray(findings.keyBenefits) ? findings.keyBenefits.join(', ') : ''}
+      `;
+      console.log('Using existing findings for analysis');
+    } else if (title || metaDescription) {
+      // Use title and meta description as a last resort
+      contentToAnalyze = `${title}\n\n${metaDescription}`;
+      console.log('Using title and meta description for analysis');
     } else {
-      // If no content is available, return an error
+      // If no content is available, return the original data
+      console.log('No content available for analysis, returning original data');
       return new Response(
-        JSON.stringify({ error: 'No content available for analysis' }),
-        { headers: { 'Content-Type': 'application/json', ...corsHeaders }, status: 400 }
+        JSON.stringify({
+          id: data.id,
+          status: data.status,
+          url: data.url,
+          title: data.title,
+          meta_description: data.meta_description,
+          analysis_result: data.analysis_result,
+          error: data.error,
+          created_at: data.created_at,
+          completed_at: data.completed_at
+        }),
+        { headers: { 'Content-Type': 'application/json', ...corsHeaders }, status: 200 }
       );
     }
 
