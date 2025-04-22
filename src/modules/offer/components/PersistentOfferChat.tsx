@@ -59,125 +59,116 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
     // Log the scraping data to debug
     console.log('Creating website findings from scraping data:', scrapingData);
 
+    // Create a base findings object with default values
+    let baseFindings: WebsiteFindings = {
+      coreOffer: '',
+      targetAudience: '',
+      problemSolved: '',
+      keyBenefits: [],
+      valueProposition: '',
+      desiredResult: '',
+      keyAdvantage: '',
+      biggestBarrier: '',
+      assurance: '',
+      cta: null,
+      tone: null,
+      missingInfo: null,
+      // Initialize suggestion arrays
+      targetAudienceSuggestions: [],
+      desiredResultSuggestions: [],
+      keyAdvantageSuggestions: [],
+      biggestBarrierSuggestions: [],
+      assuranceSuggestions: []
+    };
+
     // Check if we have analysis results
     if (scrapingData.analysisResult?.findings) {
       const findings = scrapingData.analysisResult.findings;
       console.log('Found analysis results:', findings);
 
-      // Check if we have the improved analysis format (with RARA framework fields)
-      if (findings.desiredResult || findings.keyAdvantage || findings.biggestBarrier || findings.assurance) {
-        console.log('Using improved analysis format');
-
-        // Check if we have the new array format for suggestions
-        const isArrayFormat = Array.isArray(findings.targetAudience) ||
-                             Array.isArray(findings.desiredResult) ||
-                             Array.isArray(findings.keyAdvantage) ||
-                             Array.isArray(findings.biggestBarrier) ||
-                             Array.isArray(findings.assurance);
-
-        if (isArrayFormat) {
-          console.log('Using new array format for suggestions');
-          return {
-            coreOffer: findings.coreOffer || '',
-            targetAudience: Array.isArray(findings.targetAudience) ? findings.targetAudience[0] || '' : findings.targetAudience || '',
-            problemSolved: Array.isArray(findings.biggestBarrier) ? findings.biggestBarrier[0] || '' : (findings.biggestBarrier || findings.problemSolved || ''),
-            keyBenefits: Array.isArray(findings.keyBenefits)
-              ? findings.keyBenefits.map(benefit =>
-                  typeof benefit === 'string' ? benefit : (benefit?.benefit || '')
-                ).filter(Boolean)
-              : [],
-            valueProposition: findings.valueProposition || '',
-            desiredResult: Array.isArray(findings.desiredResult) ? findings.desiredResult[0] || '' : findings.desiredResult || '',
-            keyAdvantage: Array.isArray(findings.keyAdvantage) ? findings.keyAdvantage[0] || '' : findings.keyAdvantage || '',
-            biggestBarrier: Array.isArray(findings.biggestBarrier) ? findings.biggestBarrier[0] || '' : findings.biggestBarrier || '',
-            assurance: Array.isArray(findings.assurance) ? findings.assurance[0] || '' : findings.assurance || '',
-            // Store all suggestions for later use
-            targetAudienceSuggestions: Array.isArray(findings.targetAudience) ? findings.targetAudience : [findings.targetAudience].filter(Boolean),
-            desiredResultSuggestions: Array.isArray(findings.desiredResult) ? findings.desiredResult : [findings.desiredResult].filter(Boolean),
-            keyAdvantageSuggestions: Array.isArray(findings.keyAdvantage) ? findings.keyAdvantage : [findings.keyAdvantage].filter(Boolean),
-            biggestBarrierSuggestions: Array.isArray(findings.biggestBarrier) ? findings.biggestBarrier : [findings.biggestBarrier].filter(Boolean),
-            assuranceSuggestions: Array.isArray(findings.assurance) ? findings.assurance : [findings.assurance].filter(Boolean),
-            cta: null,
-            tone: null,
-            missingInfo: null
-          };
-        } else {
-          // Original improved format (non-array)
-          return {
-            coreOffer: findings.coreOffer || '',
-            targetAudience: findings.targetAudience || '',
-            problemSolved: findings.biggestBarrier || findings.problemSolved || '',
-            keyBenefits: Array.isArray(findings.keyBenefits)
-              ? findings.keyBenefits.map(benefit =>
-                  typeof benefit === 'string' ? benefit : (benefit?.benefit || '')
-                ).filter(Boolean)
-              : [],
-            valueProposition: findings.valueProposition || '',
-            desiredResult: findings.desiredResult || '',
-            keyAdvantage: findings.keyAdvantage || '',
-            biggestBarrier: findings.biggestBarrier || '',
-            assurance: findings.assurance || '',
-            cta: null,
-            tone: null,
-            missingInfo: null
-          };
-        }
-      }
-
-      // Fall back to the original format
-      console.log('Using original analysis format');
-      return {
+      // Update the base findings with values from the analysis
+      baseFindings = {
+        ...baseFindings,
         coreOffer: findings.coreOffer || '',
         targetAudience: findings.targetAudience || '',
-        problemSolved: findings.problemSolved || '',
+        problemSolved: findings.problemSolved || findings.biggestBarrier || '',
         keyBenefits: Array.isArray(findings.keyBenefits)
           ? findings.keyBenefits.map(benefit =>
               typeof benefit === 'string' ? benefit : (benefit?.benefit || '')
             ).filter(Boolean)
           : [],
         valueProposition: findings.valueProposition || '',
-        cta: null,
-        tone: null,
-        missingInfo: null
+        desiredResult: findings.desiredResult || '',
+        keyAdvantage: findings.keyAdvantage || '',
+        biggestBarrier: findings.biggestBarrier || '',
+        assurance: findings.assurance || ''
       };
+
+      // Add suggestion arrays if they exist
+      if (findings.targetAudienceSuggestions || findings.desiredResultSuggestions ||
+          findings.keyAdvantageSuggestions || findings.biggestBarrierSuggestions ||
+          findings.assuranceSuggestions) {
+        console.log('Using pre-formatted suggestions');
+        return {
+          ...baseFindings,
+          targetAudienceSuggestions: findings.targetAudienceSuggestions || [],
+          desiredResultSuggestions: findings.desiredResultSuggestions || [],
+          keyAdvantageSuggestions: findings.keyAdvantageSuggestions || [],
+          biggestBarrierSuggestions: findings.biggestBarrierSuggestions || [],
+          assuranceSuggestions: findings.assuranceSuggestions || []
+        };
+      }
+
+      // If we don't have pre-formatted suggestions, try to create them from arrays
+      if (Array.isArray(findings.targetAudience) || Array.isArray(findings.desiredResult) ||
+          Array.isArray(findings.keyAdvantage) || Array.isArray(findings.biggestBarrier) ||
+          Array.isArray(findings.assurance)) {
+        console.log('Creating suggestions from arrays');
+        return {
+          ...baseFindings,
+          // Use the first item from arrays as the main value
+          targetAudience: Array.isArray(findings.targetAudience) ? findings.targetAudience[0] || '' : findings.targetAudience || '',
+          desiredResult: Array.isArray(findings.desiredResult) ? findings.desiredResult[0] || '' : findings.desiredResult || '',
+          keyAdvantage: Array.isArray(findings.keyAdvantage) ? findings.keyAdvantage[0] || '' : findings.keyAdvantage || '',
+          biggestBarrier: Array.isArray(findings.biggestBarrier) ? findings.biggestBarrier[0] || '' : findings.biggestBarrier || '',
+          assurance: Array.isArray(findings.assurance) ? findings.assurance[0] || '' : findings.assurance || '',
+          // Store all suggestions for later use
+          targetAudienceSuggestions: Array.isArray(findings.targetAudience) ? findings.targetAudience : [findings.targetAudience].filter(Boolean),
+          desiredResultSuggestions: Array.isArray(findings.desiredResult) ? findings.desiredResult : [findings.desiredResult].filter(Boolean),
+          keyAdvantageSuggestions: Array.isArray(findings.keyAdvantage) ? findings.keyAdvantage : [findings.keyAdvantage].filter(Boolean),
+          biggestBarrierSuggestions: Array.isArray(findings.biggestBarrier) ? findings.biggestBarrier : [findings.biggestBarrier].filter(Boolean),
+          assuranceSuggestions: Array.isArray(findings.assurance) ? findings.assurance : [findings.assurance].filter(Boolean),
+        };
+      }
+
+      // If we don't have arrays, just return the base findings
+      console.log('Using basic findings format');
+      return baseFindings;
     }
 
-    // Check if we have any meaningful data in the scraping data itself
+    // If we don't have analysis results, check if we have any meaningful data in the scraping data itself
     const hasData = !!scrapingData.coreOffer || !!scrapingData.targetAudience ||
                    !!scrapingData.keyProblem || !!scrapingData.valueProposition ||
                    (Array.isArray(scrapingData.keyFeatures) && scrapingData.keyFeatures.length > 0);
 
-    if (!hasData) {
-      console.log('Scraping data has no meaningful content');
-      // Force a refresh from the store to ensure we have the latest data
-      const storeData = useOfferStore.getState().websiteScraping;
-      if (storeData.status === 'completed' &&
-          (!!storeData.coreOffer || !!storeData.targetAudience ||
-           !!storeData.keyProblem || !!storeData.valueProposition ||
-           (Array.isArray(storeData.keyFeatures) && storeData.keyFeatures.length > 0))) {
-        console.log('Found data in store, using that instead');
-        scrapingData = storeData;
-      } else {
-        console.log('No meaningful data in store either');
-        return null;
-      }
-    }
-
-    // Fall back to the original format using direct scraping data
+    // If we have data in the scraping data itself, create a findings object from it
+    console.log('Creating findings from scraping data directly');
     return {
       coreOffer: scrapingData.coreOffer || '',
       targetAudience: scrapingData.targetAudience || '',
       problemSolved: scrapingData.keyProblem || '',
-      keyBenefits: Array.isArray(scrapingData.keyFeatures)
-        ? scrapingData.keyFeatures.map(feature =>
-            typeof feature === 'string' ? feature : (feature?.benefit || '')
-          ).filter(Boolean)
-        : [],
+      keyBenefits: Array.isArray(scrapingData.keyFeatures) ? scrapingData.keyFeatures : [],
       valueProposition: scrapingData.valueProposition || '',
+      desiredResult: '',
+      keyAdvantage: '',
+      biggestBarrier: '',
+      assurance: '',
       cta: null,
       tone: null,
       missingInfo: null
     };
+
+
   };
 
   // Use the helper function to create the initial websiteFindings

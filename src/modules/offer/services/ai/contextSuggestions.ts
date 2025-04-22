@@ -12,6 +12,12 @@ export interface WebsiteAnalysisContext {
   keyAdvantage?: string | null;
   biggestBarrier?: string | null;
   assurance?: string | null;
+  // Suggestion arrays for each field
+  targetAudienceSuggestions?: string[] | null;
+  desiredResultSuggestions?: string[] | null;
+  keyAdvantageSuggestions?: string[] | null;
+  biggestBarrierSuggestions?: string[] | null;
+  assuranceSuggestions?: string[] | null;
   // Other fields
   keyPhrases?: string[] | null;
   onboardingSteps?: Array<{

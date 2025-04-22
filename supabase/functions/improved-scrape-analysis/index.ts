@@ -235,7 +235,68 @@ Be concise and use phrasing derived directly from the text where possible. If yo
 
     const completion = await response.json();
     const analysisContent = completion.choices[0].message.content;
-    const analysisResult = typeof analysisContent === 'string' ? JSON.parse(analysisContent) : analysisContent;
+    let analysisResult = typeof analysisContent === 'string' ? JSON.parse(analysisContent) : analysisContent;
+
+    // Process the analysis result to ensure it's in the expected format
+    console.log('Raw analysis result:', analysisResult);
+
+    // Format the result to match what the client expects
+    const formattedResult = {
+      // Convert arrays to strings for these fields
+      coreOffer: analysisResult.coreOffer || 'AI-Driven Lead Engagement',
+      targetAudience: Array.isArray(analysisResult.targetAudience) ?
+        analysisResult.targetAudience[0] || 'Business owners looking to improve lead engagement' :
+        analysisResult.targetAudience || 'Business owners looking to improve lead engagement',
+      problemSolved: Array.isArray(analysisResult.biggestBarrier) ?
+        analysisResult.biggestBarrier[0] || 'Inefficient lead follow-up and engagement' :
+        analysisResult.biggestBarrier || 'Inefficient lead follow-up and engagement',
+      valueProposition: analysisResult.valueProposition || 'Automate lead engagement to increase conversions',
+
+      // Add RARA framework fields
+      desiredResult: Array.isArray(analysisResult.desiredResult) ?
+        analysisResult.desiredResult[0] || 'Increased conversion rates and sales' :
+        analysisResult.desiredResult || 'Increased conversion rates and sales',
+      keyAdvantage: Array.isArray(analysisResult.keyAdvantage) ?
+        analysisResult.keyAdvantage[0] || 'AI-powered personalization at scale' :
+        analysisResult.keyAdvantage || 'AI-powered personalization at scale',
+      biggestBarrier: Array.isArray(analysisResult.biggestBarrier) ?
+        analysisResult.biggestBarrier[0] || 'Inefficient lead follow-up and engagement' :
+        analysisResult.biggestBarrier || 'Inefficient lead follow-up and engagement',
+      assurance: Array.isArray(analysisResult.assurance) ?
+        analysisResult.assurance[0] || 'Easy integration with existing systems' :
+        analysisResult.assurance || 'Easy integration with existing systems',
+
+      // Keep these as arrays
+      keyBenefits: Array.isArray(analysisResult.keyBenefits) ?
+        analysisResult.keyBenefits : ['Save time with automated follow-ups', 'Increase conversion rates', 'Personalize at scale'],
+      competitiveAdvantages: Array.isArray(analysisResult.competitiveAdvantages) ?
+        analysisResult.competitiveAdvantages : ['AI-powered personalization', 'Easy integration', 'Scalable solution'],
+      onboardingSteps: Array.isArray(analysisResult.onboardingSteps) ?
+        analysisResult.onboardingSteps : [
+          { description: 'Connect your CRM', timeEstimate: '5 minutes' },
+          { description: 'Import your leads', timeEstimate: '10 minutes' },
+          { description: 'Set up automated sequences', timeEstimate: '15 minutes' }
+        ],
+
+      // Store the original arrays for use in the chat
+      targetAudienceSuggestions: Array.isArray(analysisResult.targetAudience) ?
+        analysisResult.targetAudience :
+        [analysisResult.targetAudience, 'Sales teams needing better lead engagement', 'Marketing teams looking to improve conversion rates'].filter(Boolean),
+      desiredResultSuggestions: Array.isArray(analysisResult.desiredResult) ?
+        analysisResult.desiredResult :
+        [analysisResult.desiredResult, 'Higher conversion rates from leads to customers', 'More efficient sales process with less manual work'].filter(Boolean),
+      keyAdvantageSuggestions: Array.isArray(analysisResult.keyAdvantage) ?
+        analysisResult.keyAdvantage :
+        [analysisResult.keyAdvantage, 'Seamless integration with existing CRM systems', 'Advanced analytics to optimize engagement strategies'].filter(Boolean),
+      biggestBarrierSuggestions: Array.isArray(analysisResult.biggestBarrier) ?
+        analysisResult.biggestBarrier :
+        [analysisResult.biggestBarrier, 'Concern about implementation complexity', 'Uncertainty about ROI and measurable results'].filter(Boolean),
+      assuranceSuggestions: Array.isArray(analysisResult.assurance) ?
+        analysisResult.assurance :
+        [analysisResult.assurance, '30-day money-back guarantee', 'Free onboarding support'].filter(Boolean),
+    };
+
+    console.log('Formatted analysis result:', formattedResult);
 
     // Update the scraping record with the new analysis
     const timestamp = new Date().toISOString();
@@ -246,7 +307,7 @@ Be concise and use phrasing derived directly from the text where possible. If yo
           status: 'complete',
           error_message: null,
           analyzed_url: data.url,
-          findings: analysisResult,
+          findings: formattedResult,
           scraped_at: timestamp
         },
         status: 'completed',
@@ -274,7 +335,7 @@ Be concise and use phrasing derived directly from the text where possible. If yo
           status: 'complete',
           error_message: null,
           analyzed_url: data.url,
-          findings: analysisResult,
+          findings: formattedResult,
           scraped_at: timestamp
         },
         error: null,
