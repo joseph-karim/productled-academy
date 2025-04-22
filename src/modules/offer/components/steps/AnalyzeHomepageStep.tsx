@@ -20,7 +20,7 @@ export function AnalyzeHomepageStep({ readOnly = false }: { readOnly?: boolean }
   const initialContext = useOfferStore((state) => state.initialContext);
 
   // Helper function to create website findings object with proper null/undefined handling
-  const createWebsiteFindings = (scrapingData: typeof useOfferStore.getState().websiteScraping): WebsiteFindings => {
+  const createWebsiteFindings = (scrapingData: any): WebsiteFindings => {
     console.log('Preparing websiteFindings:', scrapingData);
     if (scrapingData.status === 'completed') {
       // Direct mapping from store values

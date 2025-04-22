@@ -15,7 +15,7 @@ export function ContextChat() {
   } = useOfferStore();
 
   // Helper function to create website findings object with proper null/undefined handling
-  const createWebsiteFindings = (scrapingData: typeof websiteScraping): WebsiteFindings | null => {
+  const createWebsiteFindings = (scrapingData: any): WebsiteFindings | null => {
     if (scrapingData.status !== 'completed') return null;
 
     return {

@@ -28,7 +28,7 @@ export function DefineCoreOffer({ readOnly = false }: DefineCoreOfferProps) {
   const scrapingStatus = useOfferStore((state) => state.websiteScraping.status);
 
   // Helper function to create website findings object with proper null/undefined handling
-  const createWebsiteFindings = (scrapingData: typeof useOfferStore.getState().websiteScraping) => {
+  const createWebsiteFindings = (scrapingData: any) => {
     if (scrapingData.status !== 'completed') return null;
 
     return {
