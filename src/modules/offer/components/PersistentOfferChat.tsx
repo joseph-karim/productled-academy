@@ -25,14 +25,18 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
     websiteScraping,
     initialContext,
     onboardingSteps,
+    addOnboardingStep,
     exclusivity,
+    setExclusivity,
     bonuses,
+    addBonus,
     heroSection,
     problemSection,
     solutionSection,
     riskReversals,
     ctaSection,
-    transcriptData
+    transcriptData,
+    setContextChatInitialLoad
   } = useOfferStore();
 
   const [currentInput, setCurrentInput] = useState('');
@@ -1072,17 +1076,73 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
     }
     // Handle other field types as needed
     else if (suggestion.field === 'onboardingStep') {
-      // Logic to add an onboarding step
+      // Extract time estimate if it's in the format "Description (Time)"
+      let description = suggestion.text;
+      let timeEstimate = 'N/A';
+
+      const timeMatch = suggestion.text.match(/\(([^)]+)\)$/); // Match text in parentheses at the end
+      if (timeMatch) {
+        timeEstimate = timeMatch[1].trim();
+        description = suggestion.text.replace(/\s*\([^)]+\)$/, '').trim(); // Remove the time part
+      }
+
+      // Add the onboarding step to the store
+      addOnboardingStep({
+        id: crypto.randomUUID(),
+        description: description,
+        timeEstimate: timeEstimate
+      });
+
       addChatMessage({
         sender: 'ai',
-        content: `Great choice! You can add this as an onboarding step in the form.`
+        content: `Great choice! I've added "${description}" as an onboarding step with a time estimate of ${timeEstimate}.`
       });
+
+      // Generate another suggestion if we have fewer than 3 steps
+      if (onboardingSteps.length < 2) { // We just added one, so check if we had fewer than 2 before
+        setTimeout(() => {
+          addChatMessage({
+            sender: 'ai',
+            content: `Would you like another onboarding step? Here are some more suggestions:`
+          });
+          generateContextAwareSuggestions('onboardingStep');
+        }, 1000);
+      }
     }
     else if (suggestion.field === 'bonus') {
-      // Logic to add a bonus
+      // Add the bonus to the store
+      addBonus({
+        id: crypto.randomUUID(),
+        name: suggestion.text,
+        benefit: suggestion.reasoning || 'Adds value to your offer'
+      });
+
       addChatMessage({
         sender: 'ai',
-        content: `Excellent bonus! You can add this in the enhancers section of the form.`
+        content: `Excellent bonus! I've added "${suggestion.text}" to your enhancers.`
+      });
+
+      // Generate another suggestion if we have fewer than 3 bonuses
+      if (bonuses.length < 2) { // We just added one, so check if we had fewer than 2 before
+        setTimeout(() => {
+          addChatMessage({
+            sender: 'ai',
+            content: `Would you like another bonus? Here are some more suggestions:`
+          });
+          generateContextAwareSuggestions('bonus');
+        }, 1000);
+      }
+    }
+    else if (suggestion.field === 'scarcity') {
+      // Update the exclusivity in the store
+      setExclusivity({
+        hasLimit: true,
+        validReason: suggestion.text
+      });
+
+      addChatMessage({
+        sender: 'ai',
+        content: `Great choice! I've added this scarcity element to your offer.`
       });
     }
     else if (suggestion.field === 'heroSection') {

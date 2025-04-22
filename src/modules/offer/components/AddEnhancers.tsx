@@ -28,11 +28,33 @@ export function AddEnhancers({ readOnly = false }: AddEnhancersProps) {
     removeBonus,
     setBonuses, // Assuming you add setBonuses action to store for updating existing bonuses
     enhancersConfirmed,
-    setEnhancersConfirmed
+    setEnhancersConfirmed,
+    addChatMessage
   } = useOfferStore();
 
   const [currentBonusName, setCurrentBonusName] = useState('');
   const [currentBonusBenefit, setCurrentBonusBenefit] = useState('');
+
+  // Effect to trigger bonus and scarcity suggestions when component mounts
+  useEffect(() => {
+    if (!readOnly && !enhancersConfirmed) {
+      // First trigger scarcity suggestions
+      setTimeout(() => {
+        addChatMessage({
+          sender: 'user',
+          content: 'I need help with scarcity elements for my offer'
+        });
+
+        // Then trigger bonus suggestions after a delay
+        setTimeout(() => {
+          addChatMessage({
+            sender: 'user',
+            content: 'What bonuses would work well with my offer?'
+          });
+        }, 3000);
+      }, 1000);
+    }
+  }, [readOnly, enhancersConfirmed]);
 
   const handleExclusivityChange = (field: keyof typeof exclusivity, value: string | boolean) => {
     if (readOnly) return;

@@ -28,12 +28,27 @@ export function SetupSteps({ readOnly = false }: SetupStepsProps) {
     setOnboardingStepsConfirmed,
     onboardingStepsConfirmed,
     initialContext,
-    websiteScraping
+    websiteScraping,
+    contextChat,
+    addChatMessage
   } = useOfferStore();
 
   const [currentStepDescription, setCurrentStepDescription] = useState('');
   const [currentStepTimeEstimate, setCurrentStepTimeEstimate] = useState('');
-  // Removed showChat state and auto-show effect as we're using the persistent chat only
+
+  // Effect to trigger onboarding step suggestions when component mounts
+  useEffect(() => {
+    if (!readOnly && !onboardingStepsConfirmed && onboardingSteps.length === 0) {
+      // Add a slight delay to allow the chat to initialize
+      setTimeout(() => {
+        // Send a message to the chat to trigger suggestions
+        addChatMessage({
+          sender: 'user',
+          content: 'I need help creating my signature approach steps'
+        });
+      }, 1000);
+    }
+  }, [readOnly, onboardingStepsConfirmed]);
 
   const handleAddStep = () => {
     if (readOnly || !currentStepDescription.trim()) return;
