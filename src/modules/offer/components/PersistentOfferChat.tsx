@@ -250,20 +250,13 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
                                      coreOfferNucleus.assurance;
 
         if ((hasWebsiteData || hasTranscriptData) && !hasCompletedCoreOffer) {
+          // Always start with target audience suggestions after welcome message
           // Wait a bit for the welcome message to be displayed
           setTimeout(() => {
-            // Determine which field to suggest based on what's missing
-            let fieldToSuggest = 'targetAudience';
-            if (coreOfferNucleus.targetAudience) {
-              if (!coreOfferNucleus.desiredResult) fieldToSuggest = 'desiredResult';
-              else if (!coreOfferNucleus.keyAdvantage) fieldToSuggest = 'keyAdvantage';
-              else if (!coreOfferNucleus.biggestBarrier) fieldToSuggest = 'biggestBarrier';
-              else if (!coreOfferNucleus.assurance) fieldToSuggest = 'assurance';
-            }
-
-            // Generate suggestions for the first missing field
-            generateContextAwareSuggestions(fieldToSuggest);
-          }, 1000);
+            // Always start with target audience regardless of what's already filled
+            // This ensures we follow the sequential approach
+            generateContextAwareSuggestions('targetAudience');
+          }, 1500);
         }
       }
     }
@@ -315,18 +308,18 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
       } else if (hasWebsiteData && !hasTranscriptData && !hasCompletedCoreOffer) {
         if (hasImprovedAnalysis) {
           // Use the improved analysis results in the welcome message
-          welcomeMessage = `Thanks for providing your website information! I've analyzed your site and extracted key insights to help you define your core offer nucleus using the R-A-R-A framework.\n\nBased on my analysis, here's what I found:\n\n- Target Audience: ${currentWebsiteFindings.targetAudience || 'Not clearly identified'}\n- Desired Result: ${currentWebsiteFindings.desiredResult || currentWebsiteFindings.valueProposition || 'Not clearly identified'}\n- Key Advantage: ${currentWebsiteFindings.keyAdvantage || (currentWebsiteFindings.keyBenefits && currentWebsiteFindings.keyBenefits.length > 0 ? currentWebsiteFindings.keyBenefits[0] : 'Not clearly identified')}\n- Biggest Barrier: ${currentWebsiteFindings.biggestBarrier || currentWebsiteFindings.problemSolved || 'Not clearly identified'}\n- Assurance: ${currentWebsiteFindings.assurance || 'Not clearly identified'}\n\nLet's refine these insights together. Would you like to start with defining your Target Audience?`;
+          welcomeMessage = `Thanks for providing your website information! I've analyzed your site and extracted key insights to help you define your core offer nucleus using the R-A-R-A framework.\n\nBased on my analysis, here's what I found:\n\n- Target Audience: ${currentWebsiteFindings.targetAudience || 'Not clearly identified'}\n- Desired Result: ${currentWebsiteFindings.desiredResult || currentWebsiteFindings.valueProposition || 'Not clearly identified'}\n- Key Advantage: ${currentWebsiteFindings.keyAdvantage || (currentWebsiteFindings.keyBenefits && currentWebsiteFindings.keyBenefits.length > 0 ? currentWebsiteFindings.keyBenefits[0] : 'Not clearly identified')}\n- Biggest Barrier: ${currentWebsiteFindings.biggestBarrier || currentWebsiteFindings.problemSolved || 'Not clearly identified'}\n- Assurance: ${currentWebsiteFindings.assurance || 'Not clearly identified'}\n\nLet's refine these insights together. I'll help you define each component of your core offer nucleus in order.\n\nLet's start with your Target Audience. I'll generate some suggestions based on the analysis.`;
         } else {
-          welcomeMessage = "Thanks for providing your website information! I've analyzed your site and can help you define your core offer nucleus using the R-A-R-A framework.\n\nLet's work through this step-by-step:\n\n1. First, let's identify your ideal Target Audience - who benefits most from your solution?\n2. Then we'll clarify the primary Result they achieve\n3. Next, we'll define your unique Advantage over alternatives\n4. Finally, we'll address the biggest Risk and your Assurance to overcome it\n\nWould you like to start with defining your Target Audience?";
+          welcomeMessage = "Thanks for providing your website information! I've analyzed your site and can help you define your core offer nucleus using the R-A-R-A framework.\n\nLet's work through this step-by-step:\n\n1. First, we'll identify your ideal Target Audience - who benefits most from your solution?\n2. Then we'll clarify the primary Result they achieve\n3. Next, we'll define your unique Advantage over alternatives\n4. Finally, we'll address the biggest Risk and your Assurance to overcome it\n\nLet's start with your Target Audience. I'll generate some suggestions based on the analysis.";
         }
       } else if (!hasWebsiteData && hasTranscriptData && !hasCompletedCoreOffer) {
-        welcomeMessage = "Thanks for uploading your customer call transcript! I've analyzed it and extracted key insights to help you define your core offer nucleus using the R-A-R-A framework.\n\nLet's work through this step-by-step:\n\n1. First, let's identify your ideal Target Audience - who benefits most from your solution?\n2. Then we'll clarify the primary Result they achieve\n3. Next, we'll define your unique Advantage over alternatives\n4. Finally, we'll address the biggest Risk and your Assurance to overcome it\n\nWould you like to start with defining your Target Audience?";
+        welcomeMessage = "Thanks for uploading your customer call transcript! I've analyzed it and extracted key insights to help you define your core offer nucleus using the R-A-R-A framework.\n\nLet's work through this step-by-step:\n\n1. First, we'll identify your ideal Target Audience - who benefits most from your solution?\n2. Then we'll clarify the primary Result they achieve\n3. Next, we'll define your unique Advantage over alternatives\n4. Finally, we'll address the biggest Risk and your Assurance to overcome it\n\nLet's start with your Target Audience. I'll generate some suggestions based on the transcript analysis.";
       } else if (hasWebsiteData && hasTranscriptData && !hasCompletedCoreOffer) {
         if (hasImprovedAnalysis) {
           // Use the improved analysis results in the welcome message
-          welcomeMessage = `Great! I have both your website analysis and customer call transcript. This gives me a comprehensive understanding of your offer.\n\nBased on my analysis, here's what I found:\n\n- Target Audience: ${currentWebsiteFindings.targetAudience || 'Not clearly identified'}\n- Desired Result: ${currentWebsiteFindings.desiredResult || currentWebsiteFindings.valueProposition || 'Not clearly identified'}\n- Key Advantage: ${currentWebsiteFindings.keyAdvantage || (currentWebsiteFindings.keyBenefits && currentWebsiteFindings.keyBenefits.length > 0 ? currentWebsiteFindings.keyBenefits[0] : 'Not clearly identified')}\n- Biggest Barrier: ${currentWebsiteFindings.biggestBarrier || currentWebsiteFindings.problemSolved || 'Not clearly identified'}\n- Assurance: ${currentWebsiteFindings.assurance || 'Not clearly identified'}\n\nLet's refine these insights together. Would you like to start with defining your Target Audience?`;
+          welcomeMessage = `Great! I have both your website analysis and customer call transcript. This gives me a comprehensive understanding of your offer.\n\nBased on my analysis, here's what I found:\n\n- Target Audience: ${currentWebsiteFindings.targetAudience || 'Not clearly identified'}\n- Desired Result: ${currentWebsiteFindings.desiredResult || currentWebsiteFindings.valueProposition || 'Not clearly identified'}\n- Key Advantage: ${currentWebsiteFindings.keyAdvantage || (currentWebsiteFindings.keyBenefits && currentWebsiteFindings.keyBenefits.length > 0 ? currentWebsiteFindings.keyBenefits[0] : 'Not clearly identified')}\n- Biggest Barrier: ${currentWebsiteFindings.biggestBarrier || currentWebsiteFindings.problemSolved || 'Not clearly identified'}\n- Assurance: ${currentWebsiteFindings.assurance || 'Not clearly identified'}\n\nLet's refine these insights together. I'll help you define each component of your core offer nucleus in order.\n\nLet's start with your Target Audience. I'll generate some suggestions based on the combined analysis.`;
         } else {
-          welcomeMessage = "Great! I have both your website analysis and customer call transcript. This gives me a comprehensive understanding of your offer.\n\nLet's define your core offer nucleus using the R-A-R-A framework:\n\n1. First, let's identify your ideal Target Audience - who benefits most from your solution?\n2. Then we'll clarify the primary Result they achieve\n3. Next, we'll define your unique Advantage over alternatives\n4. Finally, we'll address the biggest Risk and your Assurance to overcome it\n\nWould you like to start with defining your Target Audience?";
+          welcomeMessage = "Great! I have both your website analysis and customer call transcript. This gives me a comprehensive understanding of your offer.\n\nLet's define your core offer nucleus using the R-A-R-A framework:\n\n1. First, we'll identify your ideal Target Audience - who benefits most from your solution?\n2. Then we'll clarify the primary Result they achieve\n3. Next, we'll define your unique Advantage over alternatives\n4. Finally, we'll address the biggest Risk and your Assurance to overcome it\n\nLet's start with your Target Audience. I'll generate some suggestions based on the combined analysis.";
         }
       } else {
         welcomeMessage = "I see you've already defined your core offer nucleus. Is there anything specific you'd like help with or would you like me to review what you've entered so far using the R-A-R-A framework?";
@@ -735,12 +728,30 @@ export function PersistentOfferChat({ currentStep }: PersistentOfferChatProps) {
           currentRARAField = !coreOfferNucleus.biggestBarrier ? 'biggestBarrier' : 'assurance';
         }
 
-        // If the user's message is likely a direct answer to our current field question
-        // and not a question or command, update that field
-        if (!lowerInput.includes('?') &&
+        // Check if we're in a state where we're expecting a direct answer
+        // This should only happen after we've explicitly asked for input for a specific field
+        // and the last AI message was about this specific field
+        const lastAiMessage = contextChat.messages
+          .filter(msg => msg.sender === 'ai')
+          .pop();
+
+        const isExpectingDirectAnswer = lastAiMessage && (
+          (currentRARAField === 'targetAudience' && lastAiMessage.content.includes('Target Audience')) ||
+          (currentRARAField === 'desiredResult' && lastAiMessage.content.includes('Desired Result')) ||
+          (currentRARAField === 'keyAdvantage' && lastAiMessage.content.includes('Key Advantage')) ||
+          (currentRARAField === 'biggestBarrier' && lastAiMessage.content.includes('Biggest Barrier')) ||
+          (currentRARAField === 'assurance' && lastAiMessage.content.includes('Assurance'))
+        );
+
+        // Only treat as direct answer if we're explicitly expecting one
+        // and it's not a question or command
+        if (isExpectingDirectAnswer &&
+            !lowerInput.includes('?') &&
             !lowerInput.includes('suggest') &&
             !lowerInput.includes('help') &&
             !lowerInput.includes('show') &&
+            !lowerInput.includes('what') &&
+            !lowerInput.includes('find') &&
             userInput.length > 5) {
 
           // Update the current field with the user's input
